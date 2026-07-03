@@ -2,16 +2,18 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Dotnet Assembly Visualizer</title>
+    <title>Dotnet Assembly Visualizer 2.0</title>
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
             background: #f8f9fa;
             display: flex;
             flex-direction: column;
             height: 100vh;
+            overflow: hidden;
+            user-select: none;
         }
 
         header {
@@ -29,46 +31,51 @@
             display: flex;
             gap: 20px;
             align-items: center;
+            width: 100%;
         }
 
         h1 {
             margin: 0;
             font-size: 1.2rem;
             font-weight: 600;
+            white-space: nowrap;
         }
 
-        #controls {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-        }
-
-        .file-upload-container {
+        /* Sidebar Toolbar Layout */
+        .sidebar-toolbar {
+            padding: 10px 12px;
+            background: #e6e6e8;
+            border-bottom: 1px solid #d0d0d2;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
         }
 
         .file-upload-wrapper {
             position: relative;
             display: inline-block;
+            width: 100%;
         }
 
         .file-upload-label {
-            display: inline-block;
-            padding: 8px 16px;
-            background: #28a745;
+            display: block;
+            padding: 8px 12px;
+            background: #007bff;
             color: white;
-            border: 1px solid #218838;
+            border: 1px solid #0069d9;
             border-radius: 4px;
             font-size: 0.85rem;
             cursor: pointer;
             font-weight: 500;
             user-select: none;
+            text-align: center;
+            text-overflow: ellipsis;
+            overflow: hidden;
+            white-space: nowrap;
         }
 
             .file-upload-label:hover {
-                background: #218838;
+                background: #0069d9;
             }
 
         #dllFile {
@@ -81,27 +88,34 @@
             cursor: pointer;
         }
 
-        .dll-name-display {
+        /* Workspace Inner Bar (Visualizer Top Action Area) */
+        .canvas-toolbar-overlay {
+            background: #ffffff;
+            border-bottom: 1px solid #dee2e6;
+            padding: 8px 16px;
+            display: none;
+            align-items: center;
+            gap: 12px;
+            z-index: 4;
+        }
+
+        .canvas-toolbar-label {
             font-size: 0.85rem;
-            color: #adb5bd;
-            font-weight: 500;
-            max-width: 180px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            font-weight: 600;
+            color: #495057;
         }
 
         .custom-dropdown {
             position: relative;
             display: inline-block;
-            width: 300px;
+            width: 320px;
         }
 
         .dropdown-trigger {
-            background: #495057;
-            border: 1px solid #6c757d;
-            color: white;
-            padding: 8px 12px;
+            background: #f1f3f5;
+            border: 1px solid #ced4da;
+            color: #212529;
+            padding: 7px 12px;
             border-radius: 4px;
             font-size: 0.85rem;
             cursor: pointer;
@@ -112,8 +126,9 @@
         }
 
             .dropdown-trigger.disabled {
-                opacity: 0.4;
+                opacity: 0.5;
                 cursor: not-allowed;
+                background: #e9ecef;
             }
 
         .dropdown-menu {
@@ -121,7 +136,7 @@
             top: 105%;
             left: 0;
             width: 100%;
-            max-height: 400px;
+            max-height: 350px;
             background: white;
             border: 1px solid #ced4da;
             border-radius: 4px;
@@ -135,9 +150,27 @@
             padding: 8px;
             border-bottom: 1px solid #e9ecef;
             background: #f8f9fa;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
 
-        #searchClass, #searchMethod {
+        .dropdown-close-btn {
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #6c757d;
+            cursor: pointer;
+            padding: 0 4px;
+            line-height: 1;
+        }
+
+            .dropdown-close-btn:hover {
+                color: #dc3545;
+            }
+
+        #searchMethod, #searchSidebarTree {
             width: 100%;
             box-sizing: border-box;
             padding: 7px 10px;
@@ -150,64 +183,157 @@
             overflow-y: auto;
             flex-grow: 1;
             padding: 5px 0;
-            max-height: 320px;
+            max-height: 280px;
         }
 
-        .folder-group {
-            margin-bottom: 2px;
-        }
-
-        .folder-header {
-            padding: 6px 12px;
-            font-weight: bold;
-            font-size: 0.8rem;
-            color: #495057;
-            background: #f1f3f5;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            user-select: none;
-        }
-
-            .folder-header:hover {
-                background: #e9ecef;
-            }
-
-        .folder-toggle-icon {
-            font-size: 0.7rem;
-            transition: transform 0.2s;
-            display: inline-block;
-            width: 10px;
-        }
-
-        .folder-group.collapsed .folder-toggle-icon {
-            transform: rotate(-90deg);
-        }
-
-        .folder-children {
-            display: block;
-            padding-left: 12px;
-        }
-
-        .folder-group.collapsed .folder-children {
-            display: none;
-        }
-
-        .class-item, .method-item {
+        .method-item {
             padding: 8px 14px;
             font-size: 0.85rem;
             color: #212529;
             cursor: pointer;
-            display: flex;
-            flex-direction: column;
         }
 
-            .class-item:hover, .method-item:hover {
+            .method-item:hover {
                 background: #007bff;
                 color: white;
             }
 
+        /* --- ILSpy Split-Screen Workspace UI Layout --- */
+        .workspace-container {
+            display: flex;
+            flex-direction: row;
+            flex: 1;
+            height: calc(100vh - 145px);
+            position: relative;
+            overflow: hidden;
+        }
+
+        #ilspySidebar {
+            width: 350px;
+            min-width: 0px;
+            background: #f3f3f4;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .workspace-splitter {
+            width: 5px;
+            cursor: col-resize;
+            background: #dcdcdc;
+            position: relative;
+            flex-shrink: 0;
+            transition: background 0.1s;
+            z-index: 10;
+        }
+
+            .workspace-splitter:hover, .workspace-splitter.dragging {
+                background: #007bff;
+            }
+
+        .sidebar-header-title {
+            background: #e6e6e8;
+            padding: 8px 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: #555559;
+            border-bottom: 1px solid #d0d0d2;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+
+        .sidebar-search-container {
+            padding: 8px 12px;
+            background: #f3f3f4;
+            border-bottom: 1px solid #dcdcdc;
+            white-space: nowrap;
+        }
+
+        .ilspy-tree {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 8px;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            font-size: 0.88rem;
+            user-select: none;
+        }
+
+        .tree-node {
+            margin-left: 14px;
+            position: relative;
+        }
+
+        .tree-node-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 6px;
+            border-radius: 3px;
+            cursor: pointer;
+            white-space: nowrap;
+            color: #2b2b2b;
+        }
+
+            .tree-node-header:hover {
+                background-color: #e4e6f0;
+            }
+
+        .tree-node.active > .tree-node-header {
+            background-color: #1e40af !important;
+            color: #ffffff !important;
+            font-weight: 500;
+        }
+
+        .tree-node-header.selected-asm {
+            background-color: #dbeafe !important;
+            color: #1e40af !important;
+            font-weight: 600;
+            border: 1px dashed #3b82f6;
+        }
+
+        .tree-node-icon {
+            display: inline-block;
+            width: 12px;
+            font-size: 0.7rem;
+            transition: transform 0.15s ease;
+            color: #707075;
+        }
+
+        .tree-node.collapsed > .tree-node-children {
+            display: none;
+        }
+
+        .tree-node.collapsed > .tree-node-header .tree-node-icon {
+            transform: rotate(-90deg);
+        }
+
+        .tree-node-children {
+            display: block;
+        }
+
+        .type-icon {
+            font-size: 0.95rem;
+        }
+
+        .selection-context-banner {
+            background: #e9ecef;
+            border-bottom: 1px solid #dee2e6;
+            padding: 6px 16px;
+            font-size: 0.82rem;
+            color: #495057;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            z-index: 3;
+            white-space: normal;
+            word-break: break-all;
+        }
+
+        /* --- Tabs --- */
         .view-tabs {
             display: flex;
             background: #343a40;
@@ -278,30 +404,54 @@
             flex-grow: 1;
             background: #fafafa;
             position: relative;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
 
         #mynetwork {
+            flex-grow: 1;
+            position: relative;
+            background: #fafafa;
             width: 100%;
             height: 100%;
+        }
+
+        .placeholder-canvas-overlay {
             position: absolute;
             top: 0;
             left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #6c757d;
+            padding: 40px;
+            box-sizing: border-box;
+            text-align: center;
+            font-size: 0.95rem;
+            z-index: 2;
+            background: #fafafa;
         }
 
         #canvasLoaderOverlay {
-            position: absolute;
+            position: fixed;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(250, 250, 250, 0.85);
-            z-index: 200;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(255, 255, 255, 0.85);
+            z-index: 99999;
             display: none;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             gap: 16px;
-            backdrop-filter: blur(2px);
+            backdrop-filter: blur(3px);
+            pointer-events: all;
         }
 
         .spinner-wheel {
@@ -311,12 +461,6 @@
             border-top: 5px solid #007bff;
             border-radius: 50%;
             animation: spinAnimation 0.8s linear infinite;
-        }
-
-        #loaderStatusText {
-            font-size: 0.95rem;
-            font-weight: 500;
-            color: #495057;
         }
 
         @keyframes spinAnimation {
@@ -412,56 +556,26 @@
 </head>
 <body>
 
+    <div id="canvasLoaderOverlay">
+        <div class="spinner-wheel"></div>
+        <div id="loaderStatusText">Parsing pipeline structures...</div>
+    </div>
+
     <header>
         <div class="header-left">
-            <h1>Dotnet Assembly Visualizer</h1>
-            <div id="controls">
-                <div class="file-upload-container">
-                    <div class="file-upload-wrapper">
-                        <div class="file-upload-label" id="uploadLabel">Choose DLL</div>
-                        <input type="file" id="dllFile" accept=".dll" />
-                    </div>
-                    <span id="currentDllName" class="dll-name-display">No file selected</span>
-                </div>
-
-                <div class="custom-dropdown" id="classDropdownWrapper">
-                    <div id="dropdownTrigger" class="dropdown-trigger disabled">
-                        <span id="triggerText">-- Select Target Type --</span>
-                        <span>▼</span>
-                    </div>
-                    <div id="dropdownMenu" class="dropdown-menu">
-                        <div class="search-box-container">
-                            <input type="text" id="searchClass" placeholder="🔍 Filter types..." autocomplete="off" />
-                        </div>
-                        <div id="treeContent" class="tree-content"></div>
-                    </div>
-                </div>
-
-                <div class="custom-dropdown" id="methodDropdownWrapper" style="display: none;">
-                    <div id="methodTrigger" class="dropdown-trigger disabled">
-                        <span id="methodTriggerText">-- Select Target Method --</span>
-                        <span>▼</span>
-                    </div>
-                    <div id="methodMenu" class="dropdown-menu">
-                        <div class="search-box-container">
-                            <input type="text" id="searchMethod" placeholder="🔍 Filter methods..." autocomplete="off" />
-                        </div>
-                        <div id="methodTreeContent" class="tree-content"></div>
-                    </div>
-                </div>
-            </div>
+            <h1>Dotnet Assembly Visualizer 2.0</h1>
         </div>
     </header>
 
     <div class="view-tabs">
         <button class="tab-btn active" id="tabInheritance" onclick="switchViewMode('inheritance')">Inheritance View</button>
         <button class="tab-btn" id="tabMethods" onclick="switchViewMode('methods')">Method Call View</button>
-        <button class="tab-btn" id="tabDeadlocks" onclick="switchViewMode('deadlocks')">Circular Dependency View(<span id="deadlockCount">0</span>)</button>
+        <button class="tab-btn" id="tabDeadlocks" onclick="switchViewMode('deadlocks')">Circular Dependency View (<span id="deadlockCount">0</span>)</button>
     </div>
 
     <div id="obfuscationNotice" style="background: #fff3cd; color: #856404; border-bottom: 1px solid #ffeeba; padding: 8px 20px; font-size: 0.8rem; display: flex; align-items: center; gap: 8px;">
         <span>⚠️</span>
-        <strong>Note:</strong> Structure and method call graph generation is only optimized for unobfuscated assemblies or basic (first-level) obfuscated metadata. Deeply packed or control-flow flattened binaries are currently unsupported.
+        <strong>Note:</strong> Structure and method call graph generation is optimized for unobfuscated assemblies. Deeply packed or obfuscated control-flows are currently unsupported.
     </div>
 
     <div id="msgWindow">
@@ -469,11 +583,52 @@
         <button onclick="closeMessage()">&times;</button>
     </div>
 
-    <div style="display: flex; flex-direction: row; flex: 1; height: calc(100vh - 150px); position: relative; overflow: hidden;">
-        <div id="network-container" style="flex: 1; height: 100%; background: #fafafa; position: relative;">
-            <div id="canvasLoaderOverlay">
-                <div class="spinner-wheel"></div>
-                <div id="loaderStatusText">Parsing pipeline structures...</div>
+    <div class="workspace-container" id="workspaceContainer">
+
+        <div id="ilspySidebar">
+            <div class="sidebar-header-title">Assemblies Explorer</div>
+
+            <div class="sidebar-toolbar">
+                <div class="file-upload-wrapper">
+                    <div class="file-upload-label" id="fileUploadLabelElement">Choose DLLs</div>
+                    <input type="file" id="dllFile" accept=".dll" multiple />
+                </div>
+            </div>
+
+            <div class="sidebar-search-container">
+                <input type="text" id="searchSidebarTree" placeholder="Filter types or namespaces" autocomplete="off" />
+            </div>
+
+            <div class="ilspy-tree" id="ilspyTreeRoot">
+                <div style="padding: 25px 15px; color: #737378; font-style: italic; text-align: center; font-size: 0.85rem;">
+                    No assemblies open.<br />Click "Choose Dlls" above to load DLLs.
+                </div>
+            </div>
+        </div>
+
+        <div class="workspace-splitter" id="sidebarSplitter" title="Drag to resize / Double-click to collapse toggle"></div>
+
+        <div id="network-container">
+
+            <div class="canvas-toolbar-overlay" id="methodTargetToolbar">
+                <span class="canvas-toolbar-label">Target Execution Member:</span>
+                <div class="custom-dropdown" id="methodDropdownWrapper">
+                    <div id="methodTrigger" class="dropdown-trigger disabled">
+                        <span id="methodTriggerText">-- Select Method --</span>
+                        <span>▼</span>
+                    </div>
+                    <div id="methodMenu" class="dropdown-menu">
+                        <div class="search-box-container">
+                            <input type="text" id="searchMethod" placeholder="Filter component methods" autocomplete="off" />
+                            <button class="dropdown-close-btn" id="closeMethodMenuBtn" title="Hide Menu">&times;</button>
+                        </div>
+                        <div id="methodTreeContent" class="tree-content"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="selection-context-banner" id="selectionContextBanner">
+                <strong>Selected Entiy: </strong> <span id="bannerText" style="color: #6c757d; font-style: italic;">No entity selected</span>
             </div>
 
             <div class="graph-legend" id="mainLegend">
@@ -495,11 +650,17 @@
                     <span>Circular Dependency</span>
                 </div>
             </div>
-            <div id="mynetwork"></div>
+
+            <div id="canvasPlaceholderMessage" class="placeholder-canvas-overlay">
+                Please select any class to see its methods.
+            </div>
+
+            <div id="mynetwork" style="display:none;"></div>
         </div>
+
         <div id="deadlocksSidePanel" style="width: 320px; min-width: 320px; height: 100%; border-left: 1px solid #dee2e6; background: #ffffff; display: none; flex-direction: column; padding: 15px; overflow-y: auto; box-sizing: border-box; z-index: 5;">
             <h3 style="margin-top: 0; color: #dc3545; font-size: 1.1rem; border-bottom: 2px solid #dc3545; padding-bottom: 8px;">Detected Cycles</h3>
-            <p style="font-size: 0.85rem; color: #6c757d;">Select a circular chain below to display its call structure isolating the loop chain:</p>
+            <p id="deadlocksPanelSubtitle" style="font-size: 0.85rem; color: #6c757d;">Select a circular chain below to isolate its execution loop:</p>
             <div id="deadlockList" style="display: flex; flex-direction: column; gap: 10px;"></div>
         </div>
     </div>
@@ -510,23 +671,45 @@
     </footer>
 
     <script>
-        let rawAssemblyData = { classes: [], inheritance: { nodes: [], edges: [] }, methodGraph: { nodes: [], edges: [] }, deadlocks: [] };
+        let rawAssemblyData = { classes: [], inheritance: { nodes: [], edges: [] }, methodGraph: { nodes: [], edges: [] } };
+        let activeStructuralMapCache = {};
+        let assemblyDeadlocksCache = {};
+
+        let currentSelectedAssembly = null;
         let currentViewMode = 'inheritance';
         let currentSelectedClass = null;
         let currentSelectedMethod = null;
         let currentSelectedDeadlockIndex = null;
         let networkInstance = null;
-        let originalGroups = {};
         let messageTimeout = null;
+
+        let isDraggingSplitter = false;
+        let cachedSidebarWidth = 350;
+
+        function getCleanMethodSignature(rawMethodId) {
+            if (!rawMethodId) return "";
+
+            let openParenIdx = rawMethodId.indexOf('(');
+            if (openParenIdx === -1) {
+                return rawMethodId.split('.').pop() + "()";
+            }
+
+            let methodPath = rawMethodId.substring(0, openParenIdx);
+            let paramsContent = rawMethodId.substring(openParenIdx + 1, rawMethodId.lastIndexOf(')'));
+            let methodName = methodPath.split('.').pop();
+
+            if (!paramsContent.trim()) {
+                return methodName + "()";
+            }
+
+            let formattedParams = paramsContent.split(',').map((param) => param.trim()).join(', ');
+            return `${methodName}(${formattedParams})`;
+        }
 
         function showLoader(statusText) {
             const loader = document.getElementById('canvasLoaderOverlay');
             const txt = document.getElementById('loaderStatusText');
             if (loader && txt) { txt.textContent = statusText; loader.style.display = 'flex'; }
-        }
-
-        function toggleFolder(headerElement) {
-            headerElement.parentElement.classList.toggle('collapsed');
         }
 
         function hideLoader() {
@@ -553,6 +736,199 @@
 
         function clearCanvas() {
             if (networkInstance !== null) { networkInstance.destroy(); networkInstance = null; }
+            document.getElementById('mynetwork').style.display = 'none';
+        }
+
+        function handleTreeNodeToggle(event, element, optionalAsmName = null) {
+            event.stopPropagation();
+
+            // Safely climb up to find the surrounding tree-node block to toggle collapse states
+            const treeNodeContainer = element.closest('.tree-node');
+            if (treeNodeContainer) {
+                treeNodeContainer.classList.toggle('collapsed');
+            }
+
+            // Trigger our context update smoothly
+            if (optionalAsmName) {
+                selectAssemblyContext(optionalAsmName);
+            }
+        }
+
+        function selectAssemblyContext(asmName) {
+            currentSelectedAssembly = asmName;
+            currentSelectedDeadlockIndex = null;
+
+            currentSelectedClass = null;
+            currentSelectedMethod = null;
+            document.getElementById('methodTriggerText').textContent = "-- Select Method --";
+            document.getElementById('searchMethod').value = "";
+
+            const methodTreeContent = document.getElementById('methodTreeContent');
+            if (methodTreeContent) {
+                methodTreeContent.innerHTML = `<div style="padding:12px; color:#6c757d; text-align:center;">Select a class to scan execution tokens.</div>`;
+            }
+
+            const methodTrigger = document.getElementById('methodTrigger');
+            if (methodTrigger) {
+                methodTrigger.classList.add('disabled');
+            }
+
+            document.querySelectorAll('.ilspy-tree .tree-node').forEach(node => node.classList.remove('active'));
+
+            document.querySelectorAll('.tree-node-header').forEach(header => {
+                const titleSpan = header.querySelector('.asm-title-text');
+                if (titleSpan && titleSpan.textContent === asmName) {
+                    header.classList.add('selected-asm');
+                } else {
+                    header.classList.remove('selected-asm');
+                }
+            });
+
+            renderDeadlocksSidePanel();
+            updateDeadlockGlobalBadgeCount();
+            updateSelectionBanner();
+            updatePlaceholderPrompt();
+            clearCanvas();
+        }
+        function updateSelectionBanner() {
+            const banner = document.getElementById('bannerText');
+            if (!banner) return;
+
+            if (currentViewMode === 'deadlocks') {
+                if (currentSelectedDeadlockIndex !== null) {
+                    banner.innerHTML = `<span style="color: #dc3545; font-weight: bold;">Circular Loop Isolation Stack [Trace #${currentSelectedDeadlockIndex + 1}]</span>`;
+                } else if (currentSelectedAssembly) {
+                    banner.innerHTML = `<span style="color: #007bff; font-weight: 600;">Scoping loops in: ${currentSelectedAssembly}</span>`;
+                } else {
+                    banner.innerHTML = `<span style="color: #6c757d; font-style: italic;">No active cyclic dependency trace isolated globally</span>`;
+                }
+                return;
+            }
+
+            if (!currentSelectedClass) {
+                if (currentSelectedAssembly) {
+                    banner.innerHTML = `<span style="color: #007bff; font-weight: 600;">Scoping component relations in: ${currentSelectedAssembly}</span>`;
+                } else {
+                    banner.innerHTML = `<span style="color: #6c757d; font-style: italic;">No entity selected</span>`;
+                }
+            } else {
+                let text = `<span style="color: #1e40af; font-weight: 600;">${currentSelectedClass}</span>`;
+                if (currentSelectedMethod) {
+                    const cleanName = getCleanMethodSignature(currentSelectedMethod);
+                    // Combined the arrow and the badge into a single tight inline layout sequence without gaps
+                    text += `<span style="color: #6c757d;">.</span><span style="color: #155724; font-weight: 600; border-radius:3px;">${cleanName}</span>`;
+                }
+                banner.innerHTML = text;
+            }
+        }
+
+        function selectClassItem(fullName, elementId, assemblyName) {
+            console.log("=== selectClassItem Triggered ===");
+            console.log("Full Class Name Target:", fullName);
+
+            currentSelectedClass = fullName;
+            currentSelectedAssembly = assemblyName;
+
+            currentSelectedMethod = null;
+            currentSelectedDeadlockIndex = null;
+            document.getElementById('methodTriggerText').textContent = "-- Select Target Method --";
+
+            // === RE-ENGINEERED CLIPBOARD FALLBACK FOR NON-SECURE LOCAL CONTEXTS ===
+            try {
+                // Create an input field instead of a textarea (higher compatibility in non-localhost HTTP grids)
+                const invisibleInput = document.createElement("input");
+                invisibleInput.type = "text";
+                invisibleInput.value = fullName;
+
+                // Inline style it defensively so it cannot flash on screen but remains fully selectable by browser focus engine
+                invisibleInput.style.position = "fixed";
+                invisibleInput.style.opacity = "0";
+                invisibleInput.style.pointerEvents = "none";
+                invisibleInput.style.zIndex = "-1";
+
+                document.body.appendChild(invisibleInput);
+
+                // Prevent default window scrolling behavior on focus targeting
+                invisibleInput.focus({ preventScroll: true });
+                invisibleInput.select();
+                invisibleInput.setSelectionRange(0, 99999);
+
+                const success = document.execCommand("copy");
+                console.log("Direct inline input copy action resolved to:", success);
+
+                document.body.removeChild(invisibleInput);
+
+                if (success) {
+                    showMessage(`📋 Copied to clipboard: ${fullName.split('.').pop()}`, 'success');
+                } else {
+                    // Attempt secondary native push if security protocols permit background task tracking
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(fullName)
+                            .then(() => {
+                                showMessage(`📋 Copied to clipboard: ${fullName.split('.').pop()}`, 'success');
+                            })
+                            .catch(() => {
+                                console.warn("Clipboard completely sandboxed by browser domain rules.");
+                            });
+                    } else {
+                        console.warn("Browser environment requires HTTPS/Localhost context to unlock programmatic copy pipelines.");
+                    }
+                }
+            } catch (err) {
+                console.error("Clipboard exception skipped safely:", err);
+            }
+
+            // --- Process UI Layout selections ---
+            document.querySelectorAll('.tree-node').forEach(node => node.classList.remove('active'));
+            const targetNode = document.getElementById(elementId);
+            if (targetNode) {
+                targetNode.classList.add('active');
+            }
+
+            document.querySelectorAll('.tree-node-header').forEach(header => {
+                const titleSpan = header.querySelector('.asm-title-text');
+                if (titleSpan && titleSpan.textContent === assemblyName) {
+                    header.classList.add('selected-asm');
+                } else {
+                    header.classList.remove('selected-asm');
+                }
+            });
+
+            if (currentViewMode === 'methods') {
+                populateMethodsDropdown();
+            } else if (currentViewMode === 'deadlocks') {
+                renderDeadlocksSidePanel();
+            }
+
+            updateDeadlockGlobalBadgeCount();
+            updateSelectionBanner();
+            renderGraphMap();
+        }
+
+        function updatePlaceholderPrompt() {
+            const msgLayer = document.getElementById('canvasPlaceholderMessage');
+            if (!msgLayer) return;
+
+            if (currentViewMode === 'deadlocks') {
+                if (currentSelectedDeadlockIndex === null) {
+                    const contextPrefix = currentSelectedAssembly ? `for <strong>${currentSelectedAssembly}</strong>` : "";
+                    msgLayer.innerHTML = `<strong>Circular Dependency View Loop Trace</strong><br/><br/>Please select a detected loop execution trace from the Right panel directory ${contextPrefix} to construct mapping flows.`;
+                    msgLayer.style.display = 'flex';
+                } else {
+                    msgLayer.style.display = 'none';
+                }
+                return;
+            }
+
+            if (!currentSelectedClass) {
+                msgLayer.innerHTML = `Please select any class to see its methods.`;
+                msgLayer.style.display = 'flex';
+            } else if (currentViewMode === 'methods' && !currentSelectedMethod) {
+                msgLayer.innerHTML = `<strong>Class Hooked:</strong> <span style="color:#007bff;">${currentSelectedClass.split('.').pop()}</span><br/><br/>Use the <strong>Target Execution Member</strong> dropdown menu panel above to scan operational callee loops.`;
+                msgLayer.style.display = 'flex';
+            } else {
+                msgLayer.style.display = 'none';
+            }
         }
 
         function switchViewMode(mode) {
@@ -561,46 +937,62 @@
             document.getElementById('tabMethods').classList.toggle('active', mode === 'methods');
             document.getElementById('tabDeadlocks').classList.toggle('active', mode === 'deadlocks');
 
-            const classWrapper = document.getElementById('classDropdownWrapper');
-            const methodWrapper = document.getElementById('methodDropdownWrapper');
+            const methodToolbar = document.getElementById('methodTargetToolbar');
             const legendMethodItem = document.getElementById('legendMethodItem');
             const legendDeadlockItem = document.getElementById('legendDeadlockItem');
             const deadlocksPanel = document.getElementById('deadlocksSidePanel');
 
             if (mode === 'methods') {
-                classWrapper.style.display = 'inline-block';
-                methodWrapper.style.display = 'inline-block';
+                methodToolbar.style.display = 'flex';
                 legendMethodItem.style.display = 'flex';
                 legendDeadlockItem.style.display = 'none';
                 deadlocksPanel.style.display = 'none';
                 if (currentSelectedClass) populateMethodsDropdown();
             } else if (mode === 'deadlocks') {
-                classWrapper.style.display = 'none';
-                methodWrapper.style.display = 'none';
+                methodToolbar.style.display = 'none';
                 legendMethodItem.style.display = 'none';
                 legendDeadlockItem.style.display = 'flex';
                 deadlocksPanel.style.display = 'flex';
+                renderDeadlocksSidePanel();
             } else {
-                classWrapper.style.display = 'inline-block';
-                methodWrapper.style.display = 'none';
+                methodToolbar.style.display = 'none';
                 legendMethodItem.style.display = 'none';
                 legendDeadlockItem.style.display = 'none';
                 deadlocksPanel.style.display = 'none';
             }
+            updateSelectionBanner();
             renderGraphMap();
-
         }
 
-        function selectClassItem(fullName, shortName) {
+        function selectClassItem(fullName, elementId, assemblyName) {
             currentSelectedClass = fullName;
+            currentSelectedAssembly = assemblyName;
+
             currentSelectedMethod = null;
-            document.getElementById('triggerText').textContent = shortName;
-            document.getElementById('dropdownMenu').style.display = 'none';
-            document.getElementById('methodTriggerText').textContent = "-- Select Target Method --";
+            currentSelectedDeadlockIndex = null;
+            document.getElementById('methodTriggerText').textContent = "-- Select Method --";
+
+            document.querySelectorAll('.tree-node').forEach(node => node.classList.remove('active'));
+            const targetNode = document.getElementById(elementId);
+            if (targetNode) targetNode.classList.add('active');
+
+            document.querySelectorAll('.tree-node-header').forEach(header => {
+                const titleSpan = header.querySelector('.asm-title-text');
+                if (titleSpan && titleSpan.textContent === assemblyName) {
+                    header.classList.add('selected-asm');
+                } else {
+                    header.classList.remove('selected-asm');
+                }
+            });
 
             if (currentViewMode === 'methods') {
                 populateMethodsDropdown();
+            } else if (currentViewMode === 'deadlocks') {
+                renderDeadlocksSidePanel();
             }
+
+            updateDeadlockGlobalBadgeCount();
+            updateSelectionBanner();
             renderGraphMap();
         }
 
@@ -608,6 +1000,7 @@
             currentSelectedMethod = methodId;
             document.getElementById('methodTriggerText').textContent = methodName;
             document.getElementById('methodMenu').style.display = 'none';
+            updateSelectionBanner();
             renderGraphMap();
         }
 
@@ -621,88 +1014,227 @@
             const methods = rawAssemblyData.methodGraph.nodes.filter(m => m.parentClass === currentSelectedClass);
 
             if (methods.length === 0) {
-                container.innerHTML = `<div style="padding:12px; color:#6c757d; text-align:center;">No executable methods found.</div>`;
+                container.innerHTML = `<div style="padding:12px; color:#6c757d; text-align:center;">No scanning execution tokens found in type definitions.</div>`;
                 trigger.classList.add('disabled');
                 return;
             }
 
             trigger.classList.remove('disabled');
-            const filtered = methods.filter(m => m.name.toLowerCase().includes(query));
 
-            filtered.sort((a, b) => a.name.localeCompare(b.name)).forEach(method => {
+            const processedList = methods.map(m => {
+                return { id: m.id, cleanDisplay: getCleanMethodSignature(m.id || m.name) };
+            });
+
+            const filtered = processedList.filter(m => m.cleanDisplay.toLowerCase().includes(query));
+
+            filtered.sort((a, b) => a.cleanDisplay.localeCompare(b.cleanDisplay)).forEach(method => {
                 const div = document.createElement('div');
                 div.className = 'method-item';
-                div.innerHTML = `<strong>${method.name}()</strong>`;
-                div.onclick = () => selectMethodItem(method.id, method.name);
+                div.innerHTML = `<strong>${method.cleanDisplay}</strong>`;
+                div.onclick = () => selectMethodItem(method.id, method.cleanDisplay);
                 container.appendChild(div);
             });
         }
 
-        function renderTreeView(filterText = "") {
-            const treeContent = document.getElementById('treeContent');
-            if (!treeContent) return;
-            treeContent.innerHTML = "";
+        function renderDeadlocksSidePanel() {
+            const deadlockContainer = document.getElementById('deadlockList');
+            const subtitle = document.getElementById('deadlocksPanelSubtitle');
+            if (!deadlockContainer) return;
+            deadlockContainer.innerHTML = '';
 
-            const query = filterText.toLowerCase().trim();
-            const sortedNamespaces = Object.keys(originalGroups).sort();
+            let loopsToRender = [];
 
-            if (query !== "") {
-                let suggestions = [];
-                sortedNamespaces.forEach(ns => {
-                    originalGroups[ns].forEach(item => {
-                        if (item.shortName.toLowerCase().includes(query) || item.fullName.toLowerCase().includes(query)) {
-                            suggestions.push({ ...item, namespace: ns });
-                        }
-                    });
-                });
-
-                if (suggestions.length === 0) {
-                    treeContent.innerHTML = `<div style="padding:12px; color:#6c757d; text-align:center;">No structural matches found.</div>`;
-                    return;
-                }
-
-                suggestions.slice(0, 30).forEach(item => {
-                    const div = document.createElement('div');
-                    div.className = 'class-item';
-                    div.innerHTML = `<strong>${item.shortName}</strong><span style="font-size:0.7rem;color:#6c757d;">${item.namespace}</span>`;
-                    div.onclick = () => selectClassItem(item.fullName, item.shortName);
-                    treeContent.appendChild(div);
-                });
+            if (currentSelectedAssembly && assemblyDeadlocksCache[currentSelectedAssembly]) {
+                loopsToRender = assemblyDeadlocksCache[currentSelectedAssembly];
+                subtitle.innerHTML = `Loops discovered inside <b style="color:#007bff;">${currentSelectedAssembly}</b>:`;
+            } else {
+                subtitle.innerHTML = `Select an assembly from the Left Explorer to scope loop pipelines.`;
+                deadlockContainer.innerHTML = '<div style="color: #6c757d; font-size:0.85rem; font-style:italic; padding: 10px; text-align:center;">No active scope. Click an assembly header or a type in the explorer tree.</div>';
                 return;
             }
 
-            sortedNamespaces.forEach(ns => {
-                const items = originalGroups[ns];
-                const group = document.createElement('div');
-                group.className = 'folder-group collapsed';
-                group.innerHTML = `
-                            <div class="folder-header" onclick="toggleFolder(this)">
-                                <span class="folder-toggle-icon">▼</span>
-                                <span>${ns || '(Global Namespace)'}</span>
-                            </div>
-                            <div class="folder-children"></div>
-                        `;
-                const childrenContainer = group.querySelector('.folder-children');
-                items.forEach(item => {
-                    const div = document.createElement('div');
-                    div.className = 'class-item';
-                    div.textContent = item.shortName;
-                    div.onclick = () => selectClassItem(item.fullName, item.shortName);
-                    childrenContainer.appendChild(div);
-                });
-                treeContent.appendChild(group);
+            if (loopsToRender.length === 0) {
+                deadlockContainer.innerHTML = '<div style="color: #28a745; font-size:0.85rem; font-weight:bold; padding: 10px; background: #e2f0d9; border-radius:4px;">✓ No structural loops detected in this assembly.</div>';
+                return;
+            }
+
+            loopsToRender.forEach((cycle, index) => {
+                const btn = document.createElement('button');
+                btn.style = "text-align: left; padding: 10px; background: #fff5f5; border: 1px solid #feb2b2; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-family: monospace; width: 100%; box-sizing: border-box; margin-bottom: 4px;";
+                const originNode = getCleanMethodSignature(cycle[0]);
+                const targetNode = getCleanMethodSignature(cycle[cycle.length - 2]);
+
+                if (currentSelectedDeadlockIndex === index) {
+                    btn.style.background = '#fed7d7';
+                }
+
+                btn.innerHTML = `<b style="color: #c53030;">[Loop #${index + 1}]</b> <br/> ${originNode} ➔ ${targetNode}`;
+                btn.onclick = () => {
+                    Array.from(deadlockContainer.children).forEach(child => child.style.background = '#fff5f5');
+                    btn.style.background = '#fed7d7';
+                    currentSelectedDeadlockIndex = index;
+                    updateSelectionBanner();
+                    renderGraphMap();
+                };
+                deadlockContainer.appendChild(btn);
             });
+        }
+
+        function updateDeadlockGlobalBadgeCount() {
+            const badge = document.getElementById('deadlockCount');
+            if (!badge) return;
+
+            if (currentSelectedAssembly && assemblyDeadlocksCache[currentSelectedAssembly]) {
+                badge.innerText = assemblyDeadlocksCache[currentSelectedAssembly].length;
+            } else {
+                let sum = 0;
+                Object.values(assemblyDeadlocksCache).forEach(arr => sum += arr.length);
+                badge.innerText = sum;
+            }
+        }
+
+        function buildILSpyTree(assembliesMap, searchFilter = "") {
+            const rootContainer = document.getElementById('ilspyTreeRoot');
+            if (!rootContainer) return;
+            rootContainer.innerHTML = "";
+
+            let nodeCounter = 0;
+            const query = searchFilter.toLowerCase().trim();
+            let assembliesWithMatches = 0;
+
+            let activeAsmName = "";
+            let activeNsName = "";
+
+            if (currentSelectedClass && query === "") {
+                for (const [asm, namespaces] of Object.entries(assembliesMap)) {
+                    for (const [ns, classes] of Object.entries(namespaces)) {
+                        if (classes.some(c => c.fullName === currentSelectedClass)) {
+                            activeAsmName = asm;
+                            activeNsName = ns;
+                            break;
+                        }
+                    }
+                    if (activeAsmName) break;
+                }
+            }
+
+            Object.keys(assembliesMap).sort().forEach(asmName => {
+                let asmHasMatch = false;
+                let processedNamespaces = {};
+                const namespacesMap = assembliesMap[asmName];
+
+                Object.keys(namespacesMap).forEach(nsName => {
+                    const classesList = namespacesMap[nsName];
+                    const filteredClasses = classesList.filter(cls => {
+                        return query === "" ||
+                            cls.shortName.toLowerCase().includes(query) ||
+                            nsName.toLowerCase().includes(query) ||
+                            asmName.toLowerCase().includes(query);
+                    });
+
+                    if (filteredClasses.length > 0) {
+                        processedNamespaces[nsName] = filteredClasses;
+                        asmHasMatch = true;
+                    }
+                });
+
+                if (!asmHasMatch) return;
+                assembliesWithMatches++;
+
+                nodeCounter++;
+                const asmNodeId = `node_asm_${nodeCounter}`;
+                const asmNode = document.createElement('div');
+
+                const expandAsm = (query !== "");
+                asmNode.className = expandAsm ? 'tree-node' : 'tree-node collapsed';
+                asmNode.id = asmNodeId;
+
+                const isSelectedAsm = (asmName === currentSelectedAssembly);
+                const headerClassStr = isSelectedAsm ? 'tree-node-header selected-asm' : 'tree-node-header';
+
+                asmNode.innerHTML = `
+                    <div class="${headerClassStr}" id="${asmNodeId}_header">
+                        <span class="tree-node-icon" onclick="handleTreeNodeToggle(event, document.getElementById('${asmNodeId}_header'), '${asmName.replace(/'/g, "\\'")}')">▼</span>
+                        <span style="font-weight:600; color:#1e293b;" class="asm-title-text">${asmName}</span>
+                    </div>
+                    <div class="tree-node-children"></div>
+                `;
+                asmNode.querySelector('.asm-title-text').onclick = (e) => {
+                    e.stopPropagation();
+                    selectAssemblyContext(asmName);
+                };
+
+                const asmChildrenContainer = asmNode.querySelector('.tree-node-children');
+
+                Object.keys(processedNamespaces).sort().forEach(nsName => {
+                    nodeCounter++;
+                    const nsNodeId = `node_ns_${nodeCounter}`;
+                    const nsNode = document.createElement('div');
+
+                    const expandNs = (query !== "") || (asmName === activeAsmName && nsName === activeNsName);
+                    nsNode.className = expandNs ? 'tree-node' : 'tree-node collapsed';
+                    nsNode.id = nsNodeId;
+
+                    nsNode.innerHTML = `
+                        <div class="tree-node-header" onclick="handleTreeNodeToggle(event, this)">
+                            <span class="tree-node-icon">▼</span>
+                            <span style="color:#334155;">${nsName || '(No Namespace)'}</span>
+                        </div>
+                        <div class="tree-node-children"></div>
+                    `;
+
+                    const nsChildrenContainer = nsNode.querySelector('.tree-node-children');
+                    const classesList = processedNamespaces[nsName];
+
+                    classesList.sort((a, b) => a.shortName.localeCompare(b.shortName)).forEach(cls => {
+                        nodeCounter++;
+                        const clsNodeId = `node_cls_${nodeCounter}`;
+                        const clsNode = document.createElement('div');
+                        clsNode.className = 'tree-node';
+                        clsNode.id = clsNodeId;
+
+                        const matchingInheritanceNode = rawAssemblyData.inheritance.nodes.find(n => n.id === cls.fullName);
+
+
+                        if (currentSelectedClass === cls.fullName) {
+                            clsNode.classList.add('active');
+                        }
+
+                        clsNode.innerHTML = `
+                                    <div class="tree-node-header" style="padding-left:14px;">
+                                        <span style="font-size:0.85rem;">${cls.shortName}</span>
+                                    </div>
+                                `;
+
+                        clsNode.querySelector('.tree-node-header').onclick = (e) => {
+                            e.stopPropagation();
+                            selectClassItem(cls.fullName, clsNodeId, asmName);
+                        };
+
+                        nsChildrenContainer.appendChild(clsNode);
+                    });
+
+                    asmChildrenContainer.appendChild(nsNode);
+                });
+
+                rootContainer.appendChild(asmNode);
+            });
+
+            if (assembliesWithMatches === 0) {
+                rootContainer.innerHTML = `<div style="padding: 15px; color: #737378; font-style: italic; text-align: center; font-size:0.85rem;">No component matches found.</div>`;
+            }
         }
 
         function renderGraphMap() {
             clearCanvas();
+            updatePlaceholderPrompt();
             const container = document.getElementById('mynetwork');
 
-            if (currentViewMode !== 'deadlocks' && !currentSelectedClass) {
-                container.innerHTML = `<div style="padding:40px;text-align:center;color:#6c757d;">Please choose a Target Type from the directory stream above.</div>`;
-                return;
-            }
+            if (currentViewMode !== 'deadlocks' && !currentSelectedClass) return;
+            if (currentViewMode === 'methods' && !currentSelectedMethod) return;
+            if (currentViewMode === 'deadlocks' && currentSelectedDeadlockIndex === null) return;
 
+            container.style.display = 'block';
             let nodes = [], edges = [];
 
             if (currentViewMode === 'inheritance') {
@@ -719,11 +1251,7 @@
                 }));
 
                 edges = rawAssemblyData.inheritance.edges.filter(e => connectedNodes.has(e.from) && connectedNodes.has(e.to)).map(e => ({
-                    from: e.from,
-                    to: e.to,
-                    arrows: 'to',
-                    label: e.relation,
-                    length: 220,
+                    from: e.from, to: e.to, arrows: 'to', label: e.relation, length: 220,
                     font: { align: 'horizontal', vadjust: -12, size: 11, color: '#495057' }
                 }));
 
@@ -735,44 +1263,32 @@
                     methodToClassMap[n.id] = n.parentClass;
                 });
 
-                if (currentSelectedMethod) {
-                    relevantMethods.add(currentSelectedMethod);
-                    rawAssemblyData.methodGraph.edges.forEach(e => {
-                        if (e.from === currentSelectedMethod || e.to === currentSelectedMethod) {
-                            relevantMethods.add(e.from); relevantMethods.add(e.to);
-                            if (e.fromClass) methodToClassMap[e.from] = e.fromClass;
-                            if (e.toClass) methodToClassMap[e.to] = e.toClass;
-                        }
-                    });
-                } else {
-                    rawAssemblyData.methodGraph.nodes.filter(m => m.parentClass === currentSelectedClass).forEach(m => relevantMethods.add(m.id));
-                }
+                relevantMethods.add(currentSelectedMethod);
+                rawAssemblyData.methodGraph.edges.forEach(e => {
+                    if (e.from === currentSelectedMethod || e.to === currentSelectedMethod) {
+                        relevantMethods.add(e.from); relevantMethods.add(e.to);
+                        if (e.fromClass) methodToClassMap[e.from] = e.fromClass;
+                        if (e.toClass) methodToClassMap[e.to] = e.toClass;
+                    }
+                });
 
                 relevantMethods.forEach(id => {
                     const localNode = rawAssemblyData.methodGraph.nodes.find(n => n.id === id);
-                    let methodName = localNode ? localNode.name : "";
                     let fullClassName = methodToClassMap[id] || (localNode ? localNode.parentClass : "");
 
-                    if (!methodName || !fullClassName) {
-                        const cleanId = id.replace("()", "");
+                    let methodName = getCleanMethodSignature(localNode ? localNode.id : id);
+
+                    if (!fullClassName) {
+                        const cleanId = id.split('(')[0];
                         const lastDot = cleanId.lastIndexOf('.');
-                        if (lastDot > -1) {
-                            methodName = cleanId.substring(lastDot + 1);
-                            fullClassName = cleanId.substring(0, lastDot);
-                        } else {
-                            methodName = id;
-                            fullClassName = "Unknown Class";
-                        }
+                        fullClassName = lastDot > -1 ? id.substring(0, lastDot) : "Unknown Class";
                     }
 
                     const shortClassName = fullClassName.split('.').pop();
 
                     nodes.push({
-                        id: id,
-                        label: `${shortClassName}\n➔ ${methodName}()`,
-                        shape: 'box',
-                        color: localNode ? '#e8f5e9' : '#f5f5f5',
-                        title: `Full Path: ${fullClassName}.${methodName}()`,
+                        id: id, label: `${shortClassName}.${methodName}`, shape: 'box',
+                        color: localNode ? '#e8f5e9' : '#f5f5f5', title: `Full Path: ${fullClassName}.${methodName}`,
                         font: { multi: true, bold: { color: '#212529' } }
                     });
                 });
@@ -782,179 +1298,229 @@
                 }));
 
             } else if (currentViewMode === 'deadlocks') {
-                if (currentSelectedDeadlockIndex === null) {
-                    container.innerHTML = `<div style="padding:40px;text-align:center;color:#6c757d;">Please select a detected deadlock cycle path trace option from the sidebar directory.</div>`;
-                    return;
-                }
+                const targetedAssemblyLoops = assemblyDeadlocksCache[currentSelectedAssembly];
+                if (!targetedAssemblyLoops) return;
 
-                const activeCyclePath = rawAssemblyData.deadlocks[currentSelectedDeadlockIndex];
+                const activeCyclePath = targetedAssemblyLoops[currentSelectedDeadlockIndex];
+                if (!activeCyclePath) return;
+
                 const nodesInCycle = new Set(activeCyclePath);
 
                 nodesInCycle.forEach(id => {
                     const localNode = rawAssemblyData.methodGraph.nodes.find(n => n.id === id);
-                    let methodName = localNode ? localNode.name : "";
                     let fullClassName = localNode ? localNode.parentClass : "";
 
-                    if (!methodName) {
-                        const cleanId = id.replace("()", "");
+                    let methodName = getCleanMethodSignature(id);
+
+                    if (!fullClassName) {
+                        const cleanId = id.split('(')[0];
                         const lastDot = cleanId.lastIndexOf('.');
-                        methodName = lastDot > -1 ? cleanId.substring(lastDot + 1) : id;
                         fullClassName = lastDot > -1 ? cleanId.substring(0, lastDot) : "External Reference";
                     }
 
                     const shortClassName = fullClassName.split('.').pop();
 
                     nodes.push({
-                        id: id,
-                        label: `${shortClassName}\n➔ ${methodName}()`,
-                        shape: 'box',
-                        borderWidth: 2,
-                        color: {
-                            background: '#ffebeb',
-                            border: '#dc3545',
-                            highlight: { background: '#ffcdd2', border: '#b71c1c' }
-                        },
-                        font: { multi: true, color: '#721c24' },
-                        title: `Deadlock Component: ${fullClassName}.${methodName}()`
+                        id: id, label: `${shortClassName}.${methodName}`, shape: 'box', borderWidth: 2,
+                        color: { background: '#ffebeb', border: '#dc3545', highlight: { background: '#ffcdd2', border: '#b71c1c' } },
+                        font: { multi: true, color: '#721c24' }, title: `Deadlock Component: ${fullClassName}.${methodName}`
                     });
                 });
 
                 for (let i = 0; i < activeCyclePath.length - 1; i++) {
                     edges.push({
-                        from: activeCyclePath[i],
-                        to: activeCyclePath[i + 1],
-                        arrows: 'to',
-                        color: { color: '#dc3545', highlight: '#b71c1c' },
-                        width: 3,
-                        label: 'causes lock',
+                        from: activeCyclePath[i], to: activeCyclePath[i + 1], arrows: 'to',
+                        color: { color: '#dc3545', highlight: '#b71c1c' }, width: 3, label: 'causes lock',
                         font: { color: '#b71c1c', size: 10, vadjust: -10 }
                     });
                 }
             }
 
             const options = {
-                nodes: {
-                    font: { face: 'sans-serif', multi: true },
-                    margin: 12
-                },
-                edges: {
-                    selectionWidth: 2,
-                    font: { size: 11 }
-                },
+                nodes: { font: { face: 'sans-serif', multi: true }, margin: 12 },
+                edges: { selectionWidth: 2, font: { size: 11 } },
                 physics: {
                     solver: 'forceAtlas2Based',
                     forceAtlas2Based: {
-                        gravitationalConstant: -80,
-                        centralGravity: 0.01,
+                        gravitationalConstant: -80, centralGravity: 0.01,
                         springLength: currentViewMode === 'methods' ? 180 : 120,
-                        springConstant: 0.08,
-                        damping: 0.4,
-                        avoidOverlap: 1.0
+                        springConstant: 0.08, damping: 0.4, avoidOverlap: 1.0
                     }
                 }
             };
 
             networkInstance = new vis.Network(container, { nodes, edges }, options);
-
             networkInstance.on("stabilizationIterationsDone", function () {
                 networkInstance.setOptions({ physics: false });
             });
         }
 
         document.getElementById('dllFile').addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
+            const files = e.target.files;
+            if (!files || files.length === 0) return;
 
-            // Clear current selection text fields and tracking indexes
-            currentSelectedClass = null;
-            currentSelectedMethod = null;
-            currentSelectedDeadlockIndex = null;
-            document.getElementById('triggerText').textContent = "-- Select Target Type --";
-            document.getElementById('methodTriggerText').textContent = "-- Select Target Method --";
+            // --- Ensure global state is initialized if empty, but DO NOT wipe it out ---
+            if (!rawAssemblyData) {
+                rawAssemblyData = { classes: [], inheritance: { nodes: [], edges: [] }, methodGraph: { nodes: [], edges: [] } };
+            }
+            if (!activeStructuralMapCache) activeStructuralMapCache = {};
+            if (!assemblyDeadlocksCache) assemblyDeadlocksCache = {};
 
-            // Empty the filter and search search boxes
-            document.getElementById('searchClass').value = "";
-            document.getElementById('searchMethod').value = "";
+            let newlyAddedAssembly = null;
 
-            document.getElementById('currentDllName').textContent = file.name;
+            showLoader('Analyzing DLL and plotting graphs...');
 
-            showLoader('Parsing IL Assemblies...');
-            const formData = new FormData();
-            formData.append('file', file);
+            for (let i = 0; i < files.length; i++) {
+                const currentFileName = files[i].name;
 
-            try {
-                const response = await fetch('/api/analyze', { method: 'POST', body: formData });
-                if (!response.ok) throw new Error("Metadata generation failed.");
-                rawAssemblyData = await response.json();
-
-                const deadlocksFound = rawAssemblyData.deadlocks || [];
-                document.getElementById('deadlockCount').innerText = deadlocksFound.length;
-
-                const deadlockContainer = document.getElementById('deadlockList');
-                deadlockContainer.innerHTML = '';
-
-                if (deadlocksFound.length === 0) {
-                    deadlockContainer.innerHTML = '<div style="color: #28a745; font-size:0.85rem; font-weight:bold; padding: 10px; background: #e2f0d9; border-radius:4px;">✓ No deadlocks or circular recursion paths detected!</div>';
-                } else {
-                    deadlocksFound.forEach((cycle, index) => {
-                        const btn = document.createElement('button');
-                        btn.style = "text-align: left; padding: 10px; background: #fff5f5; border: 1px solid #feb2b2; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-family: monospace; transition: all 0.2s; width: 100%; box-sizing: border-box;";
-
-                        const originNode = cycle[0].split('.').pop();
-                        const targetNode = cycle[cycle.length - 2].split('.').pop();
-
-                        btn.innerHTML = `<b style="color: #c53030;">[Loop #${index + 1}]</b> <br/> ${originNode} ➔ ... ➔ ${targetNode}`;
-
-                        btn.onclick = () => {
-                            Array.from(deadlockContainer.children).forEach(child => child.style.background = '#fff5f5');
-                            btn.style.background = '#fed7d7';
-                            currentSelectedDeadlockIndex = index;
-                            renderGraphMap();
-                        };
-                        deadlockContainer.appendChild(btn);
-                    });
+                // Check if an assembly with this filename (or cache entry) already exists
+                if (assemblyDeadlocksCache[currentFileName] || Object.keys(activeStructuralMapCache).includes(currentFileName)) {
+                    showMessage(`${currentFileName}.dll already exists`, 'error');
+                    continue; 
                 }
 
-                originalGroups = {};
-                rawAssemblyData.classes.forEach(fullName => {
-                    const parts = fullName.split('.');
-                    const shortName = parts.pop();
-                    const ns = parts.join('.');
-                    if (!originalGroups[ns]) originalGroups[ns] = [];
-                    originalGroups[ns].push({ fullName, shortName });
-                });
 
-                document.getElementById('dropdownTrigger').classList.remove('disabled');
+                const formData = new FormData();
+                formData.append('file', files[i]);
 
-                setTimeout(() => {
-                    renderTreeView();
-                    hideLoader();
-                    renderGraphMap();
-                    showMessage('Assembly structures parsed cleanly.', 'success');
-                }, 50);
+                try {
+                    const response = await fetch('/api/analyze', { method: 'POST', body: formData });
+                    if (!response.ok) throw new Error(`Metadata extraction failed on: ${files[i].name}`);
 
-            } catch (err) {
-                hideLoader();
-                showMessage(err.message, 'error');
+                    const blockResult = await response.json();
+                    const currentAsmName = blockResult.assemblyName || currentFileName;
+
+                    // Double check inside the payload assemblyName as well
+                    if (assemblyDeadlocksCache[currentAsmName]) {
+                        showMessage(`${currentAsmName}.dll already exists`, 'error');
+                        continue;
+                    }
+
+                    // Record the first successfully added assembly to select it later
+                    if (!newlyAddedAssembly) {
+                        newlyAddedAssembly = currentAsmName;
+                    }
+
+                    // APPEND data instead of resetting the structural lists
+                    rawAssemblyData.inheritance.nodes.push(...blockResult.inheritance.nodes);
+                    rawAssemblyData.inheritance.edges.push(...blockResult.inheritance.edges);
+                    rawAssemblyData.methodGraph.nodes.push(...blockResult.methodGraph.nodes);
+                    rawAssemblyData.methodGraph.edges.push(...blockResult.methodGraph.edges);
+
+                    assemblyDeadlocksCache[currentAsmName] = blockResult.deadlocks || [];
+
+                    if (!activeStructuralMapCache[currentAsmName]) {
+                        activeStructuralMapCache[currentAsmName] = {};
+                    }
+
+                    blockResult.classes.forEach(clsObject => {
+                        const fullName = clsObject.fullName;
+                        const parts = fullName.split('.');
+                        const shortName = parts.pop();
+                        const nsName = parts.join('.');
+
+                        if (!activeStructuralMapCache[currentAsmName][nsName]) {
+                            activeStructuralMapCache[currentAsmName][nsName] = [];
+                        }
+                        activeStructuralMapCache[currentAsmName][nsName].push({ fullName, shortName });
+                    });
+
+                } catch (err) {
+                    showMessage(err.message, 'error');
+                }
             }
+
+            // Update the total loaded count in the file input UI label
+            const totalLoadedAssemblies = Object.keys(activeStructuralMapCache).length;
+            const fileLabel = document.getElementById('fileUploadLabelElement');
+            if (totalLoadedAssemblies === 0) {
+                fileLabel.textContent = "Choose DLLs";
+            } else if (totalLoadedAssemblies === 1) {
+                fileLabel.textContent = `Loaded: 1 Assembly`;
+            } else {
+                fileLabel.textContent = `Loaded: (${totalLoadedAssemblies}) Assemblies`;
+            }
+
+            // Switch focus onto the newly added assembly context if one was added
+            if (newlyAddedAssembly) {
+                selectAssemblyContext(newlyAddedAssembly);
+            } else {
+                updateDeadlockGlobalBadgeCount();
+                renderDeadlocksSidePanel();
+            }
+
+            buildILSpyTree(activeStructuralMapCache);
+            hideLoader();
+
+            // Reset file input value so selecting the exact same file layout sequence again triggers the change event
+            e.target.value = "";
         });
 
-        document.getElementById('searchClass').addEventListener('input', (e) => renderTreeView(e.target.value));
+        document.getElementById('searchSidebarTree').addEventListener('input', (e) => {
+            buildILSpyTree(activeStructuralMapCache, e.target.value);
+        });
+
         document.getElementById('searchMethod').addEventListener('input', (e) => populateMethodsDropdown(e.target.value));
-        document.getElementById('dropdownTrigger').onclick = () => { document.getElementById('dropdownMenu').style.display = 'flex'; };
-        document.getElementById('methodTrigger').onclick = () => { document.getElementById('methodMenu').style.display = 'flex'; };
+
+        document.getElementById('methodTrigger').onclick = () => {
+            if (!document.getElementById('methodTrigger').classList.contains('disabled')) {
+                document.getElementById('methodMenu').style.display = 'flex';
+            }
+        };
+
+        document.getElementById('closeMethodMenuBtn').onclick = (e) => {
+            e.stopPropagation();
+            document.getElementById('methodMenu').style.display = 'none';
+        };
 
         window.onclick = function (event) {
-            const classWrapper = document.getElementById('classDropdownWrapper');
             const methodWrapper = document.getElementById('methodDropdownWrapper');
-
-            if (classWrapper && !classWrapper.contains(event.target)) {
-                document.getElementById('dropdownMenu').style.display = "none";
-            }
             if (methodWrapper && !methodWrapper.contains(event.target)) {
                 document.getElementById('methodMenu').style.display = "none";
             }
         }
+
+        const splitter = document.getElementById('sidebarSplitter');
+        const sidebar = document.getElementById('ilspySidebar');
+
+        splitter.addEventListener('mousedown', function (e) {
+            e.preventDefault();
+            isDraggingSplitter = true;
+            splitter.classList.add('dragging');
+        });
+
+        document.addEventListener('mousemove', function (e) {
+            if (!isDraggingSplitter) return;
+
+            const containerLeft = document.getElementById('workspaceContainer').getBoundingClientRect().left;
+            let targetWidth = e.clientX - containerLeft;
+
+            if (targetWidth < 20) targetWidth = 0;
+            if (targetWidth > 650) targetWidth = 650;
+
+            sidebar.style.width = targetWidth + 'px';
+            if (targetWidth > 0) {
+                cachedSidebarWidth = targetWidth;
+            }
+        });
+
+        document.addEventListener('mouseup', function () {
+            if (isDraggingSplitter) {
+                isDraggingSplitter = false;
+                splitter.classList.remove('dragging');
+                if (networkInstance) networkInstance.fit();
+            }
+        });
+
+        splitter.addEventListener('dblclick', function () {
+            const currentWidth = sidebar.getBoundingClientRect().width;
+            if (currentWidth > 0) {
+                sidebar.style.width = '0px';
+            } else {
+                sidebar.style.width = cachedSidebarWidth + 'px';
+            }
+            setTimeout(() => { if (networkInstance) networkInstance.fit(); }, 150);
+        });
     </script>
 </body>
 </html>

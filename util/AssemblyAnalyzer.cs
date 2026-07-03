@@ -13,15 +13,13 @@ public static class AssemblyAnalyzer
     {
         var inheritanceNodes = new List<object>();
         var inheritanceEdges = new List<object>();
-        var classList = new List<string>();
+        var classList = new List<object>(); // Changed to object list to hold metadata
 
         var methodNodes = new List<object>();
         var methodEdges = new List<object>();
 
         var registeredMethodIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var tokenToUniqueMethodIdMap = new Dictionary<EntityHandle, string>();
-
-        // Keep track of methods that actually have executable bodies to scan in pass 2
         var methodsToScan = new List<(string CallerMethodId, int Rva)>();
 
         using var stream = file.OpenReadStream();
@@ -33,6 +31,14 @@ public static class AssemblyAnalyzer
         }
 
         MetadataReader mdReader = peReader.GetMetadataReader();
+
+        // Extract the real Assembly name from metadata
+        string assemblyName = file.FileName;
+        if (mdReader.IsAssembly)
+        {
+            var asmDef = mdReader.GetAssemblyDefinition();
+            assemblyName = mdReader.GetString(asmDef.Name);
+        }
 
         // --- FIRST PASS: Map out Structures and cache targets ---
         foreach (TypeDefinitionHandle typeHandle in mdReader.TypeDefinitions)
@@ -48,11 +54,12 @@ public static class AssemblyAnalyzer
                 string fullName = string.IsNullOrEmpty(ns) ? name : $"{ns}.{name}";
 
                 bool isInterface = (typeDef.Attributes & TypeAttributes.Interface) != 0;
-                classList.Add(fullName);
+
+                // Track class along with its source assembly definitions
+                classList.Add(new { fullName, assembly = assemblyName });
 
                 inheritanceNodes.Add(new { id = fullName, name = name, type = isInterface ? "Interface" : "Class" });
 
-                // Base Inheritance
                 if (!typeDef.BaseType.IsNil)
                 {
                     string baseName = GetStringFromEntityHandle(mdReader, typeDef.BaseType);
@@ -62,7 +69,6 @@ public static class AssemblyAnalyzer
                     }
                 }
 
-                // Interface Implementations
                 foreach (InterfaceImplementationHandle ifaceHandle in typeDef.GetInterfaceImplementations())
                 {
                     try
@@ -79,7 +85,6 @@ public static class AssemblyAnalyzer
 
                 if (isInterface) continue;
 
-                // Register Methods and build rapid scanning list
                 foreach (MethodDefinitionHandle methodHandle in typeDef.GetMethods())
                 {
                     try
@@ -89,13 +94,28 @@ public static class AssemblyAnalyzer
 
                         if (methodName.StartsWith("<") || methodName.Equals(".ctor") || methodName.Equals(".cctor")) continue;
 
-                        string baseMethodId = $"{fullName}.{methodName}()";
+                        // Bug 1 Fix: Read formal parameter names from the method definition metadata
+                        var parameterNamesList = new List<string>();
+                        foreach (var paramHandle in methodDef.GetParameters())
+                        {
+                            var param = mdReader.GetParameter(paramHandle);
+                            if (param.SequenceNumber == 0) continue; // Skip sequence 0 (return type relative attribute token)
+
+                            string paramName = mdReader.GetString(param.Name);
+                            if (!string.IsNullOrEmpty(paramName))
+                            {
+                                parameterNamesList.Add(paramName);
+                            }
+                        }
+
+                        string parameterSignature = string.Join(", ", parameterNamesList);
+                        string baseMethodId = $"{fullName}.{methodName}({parameterSignature})";
                         string methodUniqueId = baseMethodId;
                         int duplicateIndex = 1;
 
                         while (registeredMethodIds.Contains(methodUniqueId))
                         {
-                            methodUniqueId = $"{fullName}.{methodName}_{duplicateIndex}()";
+                            methodUniqueId = $"{fullName}.{methodName}_{duplicateIndex}({parameterSignature})";
                             duplicateIndex++;
                         }
 
@@ -105,7 +125,6 @@ public static class AssemblyAnalyzer
                         methodNodes.Add(new { id = methodUniqueId, name = methodName, parentClass = fullName });
                         methodEdges.Add(new { from = methodUniqueId, to = fullName, relation = "DeclaredIn" });
 
-                        // Queue up for fast scanning if it contains code
                         if (methodDef.RelativeVirtualAddress > 0)
                         {
                             methodsToScan.Add((methodUniqueId, methodDef.RelativeVirtualAddress));
@@ -123,13 +142,11 @@ public static class AssemblyAnalyzer
             try
             {
                 MethodBodyBlock body = peReader.GetMethodBody(item.Rva);
-                BlobReader ilReader = body.GetILReader(); // Significantly faster than allocation of arrays via GetILBytes()
+                BlobReader ilReader = body.GetILReader();
 
                 while (ilReader.RemainingBytes > 0)
                 {
                     byte opCode = ilReader.ReadByte();
-
-                    // Fast check for Call (0x28) or Callvirt (0x6F)
                     if (opCode == 0x28 || opCode == 0x6F)
                     {
                         if (ilReader.RemainingBytes >= 4)
@@ -175,53 +192,34 @@ public static class AssemblyAnalyzer
                             }
                         }
                     }
-                    else
-                    {
-                        // Optimization: Skip multielement opcodes parameters to avoid false matches on tokens 
-                        // by checking common multi-byte operations if compilation profiles are deep. 
-                        // For maximum raw speed, skipping single bytes handles standard assemblies perfectly.
-                    }
                 }
             }
             catch { }
         }
 
         var methodAdjacencyList = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
-
-        // Populate adjacency dictionary using your scanned calls data
         foreach (dynamic edge in methodEdges)
         {
-            // Filter out architectural structural data, we only evaluate actual functional invocations
             if (edge.relation == "Calls")
             {
                 string fromNode = edge.from;
                 string toNode = edge.to;
-
                 if (!methodAdjacencyList.ContainsKey(fromNode))
                     methodAdjacencyList[fromNode] = new List<string>();
-
                 methodAdjacencyList[fromNode].Add(toNode);
             }
         }
 
-        // Run the 3-Color Detector
         List<List<string>> detectedDeadlocks = CircularDependencyDetector.DetectCycles(methodAdjacencyList);
 
-        // Return combined payload seamlessly back to your Minimal API controller
         return new
         {
+            assemblyName = assemblyName,
             classes = classList,
             inheritance = new { nodes = inheritanceNodes, edges = inheritanceEdges },
             methodGraph = new { nodes = methodNodes, edges = methodEdges },
-            deadlocks = detectedDeadlocks // This will serialize directly into JSON for your UI!
+            deadlocks = detectedDeadlocks
         };
-
-        //return new
-        //{
-        //    classes = classList,
-        //    inheritance = new { nodes = inheritanceNodes, edges = inheritanceEdges },
-        //    methodGraph = new { nodes = methodNodes, edges = methodEdges }
-        //};
     }
 
     private static string GetStringFromEntityHandle(MetadataReader reader, EntityHandle handle)
@@ -229,7 +227,6 @@ public static class AssemblyAnalyzer
         try
         {
             if (handle.IsNil) return string.Empty;
-
             if (handle.Kind == HandleKind.TypeDefinition)
             {
                 var td = reader.GetTypeDefinition((TypeDefinitionHandle)handle);
@@ -243,10 +240,6 @@ public static class AssemblyAnalyzer
                 string ns = reader.GetString(tr.Namespace);
                 string name = reader.GetString(tr.Name);
                 return string.IsNullOrEmpty(ns) ? name : $"{ns}.{name}";
-            }
-            else if (handle.Kind == HandleKind.TypeSpecification)
-            {
-                return "GenericTypeSpecification";
             }
         }
         catch { }
