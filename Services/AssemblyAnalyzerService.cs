@@ -19,7 +19,7 @@ namespace DotNetVisualizer.Web.Services
         {
             var inheritanceNodes = new List<object>();
             var inheritanceEdges = new List<object>();
-            var classList = new List<object>(); // Changed to object list to hold metadata
+            var classList = new List<string>();
 
             var methodNodes = new List<object>();
             var methodEdges = new List<object>();
@@ -38,15 +38,7 @@ namespace DotNetVisualizer.Web.Services
 
             MetadataReader mdReader = peReader.GetMetadataReader();
 
-            // Extract the real Assembly name from metadata
-            string assemblyName = file.FileName;
-            if (mdReader.IsAssembly)
-            {
-                var asmDef = mdReader.GetAssemblyDefinition();
-                assemblyName = mdReader.GetString(asmDef.Name);
-            }
-
-            // --- FIRST PASS: Map out Structures and cache targets ---
+            // --- PASS 1: Structures & Target Maps ---
             foreach (TypeDefinitionHandle typeHandle in mdReader.TypeDefinitions)
             {
                 try
@@ -60,9 +52,7 @@ namespace DotNetVisualizer.Web.Services
                     string fullName = string.IsNullOrEmpty(ns) ? name : $"{ns}.{name}";
 
                     bool isInterface = (typeDef.Attributes & TypeAttributes.Interface) != 0;
-
-                    // Track class along with its source assembly definitions
-                    classList.Add(new { fullName, assembly = assemblyName });
+                    classList.Add(fullName);
 
                     inheritanceNodes.Add(new { id = fullName, name = name, type = isInterface ? "Interface" : "Class" });
 
@@ -100,28 +90,13 @@ namespace DotNetVisualizer.Web.Services
 
                             if (methodName.StartsWith("<") || methodName.Equals(".ctor") || methodName.Equals(".cctor")) continue;
 
-                            // Bug 1 Fix: Read formal parameter names from the method definition metadata
-                            var parameterNamesList = new List<string>();
-                            foreach (var paramHandle in methodDef.GetParameters())
-                            {
-                                var param = mdReader.GetParameter(paramHandle);
-                                if (param.SequenceNumber == 0) continue; // Skip sequence 0 (return type relative attribute token)
-
-                                string paramName = mdReader.GetString(param.Name);
-                                if (!string.IsNullOrEmpty(paramName))
-                                {
-                                    parameterNamesList.Add(paramName);
-                                }
-                            }
-
-                            string parameterSignature = string.Join(", ", parameterNamesList);
-                            string baseMethodId = $"{fullName}.{methodName}({parameterSignature})";
+                            string baseMethodId = $"{fullName}.{methodName}()";
                             string methodUniqueId = baseMethodId;
                             int duplicateIndex = 1;
 
                             while (registeredMethodIds.Contains(methodUniqueId))
                             {
-                                methodUniqueId = $"{fullName}.{methodName}_{duplicateIndex}({parameterSignature})";
+                                methodUniqueId = $"{fullName}.{methodName}_{duplicateIndex}()";
                                 duplicateIndex++;
                             }
 
@@ -142,7 +117,7 @@ namespace DotNetVisualizer.Web.Services
                 catch { }
             }
 
-            // --- SECOND PASS: Fast-skipping IL Pointer Reader ---
+            // --- PASS 2: IL Pointer Scanner ---
             foreach (var item in methodsToScan)
             {
                 try
@@ -153,6 +128,7 @@ namespace DotNetVisualizer.Web.Services
                     while (ilReader.RemainingBytes > 0)
                     {
                         byte opCode = ilReader.ReadByte();
+
                         if (opCode == 0x28 || opCode == 0x6F)
                         {
                             if (ilReader.RemainingBytes >= 4)
@@ -204,14 +180,17 @@ namespace DotNetVisualizer.Web.Services
             }
 
             var methodAdjacencyList = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+
             foreach (dynamic edge in methodEdges)
             {
                 if (edge.relation == "Calls")
                 {
                     string fromNode = edge.from;
                     string toNode = edge.to;
+
                     if (!methodAdjacencyList.ContainsKey(fromNode))
                         methodAdjacencyList[fromNode] = new List<string>();
+
                     methodAdjacencyList[fromNode].Add(toNode);
                 }
             }
@@ -220,12 +199,13 @@ namespace DotNetVisualizer.Web.Services
 
             return new
             {
-                assemblyName = assemblyName,
                 classes = classList,
                 inheritance = new { nodes = inheritanceNodes, edges = inheritanceEdges },
                 methodGraph = new { nodes = methodNodes, edges = methodEdges },
                 deadlocks = detectedDeadlocks
             };
         }
+
+       
     }
 }

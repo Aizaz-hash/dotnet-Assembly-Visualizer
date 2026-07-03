@@ -721,16 +721,36 @@ function renderGraphMap() {
             }
 
             const shortClassName = fullClassName.split('.').pop();
+
             nodes.push({
-                id: id, label: `${shortClassName}.${methodName}`, shape: 'box',
-                color: localNode ? '#e8f5e9' : '#f5f5f5', title: `Full Path: ${fullClassName}.${methodName}`,
+                id: id,
+                label: `${shortClassName}.${methodName}`,
+                shape: 'box',
+                color: localNode ? '#e8f5e9' : '#f5e0e0',
+                title: localNode ? `Full Path: ${fullClassName}.${methodName}` : `External Reference (Assembly Not Uploaded): ${fullClassName}.${methodName}`,
                 font: { multi: true, bold: { color: '#212529' } }
             });
         });
 
-        edges = rawAssemblyData.methodGraph.edges.filter(e => relevantMethods.has(e.from) && relevantMethods.has(e.to)).map(e => ({
-            from: e.from, to: e.to, arrows: 'to'
-        }));
+        // 1. Create a tracking set to cache unique directional relationships
+        const processedEdgeSignatures = new Set();
+
+        // 2. Filter out duplicates from your raw global execution graph data array
+        edges = rawAssemblyData.methodGraph.edges
+            .filter(e => relevantMethods.has(e.from) && relevantMethods.has(e.to))
+            .filter(e => {
+                const signatureKey = `${e.from}->${e.to}`;
+                if (processedEdgeSignatures.has(signatureKey)) {
+                    return false; // Skip! Vis.js already has this connection drawn
+                }
+                processedEdgeSignatures.add(signatureKey);
+                return true; // Keep this unique method link
+            })
+            .map(e => ({
+                from: e.from,
+                to: e.to,
+                arrows: 'to'
+            }));
 
     } else if (currentViewMode === 'deadlocks') {
         const targetedAssemblyLoops = assemblyDeadlocksCache[currentSelectedAssembly];
