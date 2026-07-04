@@ -6,6 +6,22 @@ Most profilers require you to load the assembly into a running environment, whic
 
 ---
 
+## 🚀 Quick Start
+Run the latest published image — no .NET install required:
+
+```bash
+docker run --rm -p 8080:8080 ghcr.io/aizaz-hash/dotnet-visualizer-web:latest
+```
+
+Then open **http://localhost:8080** and upload your `.dll`.
+
+---
+
+## 📸 See it in action
+![Method call graph view](docs/images/method-call-view-page.png)
+
+---
+
 ## Why I built this
 * **Keep it lightweight:** It uses `System.Reflection.Metadata` to parse your DLL files directly. No runtime overhead, no slow loading times.
 * **Cut through the noise:** If you’ve ever used a visualizer, you know they usually turn into a "spaghetti mess" of nodes. I added a surgical filter so you can pick *one* method and see exactly who calls it (and who it calls) without the extra clutter.
@@ -24,6 +40,23 @@ Most profilers require you to load the assembly into a running environment, whic
 1.  **Clone the repo:** `git clone https://github.com/aizaz-hash/Dotnet-Visualizer-Web`
 2.  **Fire it up:** Just run `dotnet run`.
 3.  **Explore:** Upload your `.dll`, pick a class, and start digging into the dependencies.
+
+---
+
+## 🐳 Running with Docker
+The image pins the .NET version internally, so you don't need any specific .NET SDK/runtime installed on the host.
+
+```bash
+# Build the image
+docker build -t dotnet-visualizer .
+
+# Run it (the app listens on port 8080 inside the container)
+docker run --rm -p 8080:8080 dotnet-visualizer
+```
+
+Then open **http://localhost:8080** and upload your `.dll`.
+
+> The container port is set by the `"Urls"` value in `appsettings.json`. To map a different host port, change the left side, e.g. `-p 5000:8080`.
 
 ---
 

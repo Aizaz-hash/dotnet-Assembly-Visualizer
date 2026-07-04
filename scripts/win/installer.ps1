@@ -1,3 +1,27 @@
+<#
+.SYNOPSIS
+    Installs DotNetVisualizer.Web as an auto-start Windows Service.
+
+.DESCRIPTION
+    One-shot deployment script. It:
+      1. Stops and removes any existing "DAV" service.
+      2. Wipes and recreates the target folder (C:\DAV).
+      3. Publishes a self-contained win-x64 build into that folder.
+      4. Grants NT AUTHORITY\SYSTEM full control over the folder.
+      5. Registers the service and sets it to listen on http://*:9999.
+      6. Opens an inbound firewall rule for TCP 9999.
+      7. Starts the service and verifies it is running.
+
+.NOTES
+    - Must be run from an elevated (Administrator) PowerShell session.
+    - Run from the repo root so the relative $ProjectPath resolves.
+    - Edit the CONFIGURATION block below to change name, port, or paths.
+
+.EXAMPLE
+    # From an Administrator PowerShell at the repo root:
+    .\scripts\win\installer.ps1
+#>
+
 # ==================================================================================
 # CONFIGURATION
 # ==================================================================================
