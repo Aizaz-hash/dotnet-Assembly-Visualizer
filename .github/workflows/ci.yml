@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - run: dotnet restore
+      - run: dotnet build -c Release --no-restore
+
+  smoke-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t dotnet-visualizer:ci .
+
+      - name: Run container
+        run: docker run -d --rm -p 8080:8080 --name dav-ci dotnet-visualizer:ci
+
+      - name: Wait for homepage to return 200
+        run: |
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/ || true)
+            if [ "$code" = "200" ]; then
+              echo "Homepage returned 200"
+              exit 0
+            fi
+            echo "Attempt $i: got '$code', retrying..."
+            sleep 2
+          done
+          echo "Homepage did not return 200 in time"
+          docker logs dav-ci
+          exit 1
+
+      - name: Teardown
+        if: always()
+        run: docker stop dav-ci || true

@@ -1,0 +1,125 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write   # create GitHub Release + upload assets
+  packages: write   # push image to GHCR
+
+jobs:
+  docker-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute image name (lowercase owner)
+        id: img
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/dotnet-visualizer-web" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Derive image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.img.outputs.name }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  build-artifacts:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rid: [win-x64, linux-x64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publish self-contained (${{ matrix.rid }})
+        run: >
+          dotnet publish DotNetVisualizer.Web.csproj
+          -c Release -r ${{ matrix.rid }} --self-contained true
+          -o publish/${{ matrix.rid }}
+
+      - name: Package
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          BASE="dotnet-visualizer-${VERSION}-${{ matrix.rid }}"
+          mkdir -p dist
+          if [ "${{ matrix.rid }}" = "win-x64" ]; then
+            (cd publish/${{ matrix.rid }} && zip -r "$GITHUB_WORKSPACE/dist/${BASE}.zip" .)
+          else
+            tar -czf "dist/${BASE}.tar.gz" -C publish/${{ matrix.rid }} .
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-${{ matrix.rid }}
+          path: dist/*
+
+  release:
+    needs: build-artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download packaged artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Generate release notes
+        run: |
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/dotnet-visualizer-web"
+          VERSION="${GITHUB_REF_NAME#v}"
+          cat > RELEASE_NOTES.md <<'EOF'
+          ## 🐳 Docker image
+
+          Published to the GitHub Container Registry:
+
+          ```bash
+          docker pull __IMAGE__:__VERSION__
+          docker run --rm -p 8080:8080 __IMAGE__:__VERSION__
+          ```
+
+          Then open http://localhost:8080 and upload a `.dll`.
+          Also available as `__IMAGE__:latest`.
+
+          ## 📦 Self-contained builds (no .NET required)
+
+          Download the archive for your platform from the assets below, extract it,
+          and run the `DotNetVisualizer.Web` executable. The app listens on port 8080
+          (configurable via `appsettings.json`).
+
+          - **Windows (x64):** `dotnet-visualizer-__VERSION__-win-x64.zip`
+          - **Linux (x64):** `dotnet-visualizer-__VERSION__-linux-x64.tar.gz`
+          EOF
+          sed -i "s#__IMAGE__#${IMAGE}#g; s#__VERSION__#${VERSION}#g" RELEASE_NOTES.md
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: RELEASE_NOTES.md
+          append_body: true   # keep UI-authored notes; add install section below them
+          files: dist/*
