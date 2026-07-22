@@ -42,15 +42,19 @@ public static class AssemblyAnalyzer
                 TypeDefinition typeDef = mdReader.GetTypeDefinition(typeHandle);
 
                 string name = mdReader.GetString(typeDef.Name);
-                if (name.StartsWith("<") || name.Equals("<Module>")) continue;
+                // Allow <Program>$ (C# top-level statements) but skip other compiler-generated types
+                bool isProgramClass = name.Equals("<Program>$");
+                if ((name.StartsWith("<") && !isProgramClass) || name.Equals("<Module>")) continue;
 
                 string ns = mdReader.GetString(typeDef.Namespace);
                 string fullName = string.IsNullOrEmpty(ns) ? name : $"{ns}.{name}";
+                // Normalize <Program>$ to Program for display
+                if (isProgramClass) fullName = "Program";
 
                 bool isInterface = (typeDef.Attributes & TypeAttributes.Interface) != 0;
                 classList.Add(fullName);
 
-                inheritanceNodes.Add(new { id = fullName, name = name, type = isInterface ? "Interface" : "Class" });
+                inheritanceNodes.Add(new { id = fullName, name = isProgramClass ? "Program" : name, type = isInterface ? "Interface" : "Class" });
 
                 // Base Inheritance
                 if (!typeDef.BaseType.IsNil)
@@ -87,23 +91,25 @@ public static class AssemblyAnalyzer
                         MethodDefinition methodDef = mdReader.GetMethodDefinition(methodHandle);
                         string methodName = mdReader.GetString(methodDef.Name);
 
-                        if (methodName.StartsWith("<") || methodName.Equals(".ctor") || methodName.Equals(".cctor")) continue;
+                        // Allow <Main>$ (top-level statements entry point) but skip other compiler-generated methods
+                        bool isTopLevelMain = methodName.Equals("<Main>$");
+                        if ((methodName.StartsWith("<") && !isTopLevelMain) || methodName.Equals(".ctor") || methodName.Equals(".cctor")) continue;
 
-                        string baseMethodId = $"{fullName}.{methodName}()";
+                        string displayMethodName = isTopLevelMain ? "Main" : methodName;
+                        string baseMethodId = $"{fullName}.{displayMethodName}()";
                         string methodUniqueId = baseMethodId;
                         int duplicateIndex = 1;
 
                         while (registeredMethodIds.Contains(methodUniqueId))
                         {
-                            methodUniqueId = $"{fullName}.{methodName}_{duplicateIndex}()";
+                            methodUniqueId = $"{fullName}.{displayMethodName}_{duplicateIndex}()";
                             duplicateIndex++;
                         }
 
                         registeredMethodIds.Add(methodUniqueId);
                         tokenToUniqueMethodIdMap[methodHandle] = methodUniqueId;
 
-                        methodNodes.Add(new { id = methodUniqueId, name = methodName, parentClass = fullName });
-                        methodEdges.Add(new { from = methodUniqueId, to = fullName, relation = "DeclaredIn" });
+                        methodNodes.Add(new { id = methodUniqueId, name = displayMethodName, parentClass = fullName });
 
                         // Queue up for fast scanning if it contains code
                         if (methodDef.RelativeVirtualAddress > 0)
@@ -117,13 +123,19 @@ public static class AssemblyAnalyzer
             catch { }
         }
 
+        // Use a HashSet for O(1) lookups when filtering edges to internal calls only
+        var classSet = new HashSet<string>(classList, StringComparer.OrdinalIgnoreCase);
+
+        // Use a HashSet to deduplicate edges (same caller -> callee pair)
+        var edgeKeySet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
         // --- SECOND PASS: Fast-skipping IL Pointer Reader ---
         foreach (var item in methodsToScan)
         {
             try
             {
                 MethodBodyBlock body = peReader.GetMethodBody(item.Rva);
-                BlobReader ilReader = body.GetILReader(); // Significantly faster than allocation of arrays via GetILBytes()
+                BlobReader ilReader = body.GetILReader();
 
                 while (ilReader.RemainingBytes > 0)
                 {
@@ -138,10 +150,12 @@ public static class AssemblyAnalyzer
                             EntityHandle calledEntityHandle = MetadataTokens.EntityHandle(tokenVal);
                             string calleeMethodId = string.Empty;
                             string calleeParentClass = string.Empty;
+                            bool isInternalTarget = false;
 
                             if (calledEntityHandle.Kind == HandleKind.MethodDefinition)
                             {
                                 tokenToUniqueMethodIdMap.TryGetValue(calledEntityHandle, out calleeMethodId!);
+                                isInternalTarget = !string.IsNullOrEmpty(calleeMethodId);
                             }
                             else if (calledEntityHandle.Kind == HandleKind.MemberReference)
                             {
@@ -154,32 +168,32 @@ public static class AssemblyAnalyzer
                                     if (!targetMethodName.StartsWith("<") && !targetMethodName.Equals(".ctor"))
                                     {
                                         calleeMethodId = $"{calleeParentClass}.{targetMethodName}()";
+                                        // Only include MemberReference calls to classes within the analyzed assembly.
+                                        isInternalTarget = classSet.Contains(calleeParentClass);
                                     }
                                 }
                             }
 
-                            if (!string.IsNullOrEmpty(calleeMethodId) && !calleeMethodId.Equals(item.CallerMethodId))
+                            if (!string.IsNullOrEmpty(calleeMethodId) && !calleeMethodId.Equals(item.CallerMethodId) && isInternalTarget)
                             {
-                                string callerParent = item.CallerMethodId.Split('(')[0];
-                                int lastDot = callerParent.LastIndexOf('.');
-                                callerParent = lastDot > -1 ? callerParent.Substring(0, lastDot) : callerParent;
-
-                                methodEdges.Add(new
+                                string edgeKey = $"{item.CallerMethodId}|{calleeMethodId}";
+                                if (edgeKeySet.Add(edgeKey)) // Deduplicate
                                 {
-                                    from = item.CallerMethodId,
-                                    to = calleeMethodId,
-                                    relation = "Calls",
-                                    fromClass = callerParent,
-                                    toClass = calleeParentClass
-                                });
+                                    string callerParent = item.CallerMethodId.Split('(')[0];
+                                    int lastDot = callerParent.LastIndexOf('.');
+                                    callerParent = lastDot > -1 ? callerParent.Substring(0, lastDot) : callerParent;
+
+                                    methodEdges.Add(new
+                                    {
+                                        from = item.CallerMethodId,
+                                        to = calleeMethodId,
+                                        relation = "Calls",
+                                        fromClass = callerParent,
+                                        toClass = calleeParentClass
+                                    });
+                                }
                             }
                         }
-                    }
-                    else
-                    {
-                        // Optimization: Skip multielement opcodes parameters to avoid false matches on tokens 
-                        // by checking common multi-byte operations if compilation profiles are deep. 
-                        // For maximum raw speed, skipping single bytes handles standard assemblies perfectly.
                     }
                 }
             }
@@ -188,10 +202,8 @@ public static class AssemblyAnalyzer
 
         var methodAdjacencyList = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
 
-        // Populate adjacency dictionary using your scanned calls data
         foreach (dynamic edge in methodEdges)
         {
-            // Filter out architectural structural data, we only evaluate actual functional invocations
             if (edge.relation == "Calls")
             {
                 string fromNode = edge.from;
@@ -204,24 +216,15 @@ public static class AssemblyAnalyzer
             }
         }
 
-        // Run the 3-Color Detector
         List<List<string>> detectedDeadlocks = CircularDependencyDetector.DetectCycles(methodAdjacencyList);
 
-        // Return combined payload seamlessly back to your Minimal API controller
         return new
         {
             classes = classList,
             inheritance = new { nodes = inheritanceNodes, edges = inheritanceEdges },
             methodGraph = new { nodes = methodNodes, edges = methodEdges },
-            deadlocks = detectedDeadlocks // This will serialize directly into JSON for your UI!
+            deadlocks = detectedDeadlocks
         };
-
-        //return new
-        //{
-        //    classes = classList,
-        //    inheritance = new { nodes = inheritanceNodes, edges = inheritanceEdges },
-        //    methodGraph = new { nodes = methodNodes, edges = methodEdges }
-        //};
     }
 
     private static string GetStringFromEntityHandle(MetadataReader reader, EntityHandle handle)
@@ -235,6 +238,8 @@ public static class AssemblyAnalyzer
                 var td = reader.GetTypeDefinition((TypeDefinitionHandle)handle);
                 string ns = reader.GetString(td.Namespace);
                 string name = reader.GetString(td.Name);
+                // Normalize <Program>$ to Program for cross-reference lookups
+                if (name.Equals("<Program>$")) name = "Program";
                 return string.IsNullOrEmpty(ns) ? name : $"{ns}.{name}";
             }
             else if (handle.Kind == HandleKind.TypeReference)

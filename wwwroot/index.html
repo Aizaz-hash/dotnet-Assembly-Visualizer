@@ -409,6 +409,7 @@
                 text-decoration: none;
             }
     </style>
+    <base target="_blank">
 </head>
 <body>
 
@@ -676,12 +677,12 @@
                 const group = document.createElement('div');
                 group.className = 'folder-group collapsed';
                 group.innerHTML = `
-                            <div class="folder-header" onclick="toggleFolder(this)">
-                                <span class="folder-toggle-icon">▼</span>
-                                <span>${ns || '(Global Namespace)'}</span>
-                            </div>
-                            <div class="folder-children"></div>
-                        `;
+                                <div class="folder-header" onclick="toggleFolder(this)">
+                                    <span class="folder-toggle-icon">▼</span>
+                                    <span>${ns || '(Global Namespace)'}</span>
+                                </div>
+                                <div class="folder-children"></div>
+                            `;
                 const childrenContainer = group.querySelector('.folder-children');
                 items.forEach(item => {
                     const div = document.createElement('div');
@@ -736,16 +737,42 @@
                 });
 
                 if (currentSelectedMethod) {
-                    relevantMethods.add(currentSelectedMethod);
+                    // When a specific method is selected, show ALL methods in its parent class
+                    // so the method stays in class context instead of floating in isolation.
+                    const parentClass = rawAssemblyData.methodGraph.nodes.find(n => n.id === currentSelectedMethod)?.parentClass;
+                    if (parentClass) {
+                        rawAssemblyData.methodGraph.nodes.filter(m => m.parentClass === parentClass).forEach(m => {
+                            relevantMethods.add(m.id);
+                            methodToClassMap[m.id] = m.parentClass;
+                        });
+                    } else {
+                        relevantMethods.add(currentSelectedMethod);
+                    }
+                    // Also include cross-class callers/callees connected to any method in this class
                     rawAssemblyData.methodGraph.edges.forEach(e => {
-                        if (e.from === currentSelectedMethod || e.to === currentSelectedMethod) {
+                        if (e.relation !== "Calls") return;
+                        if (relevantMethods.has(e.from) || relevantMethods.has(e.to)) {
                             relevantMethods.add(e.from); relevantMethods.add(e.to);
                             if (e.fromClass) methodToClassMap[e.from] = e.fromClass;
                             if (e.toClass) methodToClassMap[e.to] = e.toClass;
                         }
                     });
                 } else {
-                    rawAssemblyData.methodGraph.nodes.filter(m => m.parentClass === currentSelectedClass).forEach(m => relevantMethods.add(m.id));
+                    // Class view: only include methods that participate in the call graph.
+                    // Start with methods in the selected class that have at least one Calls edge,
+                    // then expand outward to show cross-class callers/callees.
+                    const classMethodIds = new Set(rawAssemblyData.methodGraph.nodes
+                        .filter(m => m.parentClass === currentSelectedClass)
+                        .map(m => m.id));
+
+                    rawAssemblyData.methodGraph.edges.forEach(e => {
+                        if (e.relation !== "Calls") return;
+                        if (classMethodIds.has(e.from) || classMethodIds.has(e.to)) {
+                            relevantMethods.add(e.from); relevantMethods.add(e.to);
+                            if (e.fromClass) methodToClassMap[e.from] = e.fromClass;
+                            if (e.toClass) methodToClassMap[e.to] = e.toClass;
+                        }
+                    });
                 }
 
                 relevantMethods.forEach(id => {
@@ -760,8 +787,9 @@
                             methodName = cleanId.substring(lastDot + 1);
                             fullClassName = cleanId.substring(0, lastDot);
                         } else {
-                            methodName = id;
-                            fullClassName = "Unknown Class";
+                            // Skip IDs that don't look like valid MethodName.ClassName() patterns
+                            // (e.g. raw class names that leaked in as edge targets)
+                            return;
                         }
                     }
 
@@ -777,7 +805,7 @@
                     });
                 });
 
-                edges = rawAssemblyData.methodGraph.edges.filter(e => relevantMethods.has(e.from) && relevantMethods.has(e.to)).map(e => ({
+                edges = rawAssemblyData.methodGraph.edges.filter(e => e.relation === "Calls" && relevantMethods.has(e.from) && relevantMethods.has(e.to)).map(e => ({
                     from: e.from, to: e.to, arrows: 'to'
                 }));
 
