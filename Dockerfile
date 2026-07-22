@@ -3,12 +3,12 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
 # Restore first (cached unless the csproj changes)
-COPY DotNetVisualizer.Web.csproj .
+COPY dotnet-Assembly-Visualizer.csproj .
 RUN dotnet restore
 
 # Copy the rest and publish
 COPY . .
-RUN dotnet publish DotNetVisualizer.Web.csproj -c Release -o /app --no-restore
+RUN dotnet publish dotnet-Assembly-Visualizer.csproj -c Release -o /app --no-restore
 
 # ---- Runtime stage ----
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
@@ -19,4 +19,4 @@ COPY --from=build /app .
 EXPOSE 8080
 USER app
 
-ENTRYPOINT ["dotnet", "DotNetVisualizer.Web.dll"]
+ENTRYPOINT ["dotnet", "dotnet-Assembly-Visualizer.dll"]
