@@ -1,12 +1,13 @@
-﻿using System;
+﻿using Microsoft.AspNetCore.Http;
+using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.IO;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
-using Microsoft.AspNetCore.Http;
 
 public static class AssemblyAnalyzer
 {
@@ -24,8 +25,8 @@ public static class AssemblyAnalyzer
         var registeredMethodIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var tokenToUniqueMethodIdMap = new Dictionary<EntityHandle, string>();
 
-        // Keep track of methods that actually have executable bodies to scan in
-        var methodsToScan =  new List<(string CallerMethodId, string CallerClass, int Rva)>();
+        // Keep track of methods that actually have executable bodies to scan in pass 2
+        var methodsToScan = new List<(string CallerMethodId, string CallerClass, int Rva)>();
 
         using var stream = file.OpenReadStream();
         using var peReader = new PEReader(stream);
@@ -118,22 +119,28 @@ public static class AssemblyAnalyzer
                         MethodDefinition methodDef = mdReader.GetMethodDefinition(methodHandle);
 
                         string methodName = mdReader.GetString(methodDef.Name);
-                        bool isTopLevelMain = methodName.Equals("<Main>$");
-                        string lambdaDisplayName = isLambdaGeneratedType ? GetLambdaDisplayName(name, methodName, lambdaBindingNames): string.Empty;
 
-                        bool isLambdaBody = !string.IsNullOrEmpty(lambdaDisplayName) && (methodName.Contains("b__") || methodName.Equals("MoveNext"));
+                        bool isTopLevelMain =  methodName.Equals("<Main>$");
 
-                        if ((isLambdaGeneratedType && !isLambdaBody) ||  (!isLambdaGeneratedType && methodName.StartsWith("<") && !isTopLevelMain) || methodName.Equals(".ctor") || methodName.Equals(".cctor"))
+                        string lambdaDisplayName =  isLambdaGeneratedType ? GetLambdaDisplayName(name, methodName, lambdaBindingNames)  : string.Empty;
+
+                        bool isLambdaBody =!string.IsNullOrEmpty(lambdaDisplayName) && (methodName.Contains("b__") || methodName.Equals("MoveNext"));
+
+                        if ((isLambdaGeneratedType && !isLambdaBody) || (!isLambdaGeneratedType && methodName.StartsWith("<") && !isTopLevelMain) || methodName.Equals(".ctor") ||methodName.Equals(".cctor"))
                             continue;
 
-                        string displayMethodName = isTopLevelMain ? "Main" : isLambdaBody ? lambdaDisplayName : methodName;
-                        string baseMethodId = $"{fullName}.{displayMethodName}()";
+                        string displayMethodName = isTopLevelMain? "Main"  : isLambdaBody ? lambdaDisplayName : methodName;
+
+                        string methodSignature = GetMethodSignature(mdReader,methodHandle,  displayMethodName);
+
+                        string baseMethodId = $"{fullName}.{methodSignature}";
+
                         string methodUniqueId = baseMethodId;
                         int duplicateIndex = 1;
 
-                        while (registeredMethodIds.Contains(methodUniqueId) && !isLambdaBody)
+                        while (registeredMethodIds.Contains(methodUniqueId) &&  !isLambdaBody)
                         {
-                            methodUniqueId = $"{fullName}.{displayMethodName}_{duplicateIndex}()";
+                            methodUniqueId = $"{fullName}.{GetMethodNameWithDuplicateSuffix(methodSignature, duplicateIndex)}";
                             duplicateIndex++;
                         }
 
@@ -147,14 +154,21 @@ public static class AssemblyAnalyzer
                             methodNodes.Add(new
                             {
                                 id = methodUniqueId,
-                                name = displayMethodName,
+                                name = methodSignature,
                                 parentClass = fullName
                             });
                         }
 
                         // Queue methods containing executable IL for pass 2.
                         if (methodDef.RelativeVirtualAddress > 0)
-                            methodsToScan.Add( (methodUniqueId, fullName, methodDef.RelativeVirtualAddress));
+                        {
+                            methodsToScan.Add(
+                            (
+                                methodUniqueId,
+                                fullName,
+                                methodDef.RelativeVirtualAddress
+                            ));
+                        }
                     }
                     catch
                     {
@@ -184,13 +198,16 @@ public static class AssemblyAnalyzer
             try
             {
                 MethodBodyBlock body = peReader.GetMethodBody(item.Rva);
-                BlobReader ilReader = body.GetILReader();
 
-                while (TryReadInstruction(ref ilReader, out OpCode opCode, out int metadataToken))
+                BlobReader ilReader =  body.GetILReader();
+
+                while (TryReadInstruction(  ref ilReader, out OpCode opCode, out int metadataToken))
                 {
                     // We only care about actual method calls.
-                    if (opCode.Value != OpCodes.Call.Value &&  opCode.Value != OpCodes.Callvirt.Value)
+                    if (opCode.Value != OpCodes.Call.Value && opCode.Value != OpCodes.Callvirt.Value)
+                    {
                         continue;
+                    }
 
                     if (metadataToken == 0)
                         continue;
@@ -207,11 +224,13 @@ public static class AssemblyAnalyzer
                         if (tokenToUniqueMethodIdMap.TryGetValue(calledEntityHandle, out string? mappedMethodId))
                         {
                             calleeMethodId = mappedMethodId;
-                            MethodDefinition calledMethod = mdReader.GetMethodDefinition((MethodDefinitionHandle)calledEntityHandle);
 
-                            TypeDefinitionHandle declaringType =calledMethod.GetDeclaringType();
+                            MethodDefinition calledMethod = mdReader.GetMethodDefinition( (MethodDefinitionHandle)calledEntityHandle);
 
-                            if (!declaringType.IsNil) calleeParentClass = GetTypeDefinitionFullName(mdReader, declaringType);
+                            TypeDefinitionHandle declaringType = calledMethod.GetDeclaringType();
+
+                            if (!declaringType.IsNil)
+                                calleeParentClass = GetTypeDefinitionFullName(mdReader,declaringType);
 
                             isInternalTarget = true;
                         }
@@ -222,70 +241,89 @@ public static class AssemblyAnalyzer
                     {
                         MemberReference memRef = mdReader.GetMemberReference((MemberReferenceHandle)calledEntityHandle);
 
-                        if (memRef.Parent.Kind == HandleKind.TypeReference || memRef.Parent.Kind == HandleKind.TypeDefinition)
+                        if (memRef.Parent.Kind ==HandleKind.TypeReference || memRef.Parent.Kind == HandleKind.TypeDefinition)
                         {
-                            calleeParentClass =  GetStringFromEntityHandle(mdReader, memRef.Parent);
+                            calleeParentClass = GetStringFromEntityHandle( mdReader, memRef.Parent);
                             string targetMethodName = mdReader.GetString(memRef.Name);
 
-                            if (!targetMethodName.StartsWith("<") && !targetMethodName.Equals(".ctor"))
+                            if (!targetMethodName.StartsWith("<") &&!targetMethodName.Equals(".ctor"))
                             {
-                                calleeMethodId = $"{calleeParentClass}.{targetMethodName}()";
+                                string targetSignature = GetMemberReferenceMethodSignature(mdReader, (MemberReferenceHandle) calledEntityHandle, targetMethodName);
 
-                                // Only include methods belonging to
-                                // classes inside the analyzed assembly.
+                                calleeMethodId =  $"{calleeParentClass}.{targetSignature}";
+
                                 isInternalTarget = classSet.Contains(calleeParentClass);
+
+                                // If we can find the exact method in the
+                                // analyzed assembly, use its canonical ID.
+                                string? canonicalMethodId = FindCanonicalMethodId(methodNodes, calleeParentClass, targetSignature);
+
+                                if (!string.IsNullOrEmpty(canonicalMethodId))
+                                    calleeMethodId =canonicalMethodId;
                             }
                         }
                     }
 
-           
-                    // Handles generic method calls such as:
+                    // MethodSpecification
+                    // Handles generic method calls.
                     else if (calledEntityHandle.Kind == HandleKind.MethodSpecification)
                     {
-                        MethodSpecification methodSpec = mdReader.GetMethodSpecification((MethodSpecificationHandle)calledEntityHandle);
+                        MethodSpecification methodSpec =mdReader.GetMethodSpecification( (MethodSpecificationHandle) calledEntityHandle);
 
                         EntityHandle underlyingMethod = methodSpec.Method;
 
+                        // Generic method whose underlying method is
+                        // a MethodDefinition.
                         if (underlyingMethod.Kind == HandleKind.MethodDefinition)
                         {
-                            if (tokenToUniqueMethodIdMap.TryGetValue(
-                                underlyingMethod,
-                                out string? mappedMethodId))
+                            if (tokenToUniqueMethodIdMap.TryGetValue(underlyingMethod, out string? mappedMethodId))
                             {
                                 calleeMethodId = mappedMethodId;
 
-                                MethodDefinition calledMethod =mdReader.GetMethodDefinition((MethodDefinitionHandle)underlyingMethod);
+                                MethodDefinition calledMethod = mdReader.GetMethodDefinition((MethodDefinitionHandle) underlyingMethod);
+
                                 TypeDefinitionHandle declaringType = calledMethod.GetDeclaringType();
 
                                 if (!declaringType.IsNil)
-                                    calleeParentClass = GetTypeDefinitionFullName(mdReader, declaringType);
+                                    calleeParentClass =  GetTypeDefinitionFullName( mdReader,declaringType);
 
                                 isInternalTarget = true;
                             }
                         }
+
+                        // Generic method whose underlying method is
+                        // a MemberReference.
                         else if (underlyingMethod.Kind == HandleKind.MemberReference)
                         {
                             MemberReference memRef = mdReader.GetMemberReference((MemberReferenceHandle)underlyingMethod);
 
-                            if (memRef.Parent.Kind == HandleKind.TypeReference || memRef.Parent.Kind == HandleKind.TypeDefinition)
+                            if (memRef.Parent.Kind == HandleKind.TypeReference ||  memRef.Parent.Kind == HandleKind.TypeDefinition)
                             {
-                                calleeParentClass = GetStringFromEntityHandle(mdReader, memRef.Parent);
+                                calleeParentClass =GetStringFromEntityHandle(mdReader, memRef.Parent);
+
                                 string targetMethodName = mdReader.GetString(memRef.Name);
 
                                 if (!targetMethodName.StartsWith("<") && !targetMethodName.Equals(".ctor"))
                                 {
-                                    calleeMethodId = $"{calleeParentClass}.{targetMethodName}()";
-                                    isInternalTarget = classSet.Contains(calleeParentClass);
+                                    string targetSignature = GetMemberReferenceMethodSignature(mdReader, (MemberReferenceHandle)underlyingMethod, targetMethodName);
+
+                                    calleeMethodId =$"{calleeParentClass}.{targetSignature}";
+
+                                    isInternalTarget =classSet.Contains(calleeParentClass);
+
+                                    string? canonicalMethodId = FindCanonicalMethodId(methodNodes, calleeParentClass, targetSignature);
+
+                                    if (!string.IsNullOrEmpty(canonicalMethodId))
+                                    {
+                                        calleeMethodId = canonicalMethodId;
+                                    }
                                 }
                             }
                         }
                     }
 
                     // Register valid internal call
-                    if (!string.IsNullOrEmpty(calleeMethodId) &&
-                        !calleeMethodId.Equals(item.CallerMethodId,
-                                               StringComparison.OrdinalIgnoreCase) &&
-                        isInternalTarget)
+                    if (!string.IsNullOrEmpty(calleeMethodId) && !calleeMethodId.Equals(item.CallerMethodId, StringComparison.OrdinalIgnoreCase) && isInternalTarget)
                     {
                         string edgeKey = $"{item.CallerMethodId}|{calleeMethodId}";
 
@@ -350,8 +388,118 @@ public static class AssemblyAnalyzer
         };
     }
 
+    // METHOD SIGNATURE HELPERS
+    private static string GetMethodSignature(MetadataReader reader, MethodDefinitionHandle methodHandle, string displayMethodName)
+    {
+        MethodDefinition method = reader.GetMethodDefinition(methodHandle);
+
+        try
+        {
+            var provider = new MethodSignatureTypeProvider(reader);
+
+            var signature = method.DecodeSignature(provider, genericContext: null);
+
+            var parameterNames = new List<string>();
+
+            foreach (ParameterHandle parameterHandle in method.GetParameters())
+            {
+                Parameter parameter = reader.GetParameter(parameterHandle);
+
+                if (parameter.SequenceNumber == 0)
+                    continue;
+
+                string parameterName =  parameter.Name.IsNil ? $"arg{parameter.SequenceNumber - 1}": reader.GetString(parameter.Name);
+
+                parameterNames.Add(parameterName);
+            }
+
+            var parameters = new List<string>();
+
+            for (int i = 0; i < signature.ParameterTypes.Length; i++)
+            {
+                string parameterType =signature.ParameterTypes[i];
+
+                string parameterName = i < parameterNames.Count ? parameterNames[i] : $"arg{i}";
+
+                parameters.Add( $"{parameterType} {parameterName}");
+            }
+
+            return $"{displayMethodName}({string.Join(", ", parameters)})";
+        }
+        catch
+        {
+            // If signature decoding fails, retain the method name
+            // rather than preventing the entire assembly from loading.
+            return $"{displayMethodName}()";
+        }
+    }
+
+    private static string GetMemberReferenceMethodSignature( MetadataReader reader, MemberReferenceHandle memberReferenceHandle,string displayMethodName)
+    {
+        try
+        {
+            MemberReference memberReference = reader.GetMemberReference(  memberReferenceHandle);
+
+            var provider =   new MethodSignatureTypeProvider(reader);
+
+            var signature = memberReference.DecodeMethodSignature(provider,genericContext: null);
+
+            var parameters =  new List<string>();
+
+            for (int i = 0; i < signature.ParameterTypes.Length;  i++)
+            {
+                parameters.Add($"{signature.ParameterTypes[i]} arg{i}");
+            }
+
+            return
+                $"{displayMethodName}({string.Join(", ", parameters)})";
+        }
+        catch
+        {
+            return $"{displayMethodName}()";
+        }
+    }
+
+    private static string GetMethodNameWithDuplicateSuffix(string methodSignature, int duplicateIndex)
+    {
+        int openingParenthesis = methodSignature.IndexOf('(');
+
+        if (openingParenthesis < 0)
+            return $"{methodSignature}_{duplicateIndex}()";
+
+        string methodName = methodSignature.Substring(0, openingParenthesis);
+
+        string parameters =  methodSignature.Substring(openingParenthesis);
+
+        return $"{methodName}_{duplicateIndex}{parameters}";
+    }
+
+    private static string? FindCanonicalMethodId(List<object> methodNodes, string parentClass, string methodSignature)
+    {
+        foreach (object node in methodNodes)
+        {
+            Type nodeType = node.GetType();
+
+            var parentClassProperty = nodeType.GetProperty("parentClass");
+
+            var idProperty = nodeType.GetProperty("id");
+
+            if (parentClassProperty == null || idProperty == null)
+                continue;
+
+            string? nodeParentClass =parentClassProperty.GetValue(node)?.ToString();
+
+            string? nodeId =  idProperty.GetValue(node)?.ToString();
+
+            if (string.Equals(nodeParentClass,  parentClass, StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(nodeId) &&  nodeId.EndsWith( "." + methodSignature, StringComparison.OrdinalIgnoreCase))
+                return nodeId;
+        }
+
+        return null;
+    }
+
     // METADATA HELPERS
-    private static string GetStringFromEntityHandle(MetadataReader reader, EntityHandle handle)
+    private static string GetStringFromEntityHandle( MetadataReader reader,  EntityHandle handle)
     {
         try
         {
@@ -359,14 +507,19 @@ public static class AssemblyAnalyzer
                 return string.Empty;
 
             if (handle.Kind == HandleKind.TypeDefinition)
-                return GetTypeDefinitionFullName(reader, (TypeDefinitionHandle)handle);
+            {
+                return GetTypeDefinitionFullName( reader, (TypeDefinitionHandle)handle);
+            }
 
             if (handle.Kind == HandleKind.TypeReference)
             {
-                var tr = reader.GetTypeReference((TypeReferenceHandle)handle);
+                var tr = reader.GetTypeReference( (TypeReferenceHandle)handle);
+
                 string ns = reader.GetString(tr.Namespace);
+
                 string name = reader.GetString(tr.Name);
 
+                return string.IsNullOrEmpty(ns) ? name : $"{ns}.{name}";
             }
 
             if (handle.Kind == HandleKind.TypeSpecification)
@@ -389,14 +542,14 @@ public static class AssemblyAnalyzer
         return name.StartsWith("<>c") || name.Contains("b__");
     }
 
-    private static bool IsTopLevelStatementsType(MetadataReader reader, TypeDefinition typeDef)
+    private static bool IsTopLevelStatementsType(MetadataReader reader,TypeDefinition typeDef)
     {
         if (!typeDef.GetDeclaringType().IsNil)
             return false;
 
         foreach (MethodDefinitionHandle methodHandle in typeDef.GetMethods())
         {
-            MethodDefinition method = reader.GetMethodDefinition(methodHandle);
+            MethodDefinition method =  reader.GetMethodDefinition(methodHandle);
 
             if (reader.GetString(method.Name).Equals("<Main>$"))
                 return true;
@@ -405,19 +558,20 @@ public static class AssemblyAnalyzer
         return false;
     }
 
-    private static bool TryGetContainingSourceTypeName(MetadataReader reader, TypeDefinition typeDef, out string fullName)
+    private static bool TryGetContainingSourceTypeName(MetadataReader reader, TypeDefinition typeDef,out string fullName)
     {
         TypeDefinitionHandle declaringTypeHandle = typeDef.GetDeclaringType();
 
         while (!declaringTypeHandle.IsNil)
         {
-            TypeDefinition declaringType = reader.GetTypeDefinition(declaringTypeHandle);
+            TypeDefinition declaringType =reader.GetTypeDefinition( declaringTypeHandle);
 
-            string declaringTypeName = reader.GetString(declaringType.Name);
+            string declaringTypeName =   reader.GetString(declaringType.Name);
 
-            if (!IsCompilerGeneratedName(declaringTypeName) || IsTopLevelStatementsType(reader, declaringType))
+            if (!IsCompilerGeneratedName(declaringTypeName) || IsTopLevelStatementsType( reader, declaringType))
             {
                 fullName = GetTypeDefinitionFullName(reader, declaringTypeHandle);
+
                 return true;
             }
 
@@ -437,41 +591,51 @@ public static class AssemblyAnalyzer
         while (!currentTypeHandle.IsNil)
         {
             TypeDefinition currentType = reader.GetTypeDefinition(currentTypeHandle);
+
             typeNames.Push(GetDisplayTypeName(reader, currentType));
+
             currentTypeHandle = currentType.GetDeclaringType();
         }
 
         TypeDefinition outerType = reader.GetTypeDefinition(typeHandle);
 
         while (!outerType.GetDeclaringType().IsNil)
-            outerType = reader.GetTypeDefinition(outerType.GetDeclaringType());
+            outerType =  reader.GetTypeDefinition(outerType.GetDeclaringType());
 
         string ns = reader.GetString(outerType.Namespace);
 
-        string typeName = string.Join(".", typeNames);
+        string typeName =  string.Join(".", typeNames);
 
-        return string.IsNullOrEmpty(ns) ? typeName : $"{ns}.{typeName}";
+        return string.IsNullOrEmpty(ns)  ? typeName : $"{ns}.{typeName}";
     }
 
-    private static string GetDisplayTypeName(MetadataReader reader, TypeDefinition typeDef)
+    private static string GetDisplayTypeName(MetadataReader reader,  TypeDefinition typeDef)
     {
         string name = reader.GetString(typeDef.Name);
-        return IsTopLevelStatementsType(reader, typeDef) && name.StartsWith("<") && name.EndsWith(">$")  ? name.Substring(1, name.Length - 3) : name;
+
+        return IsTopLevelStatementsType( reader, typeDef) && name.StartsWith("<") && name.EndsWith(">$") ? name.Substring(1, name.Length - 3) : name;
     }
 
     // LAMBDA DETECTION
     private static Dictionary<string, string> GetLambdaBindingNames(
-        PEReader peReader, MetadataReader reader)
+        PEReader peReader,
+        MetadataReader reader)
     {
-        var routeNames = new Dictionary<string, string>(StringComparer.Ordinal);
+        var routeNames =
+            new Dictionary<string, string>(
+                StringComparer.Ordinal);
 
-        foreach (TypeDefinitionHandle typeHandle in reader.TypeDefinitions)
+        foreach (TypeDefinitionHandle typeHandle
+                 in reader.TypeDefinitions)
         {
-            TypeDefinition type = reader.GetTypeDefinition(typeHandle);
+            TypeDefinition type =
+                reader.GetTypeDefinition(typeHandle);
 
-            foreach (MethodDefinitionHandle methodHandle in type.GetMethods())
+            foreach (MethodDefinitionHandle methodHandle
+                     in type.GetMethods())
             {
-                MethodDefinition method = reader.GetMethodDefinition(methodHandle);
+                MethodDefinition method =
+                    reader.GetMethodDefinition(methodHandle);
 
                 if (method.RelativeVirtualAddress == 0)
                     continue;
@@ -483,30 +647,30 @@ public static class AssemblyAnalyzer
                     bool hasDelegateInstance = false;
                     bool lastInstructionWasDup = false;
 
-                    BlobReader ilReader = peReader.GetMethodBody(method.RelativeVirtualAddress).GetILReader();
+                    BlobReader ilReader =  peReader.GetMethodBody(method.RelativeVirtualAddress).GetILReader();
 
-                    while (TryReadInstruction(ref ilReader, out OpCode opCode, out int metadataToken))
+                    while (TryReadInstruction( ref ilReader, out OpCode opCode, out int metadataToken))
                     {
                         if (opCode.Value == OpCodes.Ldstr.Value)
                         {
                             lastString = reader.GetUserString(MetadataTokens.UserStringHandle(metadataToken));
                         }
-                        else if (opCode.Value == OpCodes.Ldftn.Value || opCode.Value == OpCodes.Ldvirtftn.Value)
+                        else if ( opCode.Value == OpCodes.Ldftn.Value || opCode.Value == OpCodes.Ldvirtftn.Value)
                         {
-                            lastLambdaIdentifier =GetLambdaIdentifierFromMethodToken(reader, metadataToken);
+                            lastLambdaIdentifier =  GetLambdaIdentifierFromMethodToken(reader, metadataToken);
                             hasDelegateInstance = false;
                         }
-                        else if (opCode.Value == OpCodes.Newobj.Value && !string.IsNullOrEmpty(lastLambdaIdentifier) &&   GetMethodName(reader, MetadataTokens.EntityHandle(metadataToken)).Equals(".ctor"))
+                        else if (opCode.Value == OpCodes.Newobj.Value && !string.IsNullOrEmpty( lastLambdaIdentifier) && GetMethodName(reader,  MetadataTokens.EntityHandle(metadataToken)).Equals(".ctor"))
                         {
                             hasDelegateInstance = true;
                         }
-                        else if (!string.IsNullOrEmpty(lastLambdaIdentifier) && (IsLocalOrArgumentStore(opCode) ||  (IsFieldStore(opCode) && !lastInstructionWasDup)))
+                        else if ( !string.IsNullOrEmpty( lastLambdaIdentifier) && (IsLocalOrArgumentStore(opCode) || (IsFieldStore(opCode) && !lastInstructionWasDup)))
                         {
                             lastLambdaIdentifier = null;
                             lastString = null;
                             hasDelegateInstance = false;
                         }
-                        else if ((opCode.Value == OpCodes.Call.Value ||opCode.Value == OpCodes.Callvirt.Value) &&  !string.IsNullOrEmpty(lastLambdaIdentifier) &&hasDelegateInstance &&GetLambdaConsumerMethodName(reader, metadataToken) is string consumerMethodName)
+                        else if ((opCode.Value == OpCodes.Call.Value || opCode.Value == OpCodes.Callvirt.Value) && !string.IsNullOrEmpty(lastLambdaIdentifier) && hasDelegateInstance && GetLambdaConsumerMethodName(reader, metadataToken) is string consumerMethodName)
                         {
                             if (consumerMethodName.Equals("Invoke"))
                             {
@@ -516,25 +680,21 @@ public static class AssemblyAnalyzer
                             }
                             else
                             {
-                                routeNames.TryAdd(lastLambdaIdentifier,
-                                                  consumerMethodName.StartsWith(
-                                                      "Map", StringComparison.Ordinal) &&
-                                                          !string.IsNullOrEmpty(lastString)
-                                                      ? $"{consumerMethodName}_{lastString}"
-                                                      : consumerMethodName);
-
+                                routeNames.TryAdd(lastLambdaIdentifier, consumerMethodName.StartsWith("Map", StringComparison.Ordinal) && !string.IsNullOrEmpty(lastString) ? $"{consumerMethodName}_{lastString}" : consumerMethodName);
                                 lastLambdaIdentifier = null;
                                 lastString = null;
                                 hasDelegateInstance = false;
                             }
                         }
 
-                        lastInstructionWasDup = opCode.Value == OpCodes.Dup.Value;
+                        lastInstructionWasDup =
+                            opCode.Value == OpCodes.Dup.Value;
                     }
                 }
                 catch
                 {
-                    // Safely continue.
+                    // The call graph scan will report whatever
+                    // metadata can be safely read.
                 }
             }
         }
@@ -542,13 +702,13 @@ public static class AssemblyAnalyzer
         return routeNames;
     }
 
-    private static string? GetLambdaConsumerMethodName(MetadataReader reader, int metadataToken)
+    private static string? GetLambdaConsumerMethodName(MetadataReader reader,int metadataToken)
     {
         EntityHandle methodHandle = MetadataTokens.EntityHandle(metadataToken);
 
-        string methodName = GetMethodName(reader, methodHandle);
+        string methodName = GetMethodName( reader,  methodHandle);
 
-        return methodName.Equals(".ctor") ? null : methodName;
+        return methodName.Equals(".ctor")  ? null  : methodName;
     }
 
     private static bool IsLocalOrArgumentStore(OpCode opCode)
@@ -568,13 +728,11 @@ public static class AssemblyAnalyzer
         return opCode.Value == OpCodes.Stfld.Value || opCode.Value == OpCodes.Stsfld.Value;
     }
 
-    private static string GetMethodName(MetadataReader reader,
-                                        EntityHandle methodHandle)
+    private static string GetMethodName(MetadataReader reader, EntityHandle methodHandle)
     {
         return methodHandle.Kind switch
         {
-            HandleKind.MethodDefinition => reader.GetString(reader.GetMethodDefinition((MethodDefinitionHandle)methodHandle)
-                    .Name),
+            HandleKind.MethodDefinition => reader.GetString(reader.GetMethodDefinition((MethodDefinitionHandle) methodHandle).Name),
 
             HandleKind.MemberReference => reader.GetString(reader.GetMemberReference((MemberReferenceHandle)methodHandle).Name),
 
@@ -595,13 +753,11 @@ public static class AssemblyAnalyzer
 
         string lambdaIdentifier = GetLambdaIdentifier(methodName);
 
-        return string.IsNullOrEmpty(lambdaIdentifier) ? null : lambdaIdentifier;
+        return string.IsNullOrEmpty(lambdaIdentifier)  ? null  : lambdaIdentifier;
     }
 
-    // Every instruction is consumed completely, including operands.
-    // Therefore the next iteration always starts at the next opcode.
-
-    private static bool TryReadInstruction(ref BlobReader reader, out OpCode opCode, out int metadataToken)
+    // IL INSTRUCTION READER
+    private static bool TryReadInstruction( ref BlobReader reader, out OpCode opCode, out int metadataToken)
     {
         opCode = default;
         metadataToken = 0;
@@ -651,8 +807,6 @@ public static class AssemblyAnalyzer
             return false;
 
         // If this instruction has a metadata token, preserve it.
-        // This is what allows the caller/callee analyzer to resolve: call, callvirt, ldftn, newobj, etc.
-        // ------------------------------------------------------------
         if (operandSize == 4 && IsMetadataTokenOperand(opCode.OperandType))
             metadataToken = reader.ReadInt32();
         else
@@ -661,17 +815,33 @@ public static class AssemblyAnalyzer
         return true;
     }
 
-    private static int GetOperandSize(OperandType operandType)
+    private static int GetOperandSize(
+        OperandType operandType)
     {
         return operandType switch
         {
-            OperandType.InlineBrTarget or OperandType.InlineField or OperandType .InlineI or OperandType.InlineMethod or OperandType.InlineSig or OperandType.InlineString or OperandType .InlineTok or OperandType.InlineType or OperandType.ShortInlineR => 4,
+            OperandType.InlineBrTarget or
+            OperandType.InlineField or
+            OperandType.InlineI or
+            OperandType.InlineMethod or
+            OperandType.InlineSig or
+            OperandType.InlineString or
+            OperandType.InlineTok or
+            OperandType.InlineType or
+            OperandType.ShortInlineR
+                => 4,
 
-            OperandType.InlineI8 or OperandType.InlineR => 8,
+            OperandType.InlineI8 or
+            OperandType.InlineR
+                => 8,
 
-            OperandType.InlineVar => 2,
+            OperandType.InlineVar
+                => 2,
 
-            OperandType.ShortInlineBrTarget or OperandType.ShortInlineI or OperandType.ShortInlineVar => 1,
+            OperandType.ShortInlineBrTarget or
+            OperandType.ShortInlineI or
+            OperandType.ShortInlineVar
+                => 1,
 
             _ => 0
         };
@@ -679,7 +849,13 @@ public static class AssemblyAnalyzer
 
     private static bool IsMetadataTokenOperand(OperandType operandType)
     {
-        return operandType is OperandType.InlineField or OperandType.InlineMethod or OperandType.InlineSig or OperandType.InlineString or OperandType.InlineTok or OperandType.InlineType;
+        return operandType is
+            OperandType.InlineField or
+            OperandType.InlineMethod or
+            OperandType.InlineSig or
+            OperandType.InlineString or
+            OperandType.InlineTok or
+            OperandType.InlineType;
     }
 
     private static Dictionary<short, OpCode> CreateIlOpCodeMap()
@@ -699,30 +875,27 @@ public static class AssemblyAnalyzer
     }
 
     // LAMBDA DISPLAY HELPERS
-    private static string GetLambdaDisplayName(
-        string generatedTypeName, string generatedMethodName,
-        Dictionary<string, string> lambdaBindingNames)
+    private static string GetLambdaDisplayName( string generatedTypeName, string generatedMethodName, Dictionary<string, string> lambdaBindingNames)
     {
-        string generatedName = generatedMethodName.Equals("MoveNext") ? generatedTypeName : generatedMethodName;
+        string generatedName =  generatedMethodName.Equals("MoveNext") ? generatedTypeName : generatedMethodName;
 
         string lambdaIdentifier = GetLambdaIdentifier(generatedName);
 
         if (string.IsNullOrEmpty(lambdaIdentifier))
             return string.Empty;
 
-        if (lambdaBindingNames.TryGetValue( lambdaIdentifier, out string? bindingName))
+        if (lambdaBindingNames.TryGetValue(lambdaIdentifier, out string? bindingName))
         {
-            string containingMethodName =GetLambdaContainingMethodName(generatedName);
-
-            return string.IsNullOrEmpty(containingMethodName) ? bindingName : $"{containingMethodName}.{bindingName}";
+            string containingMethodName = GetLambdaContainingMethodName(generatedName);
+            return string.IsNullOrEmpty(containingMethodName)? bindingName: $"{containingMethodName}.{bindingName}";
         }
 
-        string fallbackContainingMethodName =  GetLambdaContainingMethodName(generatedName);
+        string fallbackContainingMethodName = GetLambdaContainingMethodName( generatedName);
 
-        return string.IsNullOrEmpty(fallbackContainingMethodName)  ? lambdaIdentifier : $"{fallbackContainingMethodName}.{lambdaIdentifier}";
+        return string.IsNullOrEmpty(fallbackContainingMethodName) ? lambdaIdentifier : $"{fallbackContainingMethodName}.{lambdaIdentifier}";
     }
 
-    private static string GetLambdaIdentifier(string generatedName)
+    private static string GetLambdaIdentifier( string generatedName)
     {
         int lambdaIndex = generatedName.IndexOf("b__", StringComparison.Ordinal);
 
@@ -733,23 +906,131 @@ public static class AssemblyAnalyzer
 
         int identifierEnd = generatedName.IndexOf('>', identifierStart);
 
-        return identifierEnd >= identifierStart ? generatedName.Substring(identifierStart,  identifierEnd - identifierStart) : generatedName.Substring(identifierStart);
+        return identifierEnd >= identifierStart ? generatedName.Substring(identifierStart, identifierEnd - identifierStart) : generatedName.Substring( identifierStart);
     }
 
     private static string GetLambdaContainingMethodName(string generatedName)
     {
-        int lambdaIndex = generatedName.IndexOf("b__", StringComparison.Ordinal);
+        int lambdaIndex = generatedName.IndexOf( "b__", StringComparison.Ordinal);
 
         if (lambdaIndex < 0)
             return string.Empty;
 
-        int methodStart = generatedName.LastIndexOf('<', lambdaIndex);
+        int methodStart = generatedName.LastIndexOf( '<', lambdaIndex);
 
-        int methodEnd = generatedName.IndexOf('>', methodStart + 1);
+        int methodEnd = generatedName.IndexOf( '>', methodStart + 1);
 
         if (methodStart < 0 || methodEnd <= methodStart)
             return string.Empty;
 
-        return generatedName.Substring(methodStart + 1, methodEnd - methodStart - 1).TrimStart('<');
+        return generatedName.Substring(  methodStart + 1, methodEnd - methodStart - 1).TrimStart('<');
+    }
+
+    // SIGNATURE TYPE PROVIDER
+    internal sealed class MethodSignatureTypeProvider :ISignatureTypeProvider<string, object>
+    {
+        private readonly MetadataReader _reader;
+
+        public MethodSignatureTypeProvider( MetadataReader reader)
+        {
+            _reader = reader;
+        }
+
+        public string GetArrayType(string elementType, ArrayShape shape)
+        {
+            if (shape.Rank == 1)
+                return $"{elementType}[]";
+
+            return $"{elementType}[{new string(',', shape.Rank - 1)}]";
+        }
+
+        public string GetByReferenceType( string elementType)
+        {
+            return $"{elementType}&";
+        }
+
+        public string GetFunctionPointerType( MethodSignature<string> signature)
+        {
+            var parameters = string.Join( ", ",signature.ParameterTypes);
+
+            return $"delegate*<{parameters}>";
+        }
+
+        public string GetGenericInstantiation(string genericType, ImmutableArray<string> typeArguments)
+        {
+            return $"{genericType}<{string.Join(", ", typeArguments)}>";
+        }
+
+        public string GetGenericMethodParameter( object genericContext, int index)
+        {
+            return $"!!{index}";
+        }
+
+        public string GetGenericTypeParameter(object genericContext, int index)
+        {
+            return $"!{index}";
+        }
+
+        public string GetModifiedType(string modifier, string unmodifiedType,bool isRequired)
+        {
+            return unmodifiedType;
+        }
+
+        public string GetPinnedType( string elementType)
+        {
+            return elementType;
+        }
+
+        public string GetPointerType(string elementType)
+        {
+            return $"{elementType}*";
+        }
+
+        public string GetPrimitiveType(PrimitiveTypeCode typeCode)
+        {
+            return typeCode switch
+            {
+                PrimitiveTypeCode.Void => "void",
+                PrimitiveTypeCode.Boolean => "bool",
+                PrimitiveTypeCode.Char => "char",
+                PrimitiveTypeCode.SByte => "sbyte",
+                PrimitiveTypeCode.Byte => "byte",
+                PrimitiveTypeCode.Int16 => "short",
+                PrimitiveTypeCode.UInt16 => "ushort",
+                PrimitiveTypeCode.Int32 => "int",
+                PrimitiveTypeCode.UInt32 => "uint",
+                PrimitiveTypeCode.Int64 => "long",
+                PrimitiveTypeCode.UInt64 => "ulong",
+                PrimitiveTypeCode.Single => "float",
+                PrimitiveTypeCode.Double => "double",
+                PrimitiveTypeCode.String => "string",
+                PrimitiveTypeCode.IntPtr => "nint",
+                PrimitiveTypeCode.UIntPtr => "nuint",
+                PrimitiveTypeCode.Object => "object",
+                _ => typeCode.ToString()
+            };
+        }
+
+        public string GetSZArrayType(string elementType)
+        {
+            return $"{elementType}[]";
+        }
+
+        public string GetTypeFromDefinition( MetadataReader reader, TypeDefinitionHandle handle,byte rawTypeKind)
+        {
+            return GetTypeDefinitionFullName(  reader, handle);
+        }
+
+        public string GetTypeFromReference(MetadataReader reader, TypeReferenceHandle handle,byte rawTypeKind)
+        {
+            return GetStringFromEntityHandle( reader,  handle);
+        }
+
+        public string GetTypeFromSpecification( MetadataReader reader,object genericContext,TypeSpecificationHandle handle, byte rawTypeKind)
+        {
+            TypeSpecification specification = reader.GetTypeSpecification(handle);
+
+            return specification.DecodeSignature( this, genericContext);
+        }
     }
 }
