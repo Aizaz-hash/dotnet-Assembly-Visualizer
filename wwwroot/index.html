@@ -728,7 +728,9 @@
                     font: { align: 'horizontal', vadjust: -12, size: 11, color: '#495057' }
                 }));
 
-            } else if (currentViewMode === 'methods') {
+            }
+            else if (currentViewMode === 'methods')
+            {
                 const relevantMethods = new Set();
                 const methodToClassMap = {};
 
@@ -737,40 +739,88 @@
                 });
 
                 if (currentSelectedMethod) {
-                    // When a specific method is selected, show ALL methods in its parent class
-                    // so the method stays in class context instead of floating in isolation.
-                    const parentClass = rawAssemblyData.methodGraph.nodes.find(n => n.id === currentSelectedMethod)?.parentClass;
-                    if (parentClass) {
-                        rawAssemblyData.methodGraph.nodes.filter(m => m.parentClass === parentClass).forEach(m => {
-                            relevantMethods.add(m.id);
-                            methodToClassMap[m.id] = m.parentClass;
-                        });
-                    } else {
-                        relevantMethods.add(currentSelectedMethod);
+
+                    const selectedMethodNode = rawAssemblyData.methodGraph.nodes.find( n => n.id === currentSelectedMethod);
+
+                    if (!selectedMethodNode)
+                    {
+                        container.innerHTML = `
+                            <div style="padding:40px;text-align:center;color:#6c757d;">
+                                Selected method was not found in the method graph.
+                            </div>
+                        `;
+                        return;
                     }
-                    // Also include cross-class callers/callees connected to any method in this class
-                    rawAssemblyData.methodGraph.edges.forEach(e => {
-                        if (e.relation !== "Calls") return;
-                        if (relevantMethods.has(e.from) || relevantMethods.has(e.to)) {
-                            relevantMethods.add(e.from); relevantMethods.add(e.to);
-                            if (e.fromClass) methodToClassMap[e.from] = e.fromClass;
-                            if (e.toClass) methodToClassMap[e.to] = e.toClass;
+
+                    // Always include the selected method itself.
+                    relevantMethods.add(currentSelectedMethod);
+                    methodToClassMap[currentSelectedMethod] =  selectedMethodNode.parentClass;
+
+      
+                    // Edge:
+                    // from = caller
+                    // to   = selected method
+                    rawAssemblyData.methodGraph.edges.forEach(e =>
+                    {
+
+                        if (e.relation !== "Calls")
+                        {
+                            return;
+                        }
+
+                        if (e.to === currentSelectedMethod)
+                        {
+                            // Caller
+                            relevantMethods.add(e.from);
+
+                            // Targeta
+                            relevantMethods.add(e.to);
+
+                            if (e.fromClass) {
+                                methodToClassMap[e.from] = e.fromClass;
+                            }
+
+                            if (e.toClass) {
+                                methodToClassMap[e.to] = e.toClass;
+                            }
                         }
                     });
-                } else {
-                    // Class view: only include methods that participate in the call graph.
-                    // Start with methods in the selected class that have at least one Calls edge,
-                    // then expand outward to show cross-class callers/callees.
-                    const classMethodIds = new Set(rawAssemblyData.methodGraph.nodes
-                        .filter(m => m.parentClass === currentSelectedClass)
-                        .map(m => m.id));
+
+                }
+                else
+                {
+
+                    // CLASS METHOD VIEW
+                    // No specific method selected.
+                    // Show methods connected to the selected class.
+
+                    const classMethodIds =
+                        new Set(
+                            rawAssemblyData.methodGraph.nodes
+                                .filter(m => m.parentClass === currentSelectedClass)
+                                .map(m => m.id)
+                        );
 
                     rawAssemblyData.methodGraph.edges.forEach(e => {
-                        if (e.relation !== "Calls") return;
-                        if (classMethodIds.has(e.from) || classMethodIds.has(e.to)) {
-                            relevantMethods.add(e.from); relevantMethods.add(e.to);
-                            if (e.fromClass) methodToClassMap[e.from] = e.fromClass;
-                            if (e.toClass) methodToClassMap[e.to] = e.toClass;
+
+                        if (e.relation !== "Calls") {
+                            return;
+                        }
+
+                        if (
+                            classMethodIds.has(e.from) ||
+                            classMethodIds.has(e.to)
+                        ) {
+                            relevantMethods.add(e.from);
+                            relevantMethods.add(e.to);
+
+                            if (e.fromClass) {
+                                methodToClassMap[e.from] = e.fromClass;
+                            }
+
+                            if (e.toClass) {
+                                methodToClassMap[e.to] = e.toClass;
+                            }
                         }
                     });
                 }
@@ -809,7 +859,9 @@
                     from: e.from, to: e.to, arrows: 'to'
                 }));
 
-            } else if (currentViewMode === 'deadlocks') {
+            }
+            else if (currentViewMode === 'deadlocks')
+            {
                 if (currentSelectedDeadlockIndex === null) {
                     container.innerHTML = `<div style="padding:40px;text-align:center;color:#6c757d;">Please select a detected deadlock cycle path trace option from the sidebar directory.</div>`;
                     return;
