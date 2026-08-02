@@ -69,9 +69,9 @@
             user-select: none;
         }
 
-            .file-upload-label:hover {
-                background: #218838;
-            }
+        .file-upload-label:hover {
+            background: #218838;
+        }
 
         #dllFile {
             position: absolute;
@@ -83,40 +83,103 @@
             cursor: pointer;
         }
 
-        .dll-name-display {
-            font-size: 0.85rem;
-            color: #adb5bd;
-            font-weight: 500;
-            max-width: 180px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .custom-dropdown {
-            position: relative;
-            display: inline-block;
-            width: 300px;
-        }
-
-        .dropdown-trigger {
-            background: #495057;
-            border: 1px solid #6c757d;
-            color: white;
-            padding: 8px 12px;
+        .action-btn {
+            padding: 7px 12px;
             border-radius: 4px;
             font-size: 0.85rem;
             cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            font-weight: 500;
             user-select: none;
+            transition: background-color 0.2s;
         }
 
-            .dropdown-trigger.disabled {
-                opacity: 0.4;
-                cursor: not-allowed;
-            }
+        #btnRefresh {
+            background: #495057;
+            color: white;
+            border: 1px solid #6c757d;
+        }
+
+        #btnRefresh:hover {
+            background: #343a40;
+        }
+
+        #btnRemoveCurrent {
+            background: #dc3545;
+            color: white;
+            border: 1px solid #bd2130;
+        }
+
+        #btnRemoveCurrent:hover {
+            background: #c82333;
+        }
+        /* Custom Dropdown Container */
+        .custom-dropdown {
+            position: relative;
+            display: inline-block;
+            width: auto;
+            min-width: 180px; /* Gives the trigger button a solid base width */
+            max-width: 650px;
+        }
+
+        /* Expanded Dropdown Popup Menu */
+        .dropdown-menu {
+            position: absolute;
+            top: 105%;
+            left: 0;
+            min-width: 320px; /* 👈 FIX: Sets a wide default width so it never feels cramped */
+            width: max-content; /* Expands beyond 320px if long names are present */
+            max-width: 650px; /* Prevents it from going off-screen */
+            max-height: 400px;
+            background: white;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: none;
+            flex-direction: column;
+            z-index: 100;
+            box-sizing: border-box;
+        }
+
+        /* Tree content inner container */
+        .tree-content {
+            overflow-x: auto; /* Soft fallback if text exceeds max-width */
+            overflow-y: auto;
+            flex-grow: 1;
+            padding: 5px 0;
+            max-height: 320px;
+        }
+
+        /* Folder tree header */
+        .folder-header {
+            padding: 8px 12px;
+            font-weight: bold;
+            font-size: 0.8rem;
+            color: #495057;
+            background: #f1f3f5;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            user-select: none;
+            white-space: nowrap; /* Keeps namespace names on a single line */
+        }
+
+        /* Tree list item */
+        .class-item,
+        .method-item {
+            padding: 8px 14px;
+            font-size: 0.85rem;
+            color: #212529;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            white-space: nowrap; /* Prevents class names from wrapping into thin columns */
+        }
+
+        .dropdown-trigger.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
 
         .dropdown-menu {
             position: absolute;
@@ -173,9 +236,9 @@
             user-select: none;
         }
 
-            .folder-header:hover {
-                background: #e9ecef;
-            }
+        .folder-header:hover {
+            background: #e9ecef;
+        }
 
         .folder-toggle-icon {
             font-size: 0.7rem;
@@ -207,11 +270,11 @@
             flex-direction: column;
         }
 
-            .class-item:hover,
-            .method-item:hover {
-                background: #007bff;
-                color: white;
-            }
+        .class-item:hover,
+        .method-item:hover {
+            background: #007bff;
+            color: white;
+        }
 
         .view-tabs {
             display: flex;
@@ -233,16 +296,16 @@
             transition: all 0.15s ease-in-out;
         }
 
-            .tab-btn:hover {
-                background: #495057;
-                color: white;
-            }
+        .tab-btn:hover {
+            background: #495057;
+            color: white;
+        }
 
-            .tab-btn.active {
-                background: #f8f9fa;
-                color: #212529;
-                font-weight: 600;
-            }
+        .tab-btn.active {
+            background: #f8f9fa;
+            color: #212529;
+            font-weight: 600;
+        }
 
         #msgWindow {
             padding: 10px 20px;
@@ -325,13 +388,13 @@
         }
 
         @keyframes spinAnimation {
-            0% {
-                transform: rotate(0deg);
-            }
+        0% {
+            transform: rotate(0deg);
+        }
 
-            100% {
-                transform: rotate(360deg);
-            }
+        100% {
+            transform: rotate(360deg);
+        }
         }
 
         .graph-legend {
@@ -409,10 +472,10 @@
             gap: 20px;
         }
 
-            footer a {
-                color: #ffffff;
-                text-decoration: none;
-            }
+        footer a {
+            color: #ffffff;
+            text-decoration: none;
+        }
     </style>
 
     <base target="_blank">
@@ -425,24 +488,40 @@
             <h1>Dotnet Assembly Visualizer</h1>
 
             <div id="controls">
+                <!-- Open DLL Button -->
                 <div class="file-upload-container">
                     <div class="file-upload-wrapper">
                         <div class="file-upload-label" id="uploadLabel">
-                            Choose DLL
+                            + Open Assembly (.dll)
                         </div>
                         <input type="file" id="dllFile" accept=".dll" />
                     </div>
-
-                    <span id="currentDllName" class="dll-name-display">
-                        No file selected
-                    </span>
                 </div>
 
+                <!-- Active Assembly Selector Dropdown -->
+                <div class="custom-dropdown" id="assemblyDropdownWrapper">
+                    <div id="assemblyTrigger" class="dropdown-trigger disabled">
+                        <span id="assemblyTriggerText">-- No Assembly Loaded --</span>
+                        <span>▼</span>
+                    </div>
+                    <div id="assemblyMenu" class="dropdown-menu">
+                        <div id="assemblyListContent" class="tree-content"></div>
+                    </div>
+                </div>
+
+                <!-- Refresh & Remove Buttons -->
+                <button id="btnRefresh" class="action-btn" title="Refresh active assembly" style="display: none;">
+                    🔄 Refresh
+                </button>
+
+                <button id="btnRemoveCurrent" class="action-btn" title="Remove active assembly" style="display: none;">
+                    🗑️ Remove
+                </button>
+
+                <!-- Target Class Selector -->
                 <div class="custom-dropdown" id="classDropdownWrapper">
                     <div id="dropdownTrigger" class="dropdown-trigger disabled">
-                        <span id="triggerText">
-                            -- Select Target Type --
-                        </span>
+                        <span id="triggerText">-- Select Target Type --</span>
                         <span>▼</span>
                     </div>
 
@@ -454,11 +533,10 @@
                     </div>
                 </div>
 
+                <!-- Target Method Selector -->
                 <div class="custom-dropdown" id="methodDropdownWrapper" style="display: none;">
                     <div id="methodTrigger" class="dropdown-trigger disabled">
-                        <span id="methodTriggerText">
-                            -- Select Target Method --
-                        </span>
+                        <span id="methodTriggerText">-- Select Target Method --</span>
                         <span>▼</span>
                     </div>
 
@@ -594,6 +672,10 @@
     </footer>
 
     <script>
+        // SESSION STATE STORAGE
+        const loadedAssemblies = new Map(); // Key: fileName -> Value: { data: parsedJson, fileRef: File }
+        let activeAssemblyFileName = null;
+
         let rawAssemblyData = {
             classes: [],
             inheritance: { nodes: [], edges: [] },
@@ -609,9 +691,233 @@
         let originalGroups = {};
         let messageTimeout = null;
 
-        // 
+        // UPLOAD & DUPLICATE OVERWRITE HANDLER
+        document.getElementById('dllFile').addEventListener('change', async e => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            await processAndSaveAssembly(file);
+            e.target.value = ''; // Reset input to allow re-uploading the same file name
+        });
+
+        async function processAndSaveAssembly(file) {
+            const isReplacement = loadedAssemblies.has(file.name);
+            showLoader(isReplacement ? `Replacing ${file.name}...` : `Parsing ${file.name}...`);
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error('Metadata generation failed.');
+                }
+
+                const parsedData = await response.json();
+
+                // Save or Overwrite in active session
+                loadedAssemblies.set(file.name, {
+                    data: parsedData,
+                    fileRef: file
+                });
+
+                activeAssemblyFileName = file.name;
+                rawAssemblyData = parsedData;
+
+                // Reset target selections
+                currentSelectedClass = null;
+                currentSelectedMethod = null;
+                currentSelectedDeadlockIndex = null;
+                document.getElementById('triggerText').textContent = '-- Select Target Type --';
+                document.getElementById('methodTriggerText').textContent = '-- Select Target Method --';
+
+                updateAssemblyUI();
+                processAssemblyData();
+
+                showMessage(
+                    isReplacement ? `Successfully replaced "${file.name}".` : `Loaded "${file.name}".`,
+                    'success'
+                );
+
+            } catch (err) {
+                showMessage(err.message, 'error');
+            } finally {
+                hideLoader();
+            }
+        }
+
+        // UPDATE ASSEMBLY DROPDOWN AND ACTION BUTTONS
+        function updateAssemblyUI() {
+            const container = document.getElementById('assemblyListContent');
+            const triggerText = document.getElementById('assemblyTriggerText');
+            const trigger = document.getElementById('assemblyTrigger');
+            const btnRefresh = document.getElementById('btnRefresh');
+            const btnRemove = document.getElementById('btnRemoveCurrent');
+
+            if (!container) return;
+
+            container.innerHTML = '';
+
+            if (loadedAssemblies.size === 0) {
+                triggerText.textContent = '-- No Assembly Loaded --';
+                trigger.classList.add('disabled');
+                btnRefresh.style.display = 'none';
+                btnRemove.style.display = 'none';
+                return;
+            }
+
+            trigger.classList.remove('disabled');
+            btnRefresh.style.display = 'inline-block';
+            btnRemove.style.display = 'inline-block';
+
+            if (activeAssemblyFileName) {
+                triggerText.textContent = activeAssemblyFileName;
+            }
+
+            // Populate menu
+            loadedAssemblies.forEach((value, fileName) => {
+                const div = document.createElement('div');
+                div.className = 'class-item';
+                div.style.fontWeight = fileName === activeAssemblyFileName ? 'bold' : 'normal';
+                div.innerHTML = `📁 ${fileName}`;
+
+                div.onclick = () => {
+                    if (activeAssemblyFileName !== fileName) {
+                        activeAssemblyFileName = fileName;
+                        rawAssemblyData = value.data;
+
+                        currentSelectedClass = null;
+                        currentSelectedMethod = null;
+                        currentSelectedDeadlockIndex = null;
+                        document.getElementById('triggerText').textContent = '-- Select Target Type --';
+                        document.getElementById('methodTriggerText').textContent = '-- Select Target Method --';
+
+                        updateAssemblyUI();
+                        processAssemblyData();
+                    }
+                    document.getElementById('assemblyMenu').style.display = 'none';
+                };
+
+                container.appendChild(div);
+            });
+        }
+
+        // REMOVE ACTIVE ASSEMBLY
+        document.getElementById('btnRemoveCurrent').addEventListener('click', () => {
+            if (!activeAssemblyFileName || !loadedAssemblies.has(activeAssemblyFileName)) return;
+
+            const removedFileName = activeAssemblyFileName;
+            loadedAssemblies.delete(removedFileName);
+
+            if (loadedAssemblies.size > 0) {
+                activeAssemblyFileName = loadedAssemblies.keys().next().value;
+                rawAssemblyData = loadedAssemblies.get(activeAssemblyFileName).data;
+            } else {
+                activeAssemblyFileName = null;
+                rawAssemblyData = {
+                    classes: [],
+                    inheritance: { nodes: [], edges: [] },
+                    methodGraph: { nodes: [], edges: [] },
+                    deadlocks: []
+                };
+            }
+
+            currentSelectedClass = null;
+            currentSelectedMethod = null;
+            currentSelectedDeadlockIndex = null;
+            document.getElementById('triggerText').textContent = '-- Select Target Type --';
+            document.getElementById('methodTriggerText').textContent = '-- Select Target Method --';
+
+            updateAssemblyUI();
+            processAssemblyData();
+
+            showMessage(`Removed explicitly: ${removedFileName}`, 'info');
+        });
+
+        // REFRESH ACTIVE ASSEMBLY
+        document.getElementById('btnRefresh').addEventListener('click', async () => {
+            if (!activeAssemblyFileName || !loadedAssemblies.has(activeAssemblyFileName)) {
+                showMessage('No active assembly selected to refresh.', 'info');
+                return;
+            }
+
+            const currentItem = loadedAssemblies.get(activeAssemblyFileName);
+
+            if (currentItem && currentItem.fileRef) {
+                await processAndSaveAssembly(currentItem.fileRef);
+            } else {
+                processAssemblyData();
+                showMessage(`Refreshed view for ${activeAssemblyFileName}`, 'success');
+            }
+        });
+
+        // CORE DATA WRAPPER
+        function processAssemblyData() {
+            // Populate deadlocks sidebar
+            const deadlocksFound = rawAssemblyData.deadlocks || [];
+            document.getElementById('deadlockCount').innerText = deadlocksFound.length;
+
+            const deadlockContainer = document.getElementById('deadlockList');
+            deadlockContainer.innerHTML = '';
+
+            if (deadlocksFound.length === 0) {
+                deadlockContainer.innerHTML = `
+                    <div style="color:#28a745; font-size:0.85rem; font-weight:bold; padding:10px; background:#e2f0d9; border-radius:4px;">
+                        ✓ No circular dependencies detected!
+                    </div>`;
+            } else {
+                deadlocksFound.forEach((cycle, index) => {
+                    const btn = document.createElement('button');
+                    btn.style = `text-align:left; padding:10px; background:#fff5f5; border:1px solid #feb2b2; border-radius:6px; cursor:pointer; font-size:0.8rem; font-family:monospace; transition:all 0.2s; width:100%; box-sizing:border-box;`;
+
+                    const originNode = cycle[0].split('.').pop();
+                    const targetNode = cycle[cycle.length - 2].split('.').pop();
+
+                    btn.innerHTML = `
+                        <b style="color:#c53030;">[Cycle #${index + 1}]</b><br/>
+                        <span style="color:#8b0000; font-weight:bold;">START:</span> ${originNode}<br/>
+                        ${originNode} ➔ ... ➔ ${targetNode} ➔ START`;
+
+                    btn.onclick = () => {
+                        Array.from(deadlockContainer.children).forEach(child => child.style.background = '#fff5f5');
+                        btn.style.background = '#fed7d7';
+                        currentSelectedDeadlockIndex = index;
+                        renderGraphMap();
+                    };
+
+                    deadlockContainer.appendChild(btn);
+                });
+            }
+
+            // Build Class Groups
+            originalGroups = {};
+            rawAssemblyData.classes.forEach(fullName => {
+                const parts = fullName.split('.');
+                const shortName = parts.pop();
+                const ns = parts.join('.');
+
+                if (!originalGroups[ns]) {
+                    originalGroups[ns] = [];
+                }
+
+                originalGroups[ns].push({ fullName, shortName });
+            });
+
+            if (rawAssemblyData.classes.length > 0) {
+                document.getElementById('dropdownTrigger').classList.remove('disabled');
+            } else {
+                document.getElementById('dropdownTrigger').classList.add('disabled');
+            }
+
+            renderTreeView();
+            renderGraphMap();
+        }
+
         // LOADER
-        // 
         function showLoader(statusText) {
             const loader = document.getElementById('canvasLoaderOverlay');
             const txt = document.getElementById('loaderStatusText');
@@ -629,16 +935,12 @@
             }
         }
 
-        // 
-        // FOLDER
-        // 
+        // FOLDER TOGGLE
         function toggleFolder(headerElement) {
             headerElement.parentElement.classList.toggle('collapsed');
         }
 
-        // 
-        // MESSAGE
-        // 
+        // MESSAGE UI
         function showMessage(text, type = 'info') {
             const win = document.getElementById('msgWindow');
             const txt = document.getElementById('msgText');
@@ -669,9 +971,7 @@
             }
         }
 
-        // 
-        // GRAPH
-        // 
+        // CLEAR CANVAS
         function clearCanvas() {
             if (networkInstance !== null) {
                 networkInstance.destroy();
@@ -679,9 +979,7 @@
             }
         }
 
-        // 
-        // VIEW SWITCH
-        // 
+        // VIEW MODE SWITCHING
         function switchViewMode(mode) {
             currentViewMode = mode;
 
@@ -722,9 +1020,7 @@
             renderGraphMap();
         }
 
-        // 
         // CLASS SELECTION
-        // 
         function selectClassItem(fullName, shortName) {
             currentSelectedClass = fullName;
             currentSelectedMethod = null;
@@ -740,9 +1036,7 @@
             renderGraphMap();
         }
 
-        // 
         // METHOD SELECTION
-        // 
         function selectMethodItem(methodId, methodName) {
             currentSelectedMethod = methodId;
             document.getElementById('methodTriggerText').textContent = methodName;
@@ -751,9 +1045,7 @@
             renderGraphMap();
         }
 
-        // 
-        // METHOD DROPDOWN
-        // 
+        // METHOD DROPDOWN POPULATION
         function populateMethodsDropdown(filterText = "") {
             const container = document.getElementById('methodTreeContent');
             const trigger = document.getElementById('methodTrigger');
@@ -789,9 +1081,7 @@
             });
         }
 
-        // 
-        // CLASS TREE
-        // 
+        // CLASS TREE RENDER
         function renderTreeView(filterText = "") {
             const treeContent = document.getElementById('treeContent');
             if (!treeContent) return;
@@ -860,9 +1150,7 @@
             });
         }
 
-        // 
-        // GRAPH RENDERING
-        // 
+        // GRAPH RENDER LOGIC
         function renderGraphMap() {
             clearCanvas();
             const container = document.getElementById('mynetwork');
@@ -1035,7 +1323,7 @@
                 const cycleNodes = activeCyclePath.slice(0, -1);
                 const cycleNodeSet = new Set(cycleNodes);
 
-                // CREATE CYCLE NODES
+                // Nodes
                 cycleNodes.forEach(id => {
                     const localNode = rawAssemblyData.methodGraph.nodes.find(n => n.id === id);
 
@@ -1089,7 +1377,7 @@
                     });
                 });
 
-                // CREATE CYCLE EDGES
+                // Edges
                 for (let i = 0; i < activeCyclePath.length - 1; i++) {
                     const from = activeCyclePath[i];
                     const to = activeCyclePath[i + 1];
@@ -1126,7 +1414,7 @@
                 }
             }
 
-            // VIS NETWORK OPTIONS
+            // Vis.js Network Options
             const options = {
                 nodes: {
                     font: { face: 'sans-serif', multi: true },
@@ -1160,10 +1448,8 @@
                 }
             };
 
-            // CREATE NETWORK
             networkInstance = new vis.Network(container, { nodes, edges }, options);
 
-            // AFTER STABILIZATION
             networkInstance.on('stabilizationIterationsDone', function () {
                 networkInstance.setOptions({ physics: false });
 
@@ -1179,128 +1465,15 @@
             });
         }
 
-        // DLL UPLOAD
-        document.getElementById('dllFile').addEventListener('change', async e => {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            // Clear current selection
-            currentSelectedClass = null;
-            currentSelectedMethod = null;
-            currentSelectedDeadlockIndex = null;
-
-            document.getElementById('triggerText').textContent = '-- Select Target Type --';
-            document.getElementById('methodTriggerText').textContent = '-- Select Target Method --';
-            document.getElementById('searchClass').value = '';
-            document.getElementById('searchMethod').value = '';
-            document.getElementById('currentDllName').textContent = file.name;
-
-            showLoader('Parsing IL Assemblies.');
-
-            const formData = new FormData();
-            formData.append('file', file);
-
-            try {
-                const response = await fetch('/api/analyze', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (!response.ok) {
-                    throw new Error('Metadata generation failed.');
-                }
-
-                rawAssemblyData = await response.json();
-
-                // CIRCULAR DEPENDENCY SIDEBAR
-                const deadlocksFound = rawAssemblyData.deadlocks || [];
-                document.getElementById('deadlockCount').innerText = deadlocksFound.length;
-
-                const deadlockContainer = document.getElementById('deadlockList');
-                deadlockContainer.innerHTML = '';
-
-                if (deadlocksFound.length === 0) {
-                    deadlockContainer.innerHTML = `
-                            <div style="
-                                color:#28a745;
-                                font-size:0.85rem;
-                                font-weight:bold;
-                                padding:10px;
-                                background:#e2f0d9;
-                                border-radius:4px;">
-                                ✓ No circular dependencies detected!
-                            </div>`;
-                } else {
-                    deadlocksFound.forEach((cycle, index) => {
-                        const btn = document.createElement('button');
-                        btn.style = `
-                                text-align:left;
-                                padding:10px;
-                                background:#fff5f5;
-                                border:1px solid #feb2b2;
-                                border-radius:6px;
-                                cursor:pointer;
-                                font-size:0.8rem;
-                                font-family:monospace;
-                                transition:all 0.2s;
-                                width:100%;
-                                box-sizing:border-box;`;
-
-                        const originNode = cycle[0].split('.').pop();
-                        const targetNode = cycle[cycle.length - 2].split('.').pop();
-
-                        btn.innerHTML = `
-                                <b style="color:#c53030;">[Cycle #${index + 1}]</b><br/>
-                                <span style="color:#8b0000; font-weight:bold;">START:</span> ${originNode}<br/>
-                                ${originNode} ➔ ... ➔ ${targetNode} ➔ START`;
-
-                        btn.onclick = () => {
-                            Array.from(deadlockContainer.children).forEach(
-                                child => child.style.background = '#fff5f5'
-                            );
-                            btn.style.background = '#fed7d7';
-                            currentSelectedDeadlockIndex = index;
-                            renderGraphMap();
-                        };
-
-                        deadlockContainer.appendChild(btn);
-                    });
-                }
-
-                // BUILD CLASS GROUPS
-                originalGroups = {};
-
-                rawAssemblyData.classes.forEach(fullName => {
-                    const parts = fullName.split('.');
-                    const shortName = parts.pop();
-                    const ns = parts.join('.');
-
-                    if (!originalGroups[ns]) {
-                        originalGroups[ns] = [];
-                    }
-
-                    originalGroups[ns].push({ fullName, shortName });
-                });
-
-                document.getElementById('dropdownTrigger').classList.remove('disabled');
-
-                setTimeout(() => {
-                    renderTreeView();
-                    hideLoader();
-                    renderGraphMap();
-                    showMessage('Assembly structures parsed cleanly.', 'success');
-                }, 50);
-
-            } catch (err) {
-                hideLoader();
-                showMessage(err.message, 'error');
-            }
-        });
-
-
-        // EVENT HANDLERS
+        // EVENT LISTENERS
         document.getElementById('searchClass').addEventListener('input', e => renderTreeView(e.target.value));
         document.getElementById('searchMethod').addEventListener('input', e => populateMethodsDropdown(e.target.value));
+
+        document.getElementById('assemblyTrigger').onclick = () => {
+            if (loadedAssemblies.size > 0) {
+                document.getElementById('assemblyMenu').style.display = 'flex';
+            }
+        };
 
         document.getElementById('dropdownTrigger').onclick = () => {
             document.getElementById('dropdownMenu').style.display = 'flex';
@@ -1310,9 +1483,11 @@
             document.getElementById('methodMenu').style.display = 'flex';
         };
 
+        // DISMISS DROPDOWNS ON OUTSIDE CLICK
         window.onclick = function (event) {
             const classWrapper = document.getElementById('classDropdownWrapper');
             const methodWrapper = document.getElementById('methodDropdownWrapper');
+            const assemblyWrapper = document.getElementById('assemblyDropdownWrapper');
 
             if (classWrapper && !classWrapper.contains(event.target)) {
                 document.getElementById('dropdownMenu').style.display = 'none';
@@ -1320,6 +1495,10 @@
 
             if (methodWrapper && !methodWrapper.contains(event.target)) {
                 document.getElementById('methodMenu').style.display = 'none';
+            }
+
+            if (assemblyWrapper && !assemblyWrapper.contains(event.target)) {
+                document.getElementById('assemblyMenu').style.display = 'none';
             }
         };
     </script>
