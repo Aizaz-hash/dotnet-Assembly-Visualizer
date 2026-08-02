@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-public class CircularDependencyDetector
+﻿public class CircularDependencyDetector
 {
     private enum NodeColor
     {
@@ -16,72 +13,80 @@ public class CircularDependencyDetector
         var colors = new Dictionary<string, NodeColor>(StringComparer.OrdinalIgnoreCase);
         var currentPath = new List<string>();
 
-        // Initialize all nodes to White (Unvisited)
+        // Initialize every known node.
         foreach (var node in adjacencyList.Keys)
-        {
             colors[node] = NodeColor.White;
-        }
 
-        // Loop through all nodes to handle disconnected graph components safely
-        foreach (var node in adjacencyList.Keys)
-        {
+        // Also make sure dependency targets that do not have
+        // their own adjacency-list entry are known to the algorithm.
+        foreach (var dependencies in adjacencyList.Values)
+            foreach (var dependency in dependencies)
+                if (!colors.ContainsKey(dependency))
+                    colors[dependency] = NodeColor.White;
+
+        // Handle disconnected graph components.
+        foreach (var node in colors.Keys)
             if (colors[node] == NodeColor.White)
-            {
                 DFS(node, adjacencyList, colors, currentPath, cycles);
-            }
-        }
 
         return cycles;
     }
 
     private static void DFS(
-        string u,
-        Dictionary<string, List<string>> adjList,
+        string currentNode,
+        Dictionary<string, List<string>> adjacencyList,
         Dictionary<string, NodeColor> colors,
         List<string> currentPath,
         List<List<string>> cycles)
     {
-        // Move node to Grey status and push onto the recursion stack
-        colors[u] = NodeColor.Grey;
-        currentPath.Add(u);
+        // Current node is now part of the active DFS path.
+        colors[currentNode] = NodeColor.Grey;
+        currentPath.Add(currentNode);
 
-        // Safely pull outgoing dependency edges (if node has no dependencies, initialize empty list)
-        if (adjList.TryGetValue(u, out var neighbors))
+        if (adjacencyList.TryGetValue(currentNode, out var dependencies))
         {
-            foreach (var v in neighbors)
+            foreach (var dependency in dependencies)
             {
-                if (!colors.TryGetValue(v, out var neighborColor))
+                if (!colors.TryGetValue(dependency, out var dependencyColor))
                 {
-                    neighborColor = NodeColor.White;
+                    dependencyColor = NodeColor.White;
+                    colors[dependency] = NodeColor.White;
                 }
 
-                if (neighborColor == NodeColor.Grey)
+                // BACK EDGE
+                // currentNode -> dependency
+                // dependency is already Grey, therefore dependency is an ancestor in the current recursion path.
+                // This means we have found a circular dependency.
+                if (dependencyColor == NodeColor.Grey)
                 {
-                    // CYCLE DETECTED! 'v' is currently in our ancestry tree/recursion stack.
-                    // Backtrack through currentPath to capture the exact loop sequence
-                    int cycleStartIndex = currentPath.IndexOf(v);
-                    if (cycleStartIndex != -1)
+                    int cycleStartIndex = currentPath.IndexOf(dependency);
+
+                    if (cycleStartIndex >= 0)
                     {
                         var cyclePath = new List<string>();
+
+                        // The first element is the actual START of the circular dependency.
+                        // Example: MethodA -> MethodB -> MethodC -> MethodA
+                        // cyclePath becomes: [MethodA, MethodB, MethodC, MethodA]
+                        // Therefore cyclePath[0] is always the circular dependency start.
                         for (int i = cycleStartIndex; i < currentPath.Count; i++)
-                        {
                             cyclePath.Add(currentPath[i]);
-                        }
-                        cyclePath.Add(v); // Append target node to close the loop path cleanly
+
+                        // Close the circular path.
+                        cyclePath.Add(dependency);
+
                         cycles.Add(cyclePath);
                     }
                 }
-                else if (neighborColor == NodeColor.White)
+                else if (dependencyColor == NodeColor.White)
                 {
-                    // Continue exploring deeper down the current branch
-                    DFS(v, adjList, colors, currentPath, cycles);
+                    DFS(dependency, adjacencyList, colors, currentPath, cycles);
                 }
-                // If Black, it has already been completely verified, skip it to save cycles.
             }
         }
 
-        // Backtracking phase: Remove from recursion stack and mark as Black (safe)
+        // Backtrack.
         currentPath.RemoveAt(currentPath.Count - 1);
-        colors[u] = NodeColor.Black;
+        colors[currentNode] = NodeColor.Black;
     }
 }
