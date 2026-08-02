@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-public class CircularDependencyDetector
+﻿public class CircularDependencyDetector
 {
     private enum NodeColor
     {
@@ -30,12 +27,17 @@ public class CircularDependencyDetector
         // Handle disconnected graph components.
         foreach (var node in colors.Keys)
             if (colors[node] == NodeColor.White)
-                DFS(node, adjacencyList, colors,  currentPath, cycles);
+                DFS(node, adjacencyList, colors, currentPath, cycles);
 
         return cycles;
     }
 
-    private static void DFS( string currentNode,Dictionary<string, List<string>> adjacencyList,Dictionary<string, NodeColor> colors,  List<string> currentPath, List<List<string>> cycles)
+    private static void DFS(
+        string currentNode,
+        Dictionary<string, List<string>> adjacencyList,
+        Dictionary<string, NodeColor> colors,
+        List<string> currentPath,
+        List<List<string>> cycles)
     {
         // Current node is now part of the active DFS path.
         colors[currentNode] = NodeColor.Grey;
@@ -45,7 +47,7 @@ public class CircularDependencyDetector
         {
             foreach (var dependency in dependencies)
             {
-                if (!colors.TryGetValue( dependency, out var dependencyColor))
+                if (!colors.TryGetValue(dependency, out var dependencyColor))
                 {
                     dependencyColor = NodeColor.White;
                     colors[dependency] = NodeColor.White;
@@ -63,10 +65,10 @@ public class CircularDependencyDetector
                     {
                         var cyclePath = new List<string>();
 
-                        // The first element is the actual START ofthe circular dependency.
-                        // Example:MethodA -> MethodB -> MethodC -> MethodA
-                        // cyclePath becomes:[MethodA, MethodB, MethodC, MethodA]
-                        // Therefore cyclePath[0] is always thecircular dependency start.
+                        // The first element is the actual START of the circular dependency.
+                        // Example: MethodA -> MethodB -> MethodC -> MethodA
+                        // cyclePath becomes: [MethodA, MethodB, MethodC, MethodA]
+                        // Therefore cyclePath[0] is always the circular dependency start.
                         for (int i = cycleStartIndex; i < currentPath.Count; i++)
                             cyclePath.Add(currentPath[i]);
 
@@ -77,7 +79,9 @@ public class CircularDependencyDetector
                     }
                 }
                 else if (dependencyColor == NodeColor.White)
+                {
                     DFS(dependency, adjacencyList, colors, currentPath, cycles);
+                }
             }
         }
 
