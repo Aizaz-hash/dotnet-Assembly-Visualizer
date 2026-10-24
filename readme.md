@@ -57,7 +57,7 @@ docker run --rm -p 8080:8080 dotnet-visualizer
 
 Then open **http://localhost:8080** and upload your `.dll`.
 
-> The container port is set by the `"Urls"` value in `appsettings.json`. To map a different host port, change the left side, e.g. `-p 5000:8080`.
+> Inside the container the port is set by the `Urls` environment variable in the Dockerfile (`appsettings.json` defaults to 9999 for the Windows service). To map a different host port, change the left side, e.g. `-p 5000:8080`.
 
 ---
 

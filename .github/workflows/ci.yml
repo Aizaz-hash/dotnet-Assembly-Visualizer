@@ -1,6 +1,8 @@
 name: CI
 
 on:
+  push:
+    branches: [task-Dotnet-Visualizer-Web-v2]
   pull_request:
     branches: [task-Dotnet-Visualizer-Web-v2]
 

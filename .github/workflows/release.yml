@@ -87,6 +87,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: dist
+          pattern: package-*
           merge-multiple: true
 
       - name: Generate release notes
@@ -109,8 +110,8 @@ jobs:
           ## 📦 Self-contained builds (no .NET required)
 
           Download the archive for your platform from the assets below, extract it,
-          and run the `DotNetVisualizer.Web` executable. The app listens on port 8080
-          (configurable via `appsettings.json`).
+          and run the `DotNetVisualizer.Web` executable. The app listens on port 9999
+          (configurable via `Urls` in `appsettings.json`).
 
           - **Windows (x64):** `dotnet-visualizer-__VERSION__-win-x64.zip`
           - **Linux (x64):** `dotnet-visualizer-__VERSION__-linux-x64.tar.gz`
