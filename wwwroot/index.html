@@ -58,7 +58,8 @@
             <div class="tab-strip" id="tabStrip">
                 <button class="tab" id="tabInheritance" data-view="inheritance">Inheritance</button>
                 <button class="tab" id="tabCalls" data-view="calls">Method Calls</button>
-                <button class="tab" id="tabCycles" data-view="cycles">Circular Dependencies <span id="cycleCount" class="tab-badge">0</span></button>
+                <button class="tab" id="tabCycles" data-view="cycles">Circular Dependencies <span id="cycleCount" class="tab-badge">-</span></button>
+                <button class="tab" id="tabVulns" data-view="vulns">Vulnerabilities Scan <span id="vulnBadge" class="tab-badge">-</span></button>
             </div>
 
             <div id="viewTitle" class="view-title"></div>
@@ -137,6 +138,33 @@
                     </div>
                 </div>
             </section>
+
+            <section id="viewVulns" class="view">
+                <div class="view-toolbar" id="vulnToolbar">
+                    <button id="btnVulnScan" class="btn-primary" disabled>Run scan</button>
+                    <span id="vulnScope" class="view-hint"></span>
+                    <label title="Also check the packages this tool itself ships with"><input type="checkbox" id="vulnOptApp" /> Include this tool's own packages</label>
+                    <span class="vuln-deps">
+                        <button id="btnVulnDeps" class="tb-btn small" disabled title="Choose the .deps.json of the loaded assembly (exact package versions)">Add .deps.json…</button>
+                        <input type="file" id="vulnDepsFile" accept=".json,application/json" style="display:none" />
+                        <span id="vulnDepsName" class="view-hint"></span>
+                        <button id="btnVulnDepsClear" class="vuln-x" style="display:none" title="Do not scan this file">&times;</button>
+                    </span>
+                    <span class="tb-spacer"></span>
+                    <button id="btnVulnPdf" class="tb-btn small" disabled title="Create a PDF report (choose Save as PDF in the print dialog)">Export PDF</button>
+                    <button id="btnVulnExport" class="tb-btn small" disabled title="Download the report as JSON">Export JSON</button>
+                </div>
+                <div id="vulnScroll" class="scroll-body">
+                    <div id="vulnBanner"></div>
+                    <div id="vulnSummary"></div>
+                    <div id="vulnFilters"></div>
+                    <div id="vulnMain">
+                        <div id="vulnList"></div>
+                        <div id="vulnDetail"></div>
+                    </div>
+                    <div id="vulnExtras"></div>
+                </div>
+            </section>
         </main>
     </div>
 
@@ -150,5 +178,6 @@
     <div id="ctxMenu"></div>
 
     <script src="js/app.js"></script>
+    <script src="js/vuln.js"></script>
 </body>
 </html>

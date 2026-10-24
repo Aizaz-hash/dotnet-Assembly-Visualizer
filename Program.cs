@@ -1,5 +1,6 @@
 using DotNetVisualizer.Web.Interfaces;
 using DotNetVisualizer.Web.Services;
+using DotNetVisualizer.Web.Services.Vulnerabilities;
 using Microsoft.AspNetCore.Http.Features;
 
 
@@ -22,6 +23,22 @@ builder.Services.AddScoped<IAssemblyAnalyzer, AssemblyAnalyzerService>();
 builder.Services.AddControllers();
 builder.Services.AddAntiforgery();
 
+// Vulnerability testing: read-only lookups against OSV.dev (package names and versions only).
+var vulnEnabled = builder.Configuration.GetValue("Vulnerability:Enabled", true);
+var osvBase = builder.Configuration.GetValue("Vulnerability:OsvBaseUrl", "https://api.osv.dev/")!;
+var osvTimeout = builder.Configuration.GetValue("Vulnerability:TimeoutSeconds", 20);
+builder.Services.AddHttpClient<IOsvClient, OsvClient>(c =>
+{
+    c.BaseAddress = new Uri(osvBase.EndsWith("/") ? osvBase : osvBase + "/");
+    c.Timeout = TimeSpan.FromSeconds(osvTimeout);
+    c.DefaultRequestHeaders.UserAgent.ParseAdd("dotnet-Assembly-Visualizer");
+});
+builder.Services.AddSingleton<IVulnerabilityScanner>(sp => new VulnerabilityScanner(
+    sp.GetRequiredService<IOsvClient>(), vulnEnabled,
+    sp.GetRequiredService<IWebHostEnvironment>().WebRootFileProvider,
+    AppContext.BaseDirectory,
+    System.Reflection.Assembly.GetEntryAssembly()?.GetName().Name ?? "dotnet-Assembly-Visualizer"));
+
 var app = builder.Build();
 
 app.UseDefaultFiles();
@@ -35,3 +52,5 @@ app.MapGet("/api/analysis/limits", () => Results.Ok(new { maxFileSizeMB = maxUpl
 app.MapControllers();
 
 app.Run();
+
+public partial class Program { }   // lets the integration tests start the app with WebApplicationFactory

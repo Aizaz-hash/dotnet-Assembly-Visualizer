@@ -449,3 +449,105 @@ body { font-size: 14px; }
 .ctx-item:hover { background: #007bff; color: #fff; }
 .ctx-item.danger:hover { background: #dc3545; }
 .ctx-sep { height: 1px; background: #e9ecef; margin: 4px 0; }
+
+/* ==========================================================================
+   Vulnerabilities view (main-branch palette; severity colours follow the graph colours)
+   ========================================================================== */
+.tab-badge.warn { background: #fb8c00; color: #fff; }
+.tab-badge.ok { background: #28a745; color: #fff; }
+.btn-primary { background: #28a745; border: 1px solid #218838; color: #fff; border-radius: 3px; padding: 5px 16px; font-size: 14px; font-weight: 500; cursor: pointer; }
+.btn-primary:hover:not(:disabled) { background: #218838; }
+.btn-primary:disabled { opacity: .6; cursor: default; }
+.vuln-deps { display: inline-flex; align-items: center; gap: 6px; }
+.vuln-x { border: none; background: none; color: #6c757d; font-size: 18px; cursor: pointer; }
+.vuln-x:hover { color: #dc3545; }
+#vulnScroll { padding: 12px 16px; }
+
+.vuln-intro { max-width: 780px; margin: 10px auto; background: #fff; border: 1px solid #dee2e6; border-radius: 6px; padding: 8px 22px 14px; line-height: 1.55; }
+.vuln-intro h3 { margin: 12px 0 6px; font-size: 18px; }
+.vuln-intro li { margin: 4px 0; }
+
+.vuln-banner { border-radius: 4px; padding: 8px 14px; margin-bottom: 12px; font-size: 13.5px; border: 1px solid; }
+.vuln-banner.ok { background: #d4edda; color: #155724; border-color: #c3e6cb; }
+.vuln-banner.warn { background: #fff3cd; color: #856404; border-color: #ffeeba; }
+.vuln-banner.bad { background: #f8d7da; color: #721c24; border-color: #f5c6cb; }
+.vuln-banner .vb-title { font-weight: 600; }
+.vuln-banner ul { margin: 6px 0 0; padding-left: 20px; }
+
+.vuln-cards { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.vuln-card { min-width: 118px; text-align: left; background: #fff; border: 1px solid #dee2e6; border-left: 5px solid #adb5bd; border-radius: 4px; padding: 8px 12px; cursor: pointer; font: inherit; }
+.vuln-card.total { cursor: default; border-left-color: #343a40; }
+.vuln-card:hover:not(.total) { box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+.vuln-card.active { outline: 2px solid #007bff; }
+.vuln-card.zero { opacity: .55; }
+.vuln-card .vc-count { font-size: 26px; font-weight: 700; line-height: 1.1; }
+.vuln-card .vc-label { font-size: 12.5px; color: #495057; text-transform: uppercase; letter-spacing: .04em; }
+.vuln-card .vc-sub { font-size: 11.5px; color: #6c757d; margin-top: 2px; }
+.vuln-card.sev-critical { border-left-color: #721c24; } .vuln-card.sev-critical .vc-count { color: #721c24; }
+.vuln-card.sev-high { border-left-color: #dc3545; } .vuln-card.sev-high .vc-count { color: #dc3545; }
+.vuln-card.sev-medium { border-left-color: #fb8c00; } .vuln-card.sev-medium .vc-count { color: #e65100; }
+.vuln-card.sev-low { border-left-color: #1e88e5; } .vuln-card.sev-low .vc-count { color: #1e88e5; }
+.vuln-card.sev-unknown { border-left-color: #6c757d; } .vuln-card.sev-unknown .vc-count { color: #6c757d; }
+
+.sev-badge { display: inline-block; padding: 1px 9px; border-radius: 10px; font-size: 12px; font-weight: 700; color: #fff; white-space: nowrap; }
+.sev-badge.sev-critical { background: #721c24; }
+.sev-badge.sev-high { background: #dc3545; }
+.sev-badge.sev-medium { background: #fb8c00; }
+.sev-badge.sev-low { background: #1e88e5; }
+.sev-badge.sev-unknown { background: #6c757d; }
+
+.vuln-filter-bar { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; background: #f1f3f5; border: 1px solid #dee2e6; border-radius: 4px; padding: 7px 12px; margin-bottom: 12px; font-size: 13px; }
+.vf-group { display: inline-flex; align-items: center; gap: 5px; }
+.vf-label { color: #6c757d; }
+.vf-chip { border: 1px solid #ced4da; background: #fff; border-radius: 12px; padding: 2px 10px; cursor: pointer; font-size: 12.5px; }
+.vf-chip.active.sev-critical { background: #721c24; color: #fff; border-color: #721c24; }
+.vf-chip.active.sev-high { background: #dc3545; color: #fff; border-color: #dc3545; }
+.vf-chip.active.sev-medium { background: #fb8c00; color: #fff; border-color: #fb8c00; }
+.vf-chip.active.sev-low { background: #1e88e5; color: #fff; border-color: #1e88e5; }
+.vf-chip.active.sev-unknown { background: #6c757d; color: #fff; border-color: #6c757d; }
+.vuln-filter-bar select, .vuln-filter-bar input[type=search] { border: 1px solid #ced4da; border-radius: 3px; padding: 4px 8px; font-size: 13px; background: #fff; }
+
+#vulnMain { display: flex; gap: 16px; align-items: flex-start; }
+#vulnList { flex: 1 1 55%; min-width: 0; }
+#vulnDetail { flex: 1 1 45%; min-width: 320px; background: #fff; border: 1px solid #dee2e6; border-radius: 4px; padding: 12px 16px; position: sticky; top: 0; max-height: calc(100vh - 230px); overflow: auto; }
+#vulnDetail:empty { display: none; }
+
+.vuln-table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #dee2e6; font-size: 13px; }
+.vuln-table th { background: #f1f3f5; text-align: left; padding: 6px 10px; border-bottom: 1px solid #dee2e6; font-size: 12px; color: #495057; text-transform: uppercase; letter-spacing: .03em; }
+.vuln-table td { padding: 6px 10px; border-bottom: 1px solid #f1f3f5; vertical-align: top; }
+.vuln-table.small { font-size: 12.5px; margin-top: 6px; }
+.vuln-row { cursor: pointer; }
+.vuln-row:hover { background: #e9ecef; }
+.vuln-row.selected { background: #cce5ff; }
+.vr-id { font-weight: 600; word-break: break-all; }
+.vr-sub { color: #6c757d; font-size: 11.5px; }
+.vr-sum { color: #495057; font-size: 12.5px; margin-top: 2px; }
+.status-pill, .conf-pill { display: inline-block; padding: 0 8px; border-radius: 9px; font-size: 11.5px; white-space: nowrap; }
+.status-pill.st-open { background: #f8d7da; color: #721c24; }
+.status-pill.st-accepted-risk { background: #e2e3e5; color: #383d41; }
+.status-pill.st-fixed { background: #d4edda; color: #155724; }
+.conf-pill.confirmed { background: #d4edda; color: #155724; }
+.conf-pill.potential { background: #fff3cd; color: #856404; }
+
+.vd-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.vd-id { font-size: 17px; font-weight: 700; }
+.vd-summary { font-size: 14px; margin-bottom: 10px; color: #343a40; }
+.vd-facts { display: grid; grid-template-columns: max-content 1fr; gap: 3px 12px; font-size: 12.5px; margin-bottom: 10px; }
+.vf-k { color: #6c757d; } .vf-v { word-break: break-word; }
+.vd-conf { border-radius: 4px; padding: 6px 10px; font-size: 12.5px; margin-bottom: 10px; }
+.vd-conf.confirmed { background: #d4edda; color: #155724; } .vd-conf.potential { background: #fff3cd; color: #856404; }
+.vd-section { margin: 12px 0; }
+.vd-title { font-weight: 700; font-size: 13px; color: #343a40; border-bottom: 1px solid #e9ecef; padding-bottom: 2px; margin-bottom: 5px; }
+.vd-list { margin: 4px 0; padding-left: 20px; font-size: 13px; } .vd-list li { margin: 3px 0; word-break: break-word; }
+.vd-code { display: flex; gap: 8px; align-items: center; background: #212529; color: #f8f9fa; border-radius: 4px; padding: 6px 10px; margin: 6px 0; }
+.vd-code code { flex: 1; font-family: Consolas, monospace; font-size: 12.5px; word-break: break-all; }
+.vd-pre { white-space: pre-wrap; word-break: break-word; font-family: inherit; font-size: 12.5px; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 4px; padding: 8px 10px; max-height: 240px; overflow: auto; margin: 0; }
+.vd-section select { padding: 4px 8px; border: 1px solid #ced4da; border-radius: 3px; }
+.vuln-empty { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; border-radius: 4px; padding: 16px 20px; }
+.vuln-empty-title { font-size: 17px; font-weight: 700; margin-bottom: 4px; }
+.vuln-extra { margin-top: 14px; background: #fff; border: 1px solid #dee2e6; border-radius: 4px; padding: 6px 12px; }
+.vuln-extra summary { cursor: pointer; font-weight: 600; font-size: 13px; padding: 4px 0; }
+@media (max-width: 1100px) { #vulnMain { flex-direction: column; } #vulnDetail { position: static; max-height: none; width: 100%; } }
+
+#vulnScope { display: none; }   /* the assembly name is already in the banner and the tooltip */
+#vulnToolbar .tb-spacer { flex: 1; }
