@@ -1,4 +1,5 @@
 using DotNetVisualizer.Web.Interfaces;
+using DotNetVisualizer.Web.Services.Vulnerabilities;
 using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;
@@ -387,7 +388,10 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
                 edges = methodEdges
             },
 
-            deadlocks = detectedDeadlocks
+            deadlocks = detectedDeadlocks,
+
+            // Assembly references (name + assembly version); shown by the vulnerability view as an inventory.
+            references = AssemblyReferenceReader.Read(mdReader)
         };
     }
 

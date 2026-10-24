@@ -53,6 +53,13 @@ const SEP = '\u0001';
 
 // ---------- small helpers ----------
 
+// Tab badges (Circular Dependencies, Vulnerabilities) share one look: "-" when there is nothing to report, else the count.
+function setTabBadge(badge, count, title) {
+    badge.className = 'tab-badge' + (count > 0 ? ' has' : '');
+    badge.textContent = count > 0 ? String(count) : '-';
+    badge.title = title || '';
+}
+
 function el(tag, className, text) {
     const node = document.createElement(tag);
     if (className) node.className = className;
@@ -464,7 +471,7 @@ function updateNavButtons() {
 }
 
 function applyState() {
-    ['inheritance', 'calls', 'cycles'].forEach(v => {
+    ['inheritance', 'calls', 'cycles', 'vulns'].forEach(v => {
         byId('view' + v.charAt(0).toUpperCase() + v.slice(1)).classList.toggle('active', state.view === v);
         byId('tab' + v.charAt(0).toUpperCase() + v.slice(1)).classList.toggle('active', state.view === v);
     });
@@ -478,6 +485,7 @@ function applyState() {
 
     if (state.view === 'inheritance') renderInheritance();
     else if (state.view === 'calls') renderCalls();
+    else if (state.view === 'vulns') renderVulns();
     else renderCycles();
     updateNavButtons();
 }
@@ -494,6 +502,11 @@ function cycleLink(methodId) {
 function renderTitle() {
     const t = byId('viewTitle');
     t.innerHTML = '';
+    if (state.view === 'vulns') {
+        t.appendChild(el('span', 'vt-name', 'Vulnerability Testing'));
+        t.appendChild(el('span', 'vt-sub', 'Known vulnerabilities (CVE) in the dependencies - Critical and High first'));
+        return;
+    }
     if (!hasAssembly) { t.appendChild(el('span', 'vt-sub', 'No assembly loaded')); return; }
 
     if (state.view === 'cycles') {
@@ -1137,8 +1150,7 @@ function clearAssembly() {
     byId('searchBox').value = '';
     byId('searchBox').disabled = true;
     const badge = byId('cycleCount');
-    badge.textContent = '0';
-    badge.classList.remove('has');
+    setTabBadge(badge, 0, 'No circular call chains');
     buildExplorer();
     applyState();
     setStatus('Ready');
@@ -1187,8 +1199,7 @@ function activateAssembly(name) {
     byId('searchBox').disabled = false;
     byId('searchBox').value = '';
     const badge = byId('cycleCount');
-    badge.textContent = String(cycles.length);
-    badge.classList.toggle('has', cycles.length > 0);
+    setTabBadge(badge, cycles.length, cycles.length + ' circular call chain' + (cycles.length === 1 ? '' : 's'));
 
     state = { view: 'inheritance', type: null, method: null, cycleMethod: null, cycleIdx: 0, inhMode: state.inhMode, inhFormat: state.inhFormat };
     history = [{ ...state }];
@@ -1272,8 +1283,8 @@ byId('dllFile').addEventListener('change', async (e) => {
 });
 
 document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
-    if (!hasAssembly) return;
     const view = tab.dataset.view;
+    if (!hasAssembly && view !== 'vulns') return;
     navigate({ view, ...(view === 'cycles' ? { cycleMethod: null, cycleIdx: 0 } : {}) });
 }));
 byId('inhModeSelected').onclick = () => navigate({ inhMode: 'selected' });
