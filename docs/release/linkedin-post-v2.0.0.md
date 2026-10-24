@@ -31,4 +31,4 @@ Repo: https://github.com/Aizaz-hash/dotnet-Assembly-Visualizer
 
 Feedback and contributions are very welcome — especially on how the severity and confidence rules feel in real projects.
 
-#dotnet #csharp #security #devsecops #opensource #devtools
+#CyberSecurity #DevSecOps #VulnerabilityManagement #dotnet #opensource
