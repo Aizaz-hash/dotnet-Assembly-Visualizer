@@ -48,7 +48,7 @@ Methods that take part in a circular call chain are marked in the explorer and g
 
 ### More
 
-- Open an assembly with the **Open** button or by dragging a `.dll` / `.exe` onto the page; several assemblies can be loaded and switched in one session.
+- Open an assembly with the **Open** button or by dragging a `.dll` / `.exe` onto the page; several assemblies can be loaded at once. They are listed in the explorer; click one to switch, and right-click it (or use the ✕ on hover) to **Reload** or **Remove** it.
 - **Fit** and **PNG** export for graphs; the UI works offline (`vis-network` is bundled).
 - Helpful errors for native or corrupt DLLs and a configurable upload limit.
 
@@ -99,8 +99,8 @@ Then open **http://localhost:8080**. (To run the `v2` line, `git checkout v2` fi
 
 | Area | What it does |
 |---|---|
-| **Toolbar** | *Open* an assembly, switch between loaded assemblies, Back / Forward (Alt+Left / Alt+Right). |
-| **Explorer** | Browse namespaces, types and methods; search for types and methods; methods in a circular chain carry a red ⚠. |
+| **Toolbar** | *Open* an assembly, Back / Forward (Alt+Left / Alt+Right). |
+| **Explorer** | Lists the loaded assemblies (right-click: Reload, Remove); browse namespaces, types and methods; search for types and methods; methods in a circular chain carry a red ⚠. |
 | **Inheritance** | Graph (or tree) of base types, interfaces and derived types for the selected type, or for the whole assembly; adjustable depth. |
 | **Method Calls** | Callers and callees of the selected method; adjustable depth; merged nodes and edges. |
 | **Circular Dependencies** | Every distinct circular call chain, grouped by class; filter to a single method; click to jump to its call graph. |

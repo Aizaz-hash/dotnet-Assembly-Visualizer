@@ -12,7 +12,8 @@ let messageTimeout = null;
 
 // Previously analysed assemblies of this session (name -> analysis result).
 const loadedAssemblies = new Map();
-const MAX_LOADED_ASSEMBLIES = 5;
+const loadedFiles = new Map();      // name -> File, so an assembly can be reloaded
+const MAX_LOADED_ASSEMBLIES = 8;
 
 const MAX_CALL_NODES = 120;        // cap for a single call graph
 const TREE_CHUNK = 300;            // children rendered before a "show more" row
@@ -220,6 +221,13 @@ function makeTreeNode(opt) {
         b.onclick = (e) => { e.stopPropagation(); if (opt.onCycleClick) opt.onCycleClick(); };
         row.appendChild(b);
     }
+    if (opt.onClose) {
+        const x = el('span', 't-close', '✕');
+        x.title = opt.closeTitle || 'Remove';
+        x.onclick = (e) => { e.stopPropagation(); opt.onClose(handle); };
+        row.appendChild(x);
+    }
+    if (opt.bold) label.style.fontWeight = '600';
     if (opt.title) row.title = opt.title;
     node.appendChild(row);
 
@@ -264,6 +272,7 @@ function makeTreeNode(opt) {
     arrow.onclick = (e) => { e.stopPropagation(); handle.toggle(); };
     row.onclick = () => { if (opt.onSelect) opt.onSelect(handle); };
     row.ondblclick = () => handle.toggle();
+    if (opt.onContextMenu) row.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); opt.onContextMenu(e, handle); };
     if (opt.key) explorerNodes.set(opt.key, handle);
     if (opt.expanded) handle.expand();
     return handle;
@@ -330,26 +339,42 @@ function buildExplorer() {
     selectedExplorerKey = null;
     const tree = byId('explorerTree');
     tree.innerHTML = '';
-    if (!hasAssembly) return;
+    byId('explorerTitle').textContent = loadedAssemblies.size > 1 ? 'Assemblies (' + loadedAssemblies.size + ')' : 'Assemblies';
 
-    const nsList = Array.from(typesByNs.keys()).filter(ns => !ns.startsWith('<')).sort();   // hide compiler-generated pseudo-namespaces
-    const root = makeTreeNode({
-        key: 'asm',
-        icon: 'ico-asm',
-        label: currentAssemblyName,
-        sub: `${rawAssemblyData.classes.length} types`,
-        expanded: true,
-        children: () => nsList.map(ns => ({
-            key: 'n:' + ns,
-            icon: 'ico-ns',
-            label: ns || '(Global Namespace)',
-            sub: String(typesByNs.get(ns).length),
-            title: ns || '(Global Namespace)',
-            children: () => typesByNs.get(ns).map(typeOpt)
-        })),
-        onSelect: (h) => h.toggle()
+    if (!loadedAssemblies.size) {
+        tree.appendChild(el('div', 'empty-note', 'No assemblies loaded. Click "Open" or drop a .dll / .exe onto the page.'));
+        return;
+    }
+
+    // Every loaded assembly is listed (like ILSpy); the active one is expanded to its namespaces and types.
+    const nsList = hasAssembly ? Array.from(typesByNs.keys()).filter(ns => !ns.startsWith('<')).sort() : [];   // hide compiler-generated pseudo-namespaces
+    loadedAssemblies.forEach((data, name) => {
+        const active = hasAssembly && name === currentAssemblyName;
+        const opt = {
+            key: active ? 'asm' : 'asm:' + name,
+            icon: 'ico-asm',
+            label: name,
+            sub: data.classes.length + ' types',
+            title: name + ' - right-click for Reload / Remove',
+            bold: active,
+            onClose: () => removeAssembly(name),
+            closeTitle: 'Remove "' + name + '" from the list',
+            onContextMenu: (e) => showAssemblyMenu(e, name),
+            onSelect: (h) => { if (active) h.toggle(); else activateAssembly(name); }
+        };
+        if (active) {
+            opt.expanded = true;
+            opt.children = () => nsList.map(ns => ({
+                key: 'n:' + ns,
+                icon: 'ico-ns',
+                label: ns || '(Global Namespace)',
+                sub: String(typesByNs.get(ns).length),
+                title: ns || '(Global Namespace)',
+                children: () => typesByNs.get(ns).map(typeOpt)
+            }));
+        }
+        tree.appendChild(makeTreeNode(opt).el);
     });
-    tree.appendChild(root.el);
 }
 
 function revealInExplorer(key) {
@@ -1070,16 +1095,85 @@ function renderCycleDetail(body, chain, canvas) {
 //  Loading an assembly
 // ============================================================================
 
-function updateAssemblySwitcher(activeName) {
-    const select = byId('assemblySwitcher');
-    select.innerHTML = '';
-    loadedAssemblies.forEach((_, name) => {
-        const opt = el('option', null, name);
-        opt.value = name;
-        select.appendChild(opt);
-    });
-    select.value = activeName;
-    select.style.display = loadedAssemblies.size > 1 ? 'inline-block' : 'none';
+// ---------- assembly list: context menu, reload, remove ----------
+
+function hideContextMenu() {
+    const m = byId('ctxMenu');
+    if (m) m.style.display = 'none';
+}
+
+function showAssemblyMenu(e, name) {
+    const m = byId('ctxMenu');
+    m.innerHTML = '';
+    const add = (text, fn, danger) => {
+        const item = el('div', 'ctx-item' + (danger ? ' danger' : ''), text);
+        item.onclick = (ev) => { ev.stopPropagation(); hideContextMenu(); fn(); };
+        m.appendChild(item);
+    };
+    m.appendChild(el('div', 'ctx-title', name));
+    add('⟳  Reload', () => reloadAssembly(name));
+    add('✕  Remove', () => removeAssembly(name), true);
+    if (loadedAssemblies.size > 1) {
+        m.appendChild(el('div', 'ctx-sep'));
+        add('Remove all other assemblies', () => removeOtherAssemblies(name), true);
+    }
+    m.style.display = 'block';
+    const x = Math.min(e.clientX, window.innerWidth - m.offsetWidth - 6);
+    const y = Math.min(e.clientY, window.innerHeight - m.offsetHeight - 6);
+    m.style.left = Math.max(4, x) + 'px';
+    m.style.top = Math.max(4, y) + 'px';
+}
+
+function clearAssembly() {
+    hasAssembly = false;
+    currentAssemblyName = '';
+    rawAssemblyData = { classes: [], inheritance: { nodes: [], edges: [] }, methodGraph: { nodes: [], edges: [] }, deadlocks: [] };
+    buildIndexes();
+    state = { view: 'inheritance', type: null, method: null, cycleMethod: null, cycleIdx: 0, inhMode: state.inhMode, inhFormat: state.inhFormat };
+    history = [{ ...state }];
+    historyIdx = 0;
+    byId('currentDllName').textContent = 'No assembly loaded';
+    byId('currentDllName').title = '';
+    byId('searchBox').value = '';
+    byId('searchBox').disabled = true;
+    const badge = byId('cycleCount');
+    badge.textContent = '0';
+    badge.classList.remove('has');
+    buildExplorer();
+    applyState();
+    setStatus('Ready');
+}
+
+function removeAssembly(name) {
+    if (!loadedAssemblies.has(name)) return;
+    const wasActive = hasAssembly && name === currentAssemblyName;
+    loadedAssemblies.delete(name);
+    loadedFiles.delete(name);
+    if (wasActive) {
+        const remaining = Array.from(loadedAssemblies.keys());
+        if (remaining.length) activateAssembly(remaining[remaining.length - 1]);
+        else clearAssembly();
+    } else {
+        buildExplorer();
+        revealInExplorer(state.method ? 'm:' + state.method : (state.type ? 't:' + state.type : null));
+    }
+    showMessage('Removed "' + name + '" from the list.', 'info');
+}
+
+function removeOtherAssemblies(keepName) {
+    Array.from(loadedAssemblies.keys()).forEach(n => { if (n !== keepName) { loadedAssemblies.delete(n); loadedFiles.delete(n); } });
+    if (!(hasAssembly && currentAssemblyName === keepName)) activateAssembly(keepName);
+    else { buildExplorer(); revealInExplorer(state.method ? 'm:' + state.method : (state.type ? 't:' + state.type : null)); }
+    showMessage('Kept only "' + keepName + '".', 'info');
+}
+
+async function reloadAssembly(name) {
+    const file = loadedFiles.get(name);
+    if (!file) {
+        showMessage('"' + name + '" can no longer be read from memory - choose the file again with Open.', 'error');
+        return;
+    }
+    await loadFile(file, { reload: true });
 }
 
 function activateAssembly(name) {
@@ -1100,7 +1194,6 @@ function activateAssembly(name) {
     history = [{ ...state }];
     historyIdx = 0;
     buildExplorer();
-    updateAssemblySwitcher(name);
     applyState();
     setStatus(`${name}: ${rawAssemblyData.classes.length} types, ${rawAssemblyData.methodGraph.nodes.length} methods, ${cycles.length} circular chain${cycles.length === 1 ? '' : 's'}`);
 }
@@ -1123,12 +1216,12 @@ async function readErrorMessage(response) {
     return `Server returned ${response.status} ${response.statusText}.`;
 }
 
-async function loadFile(file) {
-    if (!file) return;
-    if (!/\.(dll|exe)$/i.test(file.name)) { showMessage(`"${file.name}" is not a .dll or .exe file.`, 'error'); return; }
+async function loadFile(file, opts = {}) {
+    if (!file) return false;
+    if (!/\.(dll|exe)$/i.test(file.name)) { showMessage(`"${file.name}" is not a .dll or .exe file.`, 'error'); return false; }
     if (maxUploadMb && file.size > maxUploadMb * 1024 * 1024) {
         showMessage(`"${file.name}" is ${(file.size / 1048576).toFixed(1)} MB; the upload limit is ${maxUploadMb} MB.`, 'error');
-        return;
+        return false;
     }
 
     setStatus(`Analysing ${file.name}…`);
@@ -1141,18 +1234,29 @@ async function loadFile(file) {
         if (!response.ok) throw new Error(await readErrorMessage(response));
         const data = await response.json();
 
-        loadedAssemblies.delete(file.name);
-        loadedAssemblies.set(file.name, data);
-        while (loadedAssemblies.size > MAX_LOADED_ASSEMBLIES) loadedAssemblies.delete(loadedAssemblies.keys().next().value);
+        loadedAssemblies.set(file.name, data);     // an existing entry keeps its position in the list
+        loadedFiles.set(file.name, file);
+        let dropped = null;
+        while (loadedAssemblies.size > MAX_LOADED_ASSEMBLIES) {
+            dropped = loadedAssemblies.keys().next().value;
+            loadedAssemblies.delete(dropped);
+            loadedFiles.delete(dropped);
+        }
 
         activateAssembly(file.name);
-        showMessage(`Parsed ${data.classes.length} types, ${data.methodGraph.nodes.length} methods, ${cycles.length} circular chains.`, 'success');
+        const verb = opts.reload ? 'Reloaded' : 'Parsed';
+        showMessage(`${verb} ${data.classes.length} types, ${data.methodGraph.nodes.length} methods, ${cycles.length} circular chains.` +
+            (dropped ? ` The oldest assembly ("${dropped}") was removed from the list (limit ${MAX_LOADED_ASSEMBLIES}).` : ''), 'success');
+        return true;
     } catch (err) {
         const reason = err instanceof TypeError
-            ? `the connection was closed - the file may exceed the server's upload limit${maxUploadMb ? ` (${maxUploadMb} MB)` : ''}.`
+            ? (opts.reload
+                ? 'the file could not be read again (moved, renamed or changed?). Use Open to choose it again.'
+                : `the connection was closed - the file may exceed the server's upload limit${maxUploadMb ? ` (${maxUploadMb} MB)` : ''}.`)
             : err.message;
-        showMessage(`Could not analyse "${file.name}": ${reason}`, 'error');
+        showMessage(`Could not ${opts.reload ? 'reload' : 'analyse'} "${file.name}": ${reason}`, 'error');
         setStatus('Ready');
+        return false;
     } finally {
         document.body.style.cursor = '';
     }
@@ -1166,7 +1270,6 @@ byId('dllFile').addEventListener('change', async (e) => {
     await loadFile(e.target.files[0]);
     e.target.value = '';
 });
-byId('assemblySwitcher').addEventListener('change', (e) => { if (loadedAssemblies.has(e.target.value)) activateAssembly(e.target.value); });
 
 document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
     if (!hasAssembly) return;
@@ -1202,6 +1305,13 @@ byId('searchBox').addEventListener('input', (e) => {
     }, 150);
 });
 
+document.addEventListener('click', hideContextMenu);
+document.addEventListener('contextmenu', (e) => { if (!e.target.closest || !e.target.closest('#explorerTree .t-row')) hideContextMenu(); });
+window.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideContextMenu(); });
+window.addEventListener('blur', hideContextMenu);
+window.addEventListener('resize', hideContextMenu);
+byId('explorerTree').addEventListener('scroll', hideContextMenu);
+
 // Explorer splitter
 (function () {
     const splitter = byId('splitter'), explorer = byId('explorer');
@@ -1233,4 +1343,5 @@ fetch('/api/analysis/limits').then(r => r.ok ? r.json() : null).then(info => {
     byId('uploadHint').textContent = `.dll / .exe, max ${maxUploadMb} MB`;
 }).catch(() => { /* hint is optional */ });
 
+buildExplorer();
 applyState();

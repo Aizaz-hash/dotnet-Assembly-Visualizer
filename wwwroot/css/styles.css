@@ -434,3 +434,18 @@ body { font-size: 14px; }
 .chain-class { font-size: 12.5px; }
 
 #statusBar { font-size: 12.5px; padding: 4px 14px; }
+
+/* assembly list: remove button + context menu */
+.t-close { margin-left: auto; padding: 0 6px; color: #adb5bd; font-size: 12px; cursor: pointer; visibility: hidden; border-radius: 3px; }
+.t-row:hover .t-close { visibility: visible; }
+.t-close:hover { color: #fff; background: #dc3545; }
+.t-row.selected .t-close { color: #cfe4ff; }
+#ctxMenu {
+    display: none; position: fixed; z-index: 2000; min-width: 220px; padding: 4px 0;
+    background: #fff; border: 1px solid #ced4da; border-radius: 4px; box-shadow: 0 6px 18px rgba(0,0,0,.25); font-size: 14px;
+}
+.ctx-title { padding: 4px 14px 6px; color: #6c757d; font-size: 12px; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-bottom: 1px solid #e9ecef; margin-bottom: 4px; }
+.ctx-item { padding: 6px 14px; cursor: pointer; color: #212529; white-space: nowrap; }
+.ctx-item:hover { background: #007bff; color: #fff; }
+.ctx-item.danger:hover { background: #dc3545; }
+.ctx-sep { height: 1px; background: #e9ecef; margin: 4px 0; }
