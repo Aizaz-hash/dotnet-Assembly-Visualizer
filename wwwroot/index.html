@@ -2,76 +2,46 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dotnet Assembly Visualizer</title>
-
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
-
     <link rel="stylesheet" href="css/styles.css">
-    <base target="_blank">
 </head>
-
 <body>
 
     <header>
         <div class="header-left">
             <h1>Dotnet Assembly Visualizer</h1>
-
             <div id="controls">
-                <!-- Open DLL Button -->
                 <div class="file-upload-container">
                     <div class="file-upload-wrapper">
-                        <div class="file-upload-label" id="uploadLabel">
-                            + Open Assembly (.dll)
-                        </div>
+                        <div class="file-upload-label" id="uploadLabel">Choose DLL</div>
                         <input type="file" id="dllFile" accept=".dll" />
                     </div>
+                    <span id="currentDllName" class="dll-name-display">No file selected</span>
                 </div>
 
-                <!-- Active Assembly Selector Dropdown -->
-                <div class="custom-dropdown" id="assemblyDropdownWrapper">
-                    <div id="assemblyTrigger" class="dropdown-trigger disabled">
-                        <span id="assemblyTriggerText">-- No Assembly Loaded --</span>
-                        <span>▼</span>
-                    </div>
-                    <div id="assemblyMenu" class="dropdown-menu">
-                        <div id="assemblyListContent" class="tree-content"></div>
-                    </div>
-                </div>
-
-                <!-- Refresh & Remove Buttons -->
-                <button id="btnRefresh" class="action-btn" title="Refresh active assembly" style="display: none;">
-                    🔄 Refresh
-                </button>
-
-                <button id="btnRemoveCurrent" class="action-btn" title="Remove active assembly" style="display: none;">
-                    🗑️ Remove
-                </button>
-
-                <!-- Target Class Selector -->
                 <div class="custom-dropdown" id="classDropdownWrapper">
                     <div id="dropdownTrigger" class="dropdown-trigger disabled">
                         <span id="triggerText">-- Select Target Type --</span>
                         <span>▼</span>
                     </div>
-
                     <div id="dropdownMenu" class="dropdown-menu">
                         <div class="search-box-container">
-                            <input type="text" id="searchClass" placeholder="🔍 Filter types." autocomplete="off" />
+                            <input type="text" id="searchClass" placeholder="🔍 Filter types..." autocomplete="off" />
                         </div>
                         <div id="treeContent" class="tree-content"></div>
                     </div>
                 </div>
 
-                <!-- Target Method Selector -->
                 <div class="custom-dropdown" id="methodDropdownWrapper" style="display: none;">
                     <div id="methodTrigger" class="dropdown-trigger disabled">
                         <span id="methodTriggerText">-- Select Target Method --</span>
                         <span>▼</span>
                     </div>
-
                     <div id="methodMenu" class="dropdown-menu">
                         <div class="search-box-container">
-                            <input type="text" id="searchMethod" placeholder="🔍 Filter methods." autocomplete="off" />
+                            <input type="text" id="searchMethod" placeholder="🔍 Filter methods..." autocomplete="off" />
                         </div>
                         <div id="methodTreeContent" class="tree-content"></div>
                     </div>
@@ -81,31 +51,14 @@
     </header>
 
     <div class="view-tabs">
-        <button class="tab-btn active" id="tabInheritance" onclick="switchViewMode('inheritance')">
-            Inheritance View
-        </button>
-
-        <button class="tab-btn" id="tabMethods" onclick="switchViewMode('methods')">
-            Method Call View
-        </button>
-
-        <button class="tab-btn" id="tabDeadlocks" onclick="switchViewMode('deadlocks')">
-            Circular Dependency View (<span id="deadlockCount">0</span>)
-        </button>
+        <button class="tab-btn active" id="tabInheritance" onclick="switchViewMode('inheritance')">Inheritance View</button>
+        <button class="tab-btn" id="tabMethods" onclick="switchViewMode('methods')">Method Call View</button>
+        <button class="tab-btn" id="tabDeadlocks" onclick="switchViewMode('deadlocks')">Circular Dependency View(<span id="deadlockCount">0</span>)</button>
     </div>
 
-    <div id="obfuscationNotice" style="
-            background: #fff3cd;
-            color: #856404;
-            border-bottom: 1px solid #ffeeba;
-            padding: 8px 20px;
-            font-size: 0.8rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;">
+    <div id="obfuscationNotice">
         <span>⚠️</span>
-        <strong>Note:</strong>
-        Structure and method call graph generation is only optimized for unobfuscated assemblies or basic (first-level) obfuscated metadata. Deeply packed or control-flow flattened binaries are currently unsupported.
+        <strong>Note:</strong> Structure and method call graph generation is only optimized for unobfuscated assemblies or basic (first-level) obfuscated metadata. Deeply packed or control-flow flattened binaries are currently unsupported.
     </div>
 
     <div id="msgWindow">
@@ -113,91 +66,44 @@
         <button onclick="closeMessage()">&times;</button>
     </div>
 
-    <div style="
-            display: flex;
-            flex-direction: row;
-            flex: 1;
-            height: calc(100vh - 150px);
-            position: relative;
-            overflow: hidden;">
-
-        <div id="network-container" style="
-                flex: 1;
-                height: 100%;
-                background: #fafafa;
-                position: relative;">
-
+    <div class="main-workspace">
+        <div id="network-container">
             <div id="canvasLoaderOverlay">
                 <div class="spinner-wheel"></div>
-                <div id="loaderStatusText">Parsing pipeline structures.</div>
+                <div id="loaderStatusText">Parsing pipeline structures...</div>
             </div>
 
             <div class="graph-legend" id="mainLegend">
                 <div class="legend-title">Map Directory Legend</div>
-
                 <div class="legend-item" id="legendClassItem">
                     <div class="legend-shape shape-class"></div>
                     <span>Class</span>
                 </div>
-
                 <div class="legend-item" id="legendInterfaceItem">
                     <div class="legend-shape shape-interface"></div>
                     <span>Interface</span>
                 </div>
-
                 <div class="legend-item" id="legendMethodItem" style="display:none;">
                     <div class="legend-shape shape-method"></div>
                     <span>Method</span>
                 </div>
-
                 <div class="legend-item" id="legendDeadlockItem" style="display:none;">
                     <div class="legend-shape shape-deadlock"></div>
                     <span>Circular Dependency</span>
                 </div>
             </div>
-
             <div id="mynetwork"></div>
         </div>
-
-        <div id="deadlocksSidePanel" style="
-                width: 320px;
-                min-width: 320px;
-                height: 100%;
-                border-left: 1px solid #dee2e6;
-                background: #ffffff;
-                display: none;
-                flex-direction: column;
-                padding: 15px;
-                overflow-y: auto;
-                box-sizing: border-box;
-                z-index: 5;">
-
-            <h3 style="
-                    margin-top: 0;
-                    color: #dc3545;
-                    font-size: 1.1rem;
-                    border-bottom: 2px solid #dc3545;
-                    padding-bottom: 8px;">
-                Detected Cycles
-            </h3>
-
-            <p style="font-size: 0.85rem; color: #6c757d;">
-                Select a circular chain below to display its call structure and identify the cycle start.
-            </p>
-
-            <div id="deadlockList" style="display: flex; flex-direction: column; gap: 10px;"></div>
+        <div id="deadlocksSidePanel">
+            <h3 class="panel-title">Detected Cycles</h3>
+            <p class="panel-subtitle">Select a circular chain below to display its call structure isolating the loop chain:</p>
+            <div id="deadlockList"></div>
         </div>
     </div>
 
     <footer>
-        <div>
-            <span>GitHub:</span>
-            <a href="https://github.com/aizaz-hash" target="_blank">aizaz-hash</a>
-        </div>
-        <div>
-            <span>Email:</span>
-            <a href="mailto:send2aizaz@gmail.com">send2aizaz@gmail.com</a>
-        </div>
+        <div><span>GitHub:</span> <a href="https://github.com/aizaz-hash" target="_blank">aizaz-hash</a></div>
+        <div><span>Email:</span> <a href="mailto:send2aizaz@gmail.com">send2aizaz@gmail.com</a></div>
     </footer>
 
     <script src="js/app.js"></script>
