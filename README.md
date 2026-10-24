@@ -120,6 +120,15 @@ I'm actively working on this, so if you find a bug or have an idea for a feature
 ---
 *Built by [Aizaz](https://github.com/aizaz-hash) — Happy coding!*
 
+## Releasing
+
+Releases are built by the *Release* workflow and always use the **current tip of the release branch** (`main` for `0.x`, `v2` for `2.x`):
+
+1. Merge everything for the release into the release branch.
+2. GitHub -> *Actions* -> *Release* -> *Run workflow*, choose the branch and enter the version (e.g. `2.0.1`). The workflow builds that branch's latest commit, publishes the GHCR image and the archives, and creates or moves the tag `v<version>` onto exactly that commit.
+
+Pushing a tag by hand also works, but the workflow fails if the tag is not the tip of its release branch, so a stale tag cannot publish old code. Each release page states the branch and commit it was built from.
+
 ## License
 
 Released under the [MIT License](LICENSE) - Copyright (c) 2026 Aizaz Zaheen.
