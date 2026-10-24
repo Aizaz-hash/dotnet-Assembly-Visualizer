@@ -26,11 +26,11 @@ This produces `samples/VulnerableDemo/out/VulnerableDemo.dll` and `VulnerableDem
 2. Open the **Vulnerabilities** tab, click **Add .deps.json...** and choose `VulnerableDemo.deps.json`.
 3. Untick *This application's packages* if you only want the demo, then press **Run scan**.
 
-Expected: 1 Critical and 3 High findings (plus lower-severity ones as advisories are published), all marked
-*confirmed* because the exact package versions come from the `.deps.json`.
+Expected: 1 Critical, 5 High and 1 Medium finding (the exact list changes as advisories are published); the findings for log4net and Newtonsoft.Json are marked
+*confirmed*, while the legacy System.* packages that the shared framework supplies are marked *potential*.
 
 Independent cross-check with .NET's own audit:
 
 ```bash
-dotnet list samples/VulnerableDemo package --vulnerable
+dotnet list samples/VulnerableDemo package --vulnerable --include-transitive
 ```
