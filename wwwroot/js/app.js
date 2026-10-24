@@ -60,6 +60,12 @@ function setTabBadge(badge, count, title) {
     badge.title = title || '';
 }
 
+// Calls a function defined in vuln.js (loaded after this file) if it exists.
+function vulnCall(name, arg) {
+    const fn = window[name];
+    if (typeof fn === 'function') fn(arg);
+}
+
 function el(tag, className, text) {
     const node = document.createElement(tag);
     if (className) node.className = className;
@@ -503,8 +509,8 @@ function renderTitle() {
     const t = byId('viewTitle');
     t.innerHTML = '';
     if (state.view === 'vulns') {
-        t.appendChild(el('span', 'vt-name', 'Vulnerability Testing'));
-        t.appendChild(el('span', 'vt-sub', 'Known vulnerabilities (CVE) in the dependencies - Critical and High first'));
+        t.appendChild(el('span', 'vt-name', 'Vulnerabilities Scan'));
+        t.appendChild(el('span', 'vt-sub', 'Known vulnerabilities (CVE) in the dependencies of the loaded assembly - Critical and High first'));
         return;
     }
     if (!hasAssembly) { t.appendChild(el('span', 'vt-sub', 'No assembly loaded')); return; }
@@ -1152,6 +1158,7 @@ function clearAssembly() {
     const badge = byId('cycleCount');
     setTabBadge(badge, 0, 'No circular call chains');
     buildExplorer();
+    vulnCall('vulnOnAssemblyChanged');
     applyState();
     setStatus('Ready');
 }
@@ -1161,6 +1168,7 @@ function removeAssembly(name) {
     const wasActive = hasAssembly && name === currentAssemblyName;
     loadedAssemblies.delete(name);
     loadedFiles.delete(name);
+    vulnCall('vulnForgetAssembly', name);
     if (wasActive) {
         const remaining = Array.from(loadedAssemblies.keys());
         if (remaining.length) activateAssembly(remaining[remaining.length - 1]);
@@ -1173,7 +1181,7 @@ function removeAssembly(name) {
 }
 
 function removeOtherAssemblies(keepName) {
-    Array.from(loadedAssemblies.keys()).forEach(n => { if (n !== keepName) { loadedAssemblies.delete(n); loadedFiles.delete(n); } });
+    Array.from(loadedAssemblies.keys()).forEach(n => { if (n !== keepName) { loadedAssemblies.delete(n); loadedFiles.delete(n); vulnCall('vulnForgetAssembly', n); } });
     if (!(hasAssembly && currentAssemblyName === keepName)) activateAssembly(keepName);
     else { buildExplorer(); revealInExplorer(state.method ? 'm:' + state.method : (state.type ? 't:' + state.type : null)); }
     showMessage('Kept only "' + keepName + '".', 'info');
@@ -1205,6 +1213,7 @@ function activateAssembly(name) {
     history = [{ ...state }];
     historyIdx = 0;
     buildExplorer();
+    vulnCall('vulnOnAssemblyChanged');
     applyState();
     setStatus(`${name}: ${rawAssemblyData.classes.length} types, ${rawAssemblyData.methodGraph.nodes.length} methods, ${cycles.length} circular chain${cycles.length === 1 ? '' : 's'}`);
 }
@@ -1252,6 +1261,7 @@ async function loadFile(file, opts = {}) {
             dropped = loadedAssemblies.keys().next().value;
             loadedAssemblies.delete(dropped);
             loadedFiles.delete(dropped);
+            vulnCall('vulnForgetAssembly', dropped);
         }
 
         activateAssembly(file.name);

@@ -13,6 +13,8 @@ let vulnReport = null;
 let vulnInfo = null;                        // { enabled, host, sends } from /status
 let vulnBusy = false;
 let vulnDepsFile = null;
+const vulnReports = new Map();              // assembly name -> report (a scan belongs to the assembly it was run for)
+const vulnDepsFiles = new Map();            // assembly name -> chosen .deps.json
 let vulnSelectedKey = null;
 const vulnFilters = { severities: new Set(), component: '', status: '', confidence: '', text: '' };
 
@@ -79,40 +81,77 @@ function vulnConsent() {
     return ok;
 }
 
+// ---------- per-assembly scope ----------
+// A scan always belongs to the loaded assembly: it is remembered per assembly, shown only while that assembly is
+// active, and forgotten when the assembly is removed.
+
+function vulnOnAssemblyChanged() {
+    vulnReport = hasAssembly ? (vulnReports.get(currentAssemblyName) || null) : null;
+    vulnDepsFile = hasAssembly ? (vulnDepsFiles.get(currentAssemblyName) || null) : null;
+    vulnSelectedKey = vulnReport && vulnReport.findings.length ? vulnKey(vulnReport.findings[0]) : null;
+    vulnFilters.severities.clear();
+    vulnFilters.component = vulnFilters.status = vulnFilters.confidence = vulnFilters.text = '';
+    syncVulnToolbar();
+    updateVulnBadge();
+}
+
+function vulnForgetAssembly(name) {
+    vulnReports.delete(name);
+    vulnDepsFiles.delete(name);
+}
+
+function syncVulnToolbar() {
+    const has = hasAssembly;
+    byId('btnVulnScan').disabled = !has || vulnBusy;
+    byId('btnVulnScan').textContent = vulnBusy ? 'Scanning…' : (vulnReport ? 'Re-run scan' : 'Run scan');
+    byId('btnVulnScan').title = has ? 'Scan the dependencies of ' + currentAssemblyName : 'Open an assembly first';
+    byId('vulnOptApp').disabled = !has;
+    byId('btnVulnDeps').disabled = !has;
+    byId('btnVulnExport').disabled = !vulnReport;
+    byId('btnVulnPdf').disabled = !vulnReport;
+    byId('vulnDepsName').textContent = vulnDepsFile ? vulnDepsFile.name : '';
+    byId('btnVulnDepsClear').style.display = vulnDepsFile ? 'inline-block' : 'none';
+    byId('vulnScope').textContent = has ? 'Scanning: ' + currentAssemblyName : 'No assembly loaded';
+}
+
 async function runVulnScan() {
     if (vulnBusy) return;
+    if (!hasAssembly) { showMessage('Open an assembly first - the scan is run for the loaded assembly.', 'error'); return; }
+    const name = currentAssemblyName;
     const includeApp = byId('vulnOptApp').checked;
-    if (!includeApp && !vulnDepsFile) { showMessage('Select at least one source: the application and/or a .deps.json file.', 'error'); return; }
+    if (!includeApp && !vulnDepsFile) {
+        showMessage('Add the .deps.json of "' + name + '" (exact dependency versions), or tick "Include this tool\'s own packages".', 'error');
+        return;
+    }
     if (!vulnConsent()) return;
 
     vulnBusy = true;
-    byId('btnVulnScan').disabled = true;
-    byId('btnVulnScan').textContent = 'Scanning…';
-    setStatus('Scanning dependencies against OSV.dev…');
+    syncVulnToolbar();
+    setStatus('Scanning ' + name + ' against OSV.dev…');
 
     const form = new FormData();
     form.append('includeApplication', includeApp ? 'true' : 'false');
     if (vulnDepsFile) form.append('depsFile', vulnDepsFile);
-    if (hasAssembly && rawAssemblyData.references && rawAssemblyData.references.length)
+    if (rawAssemblyData.references && rawAssemblyData.references.length)
         form.append('references', JSON.stringify(rawAssemblyData.references));
 
     try {
         const response = await fetch('/api/vulnerabilities/scan', { method: 'POST', body: form });
         if (!response.ok) throw new Error((await response.text()) || ('Server returned ' + response.status));
-        vulnReport = await response.json();
-        vulnReport.scannedFor = hasAssembly ? currentAssemblyName : '';
-        applyStoredStatuses(vulnReport);
-        vulnSelectedKey = vulnReport.findings.length ? vulnKey(vulnReport.findings[0]) : null;
-        const s = vulnReport.summary;
-        setStatus(`Scan finished: ${s.total} finding${s.total === 1 ? '' : 's'} (${s.critical} critical, ${s.high} high)` + (vulnReport.complete ? '' : ' - INCOMPLETE'));
+        const report = await response.json();
+        report.scannedFor = name;
+        report.scannedSources = [vulnDepsFile ? vulnDepsFile.name : null, includeApp ? 'this tool\'s own packages' : null].filter(Boolean);
+        applyStoredStatuses(report);
+        if (loadedAssemblies.has(name)) vulnReports.set(name, report);      // the assembly may have been removed meanwhile
+        const s = report.summary;
+        setStatus('Scan of ' + name + ' finished: ' + s.total + ' finding' + (s.total === 1 ? '' : 's') + ' (' + s.critical + ' critical, ' + s.high + ' high)' + (report.complete ? '' : ' - INCOMPLETE'));
     } catch (err) {
         showMessage('Scan failed: ' + err.message, 'error');
         setStatus('Ready');
     } finally {
         vulnBusy = false;
-        byId('btnVulnScan').disabled = false;
-        byId('btnVulnScan').textContent = vulnReport ? 'Re-run scan' : 'Run scan';
-        updateVulnBadge();
+        if (hasAssembly && currentAssemblyName === name) vulnOnAssemblyChanged();   // show this assembly's (new) report
+        else syncVulnToolbar();
         renderVulns();
     }
 }
@@ -136,6 +175,143 @@ function exportVulnReport() {
     a.download = 'vulnerability-report-' + vulnReport.scannedAtUtc.slice(0, 10) + '.json';
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+// ---------- PDF export (browser print -> "Save as PDF"; no extra library) ----------
+
+const PDF_CSS = `
+@page { size: A4; margin: 14mm 12mm; }
+* { box-sizing: border-box; }
+body { font-family: "Segoe UI", Arial, sans-serif; font-size: 10.5pt; color: #212529; margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+h1 { font-size: 20pt; margin: 0 0 2mm; } h2 { font-size: 13pt; margin: 7mm 0 2mm; border-bottom: 1px solid #adb5bd; padding-bottom: 1mm; }
+.meta { color: #495057; font-size: 9.5pt; line-height: 1.5; }
+.banner { border: 1px solid; border-radius: 3px; padding: 2.5mm 3.5mm; margin: 4mm 0; font-size: 10pt; }
+.banner.ok { background: #d4edda; color: #155724; border-color: #c3e6cb; } .banner.warn { background: #fff3cd; color: #856404; border-color: #ffeeba; } .banner.bad { background: #f8d7da; color: #721c24; border-color: #f5c6cb; }
+.banner ul { margin: 1.5mm 0 0; padding-left: 5mm; }
+.cards { display: flex; gap: 3mm; margin: 3mm 0; }
+.card { flex: 1; border: 1px solid #dee2e6; border-left: 4px solid #adb5bd; padding: 2mm 3mm; } .card b { display: block; font-size: 18pt; } .card span { font-size: 8.5pt; text-transform: uppercase; color: #495057; }
+.card.critical { border-left-color: #721c24; } .card.high { border-left-color: #dc3545; } .card.medium { border-left-color: #fb8c00; } .card.low { border-left-color: #1e88e5; } .card.unknown { border-left-color: #6c757d; }
+table { width: 100%; border-collapse: collapse; font-size: 9pt; } th { background: #f1f3f5; text-align: left; padding: 1.5mm 2mm; border-bottom: 1px solid #adb5bd; } td { padding: 1.5mm 2mm; border-bottom: 1px solid #e9ecef; vertical-align: top; }
+tr { page-break-inside: avoid; }
+.sev { display: inline-block; padding: 0 2.5mm; border-radius: 3mm; color: #fff; font-weight: 700; font-size: 8.5pt; white-space: nowrap; }
+.sev.critical { background: #721c24; } .sev.high { background: #dc3545; } .sev.medium { background: #fb8c00; } .sev.low { background: #1e88e5; } .sev.unknown { background: #6c757d; }
+.finding { border: 1px solid #dee2e6; border-radius: 2mm; padding: 3mm 4mm; margin: 3mm 0; page-break-inside: avoid; }
+.finding h3 { margin: 0 0 1.5mm; font-size: 11.5pt; } .finding .sum { margin-bottom: 2mm; }
+.finding dl { display: grid; grid-template-columns: 30mm 1fr; gap: 0.8mm 3mm; margin: 0 0 2mm; font-size: 9pt; } .finding dt { color: #6c757d; } .finding dd { margin: 0; word-break: break-word; }
+.finding h4 { margin: 2mm 0 0.5mm; font-size: 9.5pt; } .finding ul { margin: 0.5mm 0 0; padding-left: 5mm; font-size: 9pt; }
+.conf { border-radius: 2mm; padding: 1.5mm 2.5mm; font-size: 9pt; margin: 1.5mm 0; } .conf.confirmed { background: #d4edda; color: #155724; } .conf.potential { background: #fff3cd; color: #856404; }
+code { font-family: Consolas, monospace; background: #f1f3f5; padding: 0 1mm; }
+.foot { margin-top: 6mm; font-size: 8.5pt; color: #6c757d; border-top: 1px solid #dee2e6; padding-top: 2mm; }
+`;
+
+function buildVulnReportDocument(doc, report) {
+    const E = (tag, cls, text) => { const n = doc.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; };
+    const body = doc.body;
+    body.innerHTML = '';
+    const style = doc.createElement('style'); style.textContent = PDF_CSS; doc.head.appendChild(style);
+    doc.title = 'Vulnerabilities Scan - ' + (report.scannedFor || 'report');
+
+    body.appendChild(E('h1', null, 'Vulnerabilities Scan report'));
+    const meta = E('div', 'meta');
+    [
+        ['Assembly', report.scannedFor || '-'],
+        ['Sources', (report.scannedSources && report.scannedSources.length ? report.scannedSources.join(', ') : '-')],
+        ['Database', report.database + ' (' + (report.databaseReachable ? 'reachable' : 'unreachable') + ')'],
+        ['Scanned', new Date(report.scannedAtUtc).toLocaleString()],
+        ['Components checked', String(report.components.length)]
+    ].forEach(([k, v]) => { const line = E('div'); line.appendChild(E('b', null, k + ': ')); line.appendChild(doc.createTextNode(v)); meta.appendChild(line); });
+    body.appendChild(meta);
+
+    const ok = report.complete && report.databaseReachable;
+    const banner = E('div', 'banner ' + (ok ? 'ok' : (report.databaseReachable ? 'warn' : 'bad')));
+    banner.appendChild(E('b', null, ok ? 'Scan complete' : (report.databaseReachable ? 'Scan INCOMPLETE - some components could not be checked' : 'Database unreachable - nothing was checked; this is NOT a clean result')));
+    if (report.notes.length) { const ul = E('ul'); report.notes.forEach(n => ul.appendChild(E('li', null, n))); banner.appendChild(ul); }
+    body.appendChild(banner);
+
+    const open = report.findings.filter(f => vulnStatusOf(f) === 'Open');
+    const cards = E('div', 'cards');
+    SEVERITIES.forEach(sev => {
+        const c = E('div', 'card ' + sev.toLowerCase());
+        c.appendChild(E('b', null, String(open.filter(f => f.severity === sev).length)));
+        c.appendChild(E('span', null, sev + ' (open)'));
+        cards.appendChild(c);
+    });
+    body.appendChild(cards);
+
+    body.appendChild(E('h2', null, 'Findings (' + report.findings.length + ')'));
+    if (!report.findings.length) {
+        body.appendChild(E('p', null, ok ? 'No known vulnerabilities were found for the scanned components.' : 'No vulnerabilities were reported, but the scan is incomplete (see above).'));
+    } else {
+        const table = E('table');
+        const head = E('tr'); ['Severity', 'ID', 'Component', 'Fix', 'Status', 'Confidence'].forEach(h => head.appendChild(E('th', null, h)));
+        const thead = E('thead'); thead.appendChild(head); table.appendChild(thead);
+        const tb = E('tbody');
+        report.findings.forEach(f => {
+            const tr = E('tr');
+            const t1 = E('td'); t1.appendChild(E('span', 'sev ' + f.severity.toLowerCase(), f.severity + (f.cvssScore != null ? ' ' + f.cvssScore.toFixed(1) : ''))); tr.appendChild(t1);
+            tr.appendChild(E('td', null, f.id)); tr.appendChild(E('td', null, f.component + ' ' + f.installedVersion));
+            tr.appendChild(E('td', null, f.recommendedVersion ? '>= ' + f.recommendedVersion : 'none listed'));
+            tr.appendChild(E('td', null, vulnStatusOf(f))); tr.appendChild(E('td', null, f.confidence));
+            tb.appendChild(tr);
+        });
+        table.appendChild(tb); body.appendChild(table);
+
+        body.appendChild(E('h2', null, 'Details and remediation'));
+        report.findings.forEach(f => {
+            const box = E('div', 'finding');
+            const h = E('h3'); h.appendChild(E('span', 'sev ' + f.severity.toLowerCase(), f.severity + (f.cvssScore != null ? ' ' + f.cvssScore.toFixed(1) : '')));
+            h.appendChild(doc.createTextNode('  ' + f.id + ' - ' + f.component + ' ' + f.installedVersion)); box.appendChild(h);
+            box.appendChild(E('div', 'sum', f.summary));
+            const dl = E('dl');
+            const row = (k, v) => { dl.appendChild(E('dt', null, k)); dl.appendChild(E('dd', null, v)); };
+            if (f.aliases.length > 1) row('Also known as', f.aliases.filter(a => a !== f.id).join(', '));
+            if (f.cwes.length) row('Weakness', f.cwes.join(', '));
+            row('Severity basis', f.severitySource);
+            if (f.cvssVector) row('CVSS vector', f.cvssVector);
+            row('Fixed versions', f.fixedVersions.length ? f.fixedVersions.join(', ') : 'none listed');
+            row('Status', vulnStatusOf(f) + (f.statusDate ? ' (since ' + new Date(f.statusDate).toLocaleDateString() + ')' : ''));
+            box.appendChild(dl);
+            const conf = E('div', 'conf ' + f.confidence); conf.appendChild(E('b', null, (f.confidence === 'confirmed' ? 'Confirmed: ' : 'Potential: '))); conf.appendChild(doc.createTextNode(f.confidenceNote)); box.appendChild(conf);
+            const list = (title, items) => { box.appendChild(E('h4', null, title)); const ul = E('ul'); items.forEach(i => ul.appendChild(E('li', null, i))); box.appendChild(ul); };
+            list('Potential impact (derived from the CVSS vector)', f.impact);
+            list('Recommended remediation (nothing was changed automatically)', f.remediation);
+            list('References', [f.databaseUrl].concat(f.references.slice(0, 5).map(r => r.url)));
+            body.appendChild(box);
+        });
+    }
+
+    body.appendChild(E('h2', null, 'Scanned components (' + report.components.length + ')'));
+    const ct = E('table');
+    const ch = E('tr'); ['Package', 'Version', 'Source', 'Ships code', 'Result', 'Findings'].forEach(h => ch.appendChild(E('th', null, h)));
+    const cth = E('thead'); cth.appendChild(ch); ct.appendChild(cth);
+    const cb = E('tbody');
+    report.components.forEach(c => {
+        const tr = E('tr');
+        [c.name, c.version, c.source, c.shipsAssembly === true ? 'yes' : c.shipsAssembly === false ? 'no (framework)' : 'unknown', c.result === 'ok' ? 'checked' : c.result, String(c.findings)].forEach(v => tr.appendChild(E('td', null, v)));
+        cb.appendChild(tr);
+    });
+    ct.appendChild(cb); body.appendChild(ct);
+
+    body.appendChild(E('div', 'foot', 'Generated by dotnet Assembly Visualizer. Source: ' + report.database + '. Findings reflect the database at the time of the scan; ' +
+        'this report is informational - verify before acting, and re-scan regularly.'));
+}
+
+function exportVulnPdf() {
+    if (!vulnReport) return;
+    const frame = document.createElement('iframe');
+    frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
+    document.body.appendChild(frame);
+    const doc = frame.contentDocument;
+    doc.open(); doc.write('<!doctype html><html><head><meta charset="utf-8"></head><body></body></html>'); doc.close();
+    buildVulnReportDocument(doc, vulnReport);
+    const cleanup = () => setTimeout(() => frame.remove(), 1000);
+    frame.contentWindow.addEventListener('afterprint', cleanup);
+    setTimeout(() => {
+        frame.contentWindow.focus();
+        frame.contentWindow.print();                  // choose "Save as PDF" as the destination
+        setTimeout(cleanup, 60000);
+    }, 200);
+    showMessage('Choose "Save as PDF" in the print dialog to create the PDF.', 'info');
 }
 
 // ---------- rendering ----------
@@ -167,8 +343,9 @@ function renderVulns() {
     const banner = byId('vulnBanner'), summary = byId('vulnSummary'), filters = byId('vulnFilters');
     const list = byId('vulnList'), detail = byId('vulnDetail'), extras = byId('vulnExtras');
     [banner, summary, filters, list, detail, extras].forEach(n => n.innerHTML = '');
-    byId('btnVulnExport').disabled = !vulnReport;
+    syncVulnToolbar();
 
+    if (!hasAssembly) { renderVulnNoAssembly(banner); return; }
     if (!vulnReport) { renderVulnIntro(banner); return; }
 
     renderVulnBanner(banner);
@@ -194,12 +371,20 @@ function renderVulns() {
     renderVulnExtras(extras);
 }
 
+function renderVulnNoAssembly(container) {
+    const box = el('div', 'vuln-intro');
+    box.appendChild(el('h3', null, 'Open an assembly first'));
+    box.appendChild(el('p', null, 'The Vulnerabilities Scan checks the dependencies of the assembly you have loaded. Click "Open" (or drop a .dll / .exe onto the page), then come back here and run the scan.'));
+    box.appendChild(el('p', 'view-hint', 'Results belong to the loaded assembly and disappear when you remove it.'));
+    container.appendChild(box);
+}
+
 function renderVulnIntro(container) {
     const box = el('div', 'vuln-intro');
-    box.appendChild(el('h3', null, 'Vulnerability testing'));
+    box.appendChild(el('h3', null, 'Vulnerabilities Scan'));
     const enabled = !vulnInfo || vulnInfo.enabled !== false;
     box.appendChild(el('p', null, enabled
-        ? 'Checks the exact package versions this application ships with - and, if you add its .deps.json, the dependencies of the application you analysed - against the OSV.dev database (GitHub Security Advisories, NVD and others). Every finding shows its CVE, CVSS score, affected component, impact and a recommended fix.'
+        ? 'Checks the dependencies of ' + currentAssemblyName + ' against the OSV.dev database (GitHub Security Advisories, NVD and others). Add the .deps.json that was built with it so exact package versions are used. Every finding shows its CVE, CVSS score, affected component, impact and a recommended fix.'
         : 'Vulnerability scanning is switched off on this server (Vulnerability:Enabled = false).'));
     const ul = el('ul');
     [
@@ -210,7 +395,7 @@ function renderVulnIntro(container) {
         'Assembly references alone carry only an assembly version (e.g. 8.0.0.0), so for your own application supply its .deps.json for an exact scan.'
     ].forEach(t => ul.appendChild(el('li', null, t)));
     box.appendChild(ul);
-    box.appendChild(el('p', 'view-hint', 'Press "Run scan" to start.'));
+    box.appendChild(el('p', 'view-hint', 'Add the .deps.json of ' + currentAssemblyName + ' (or tick "Include this tool\'s own packages") and press "Run scan".'));
     container.appendChild(box);
 }
 
@@ -220,7 +405,7 @@ function renderVulnBanner(container) {
     const box = el('div', 'vuln-banner ' + (ok ? 'ok' : (r.databaseReachable ? 'warn' : 'bad')));
     const when = new Date(r.scannedAtUtc).toLocaleString();
     box.appendChild(el('div', 'vb-title', (ok ? '✓ Scan complete' : (r.databaseReachable ? '⚠ Scan incomplete' : '✕ Database unreachable')) +
-        ` - ${r.components.length} component${r.components.length === 1 ? '' : 's'} checked against ${r.database} · ${when}`));
+        ` - ${r.components.length} component${r.components.length === 1 ? '' : 's'} checked against ${r.database} · ${when}` + (r.scannedFor ? ` · ${r.scannedFor}` : '')));
     if (r.notes.length) {
         const ul = el('ul');
         r.notes.forEach(n => ul.appendChild(el('li', null, n)));
@@ -460,12 +645,14 @@ function renderVulnExtras(container) {
 
 byId('btnVulnScan').onclick = runVulnScan;
 byId('btnVulnExport').onclick = exportVulnReport;
+byId('btnVulnPdf').onclick = exportVulnPdf;
 byId('btnVulnDeps').onclick = () => byId('vulnDepsFile').click();
 byId('vulnDepsFile').addEventListener('change', (e) => {
     const f = e.target.files[0];
-    if (f) { vulnDepsFile = f; byId('vulnDepsName').textContent = f.name; byId('btnVulnDepsClear').style.display = 'inline-block'; }
+    if (f && hasAssembly) { vulnDepsFile = f; vulnDepsFiles.set(currentAssemblyName, f); syncVulnToolbar(); }
     e.target.value = '';
 });
-byId('btnVulnDepsClear').onclick = () => { vulnDepsFile = null; byId('vulnDepsName').textContent = ''; byId('btnVulnDepsClear').style.display = 'none'; };
+byId('btnVulnDepsClear').onclick = () => { vulnDepsFile = null; if (hasAssembly) vulnDepsFiles.delete(currentAssemblyName); syncVulnToolbar(); };
 
 loadVulnInfo().then(() => { if (state.view === 'vulns') renderVulns(); });
+syncVulnToolbar();
