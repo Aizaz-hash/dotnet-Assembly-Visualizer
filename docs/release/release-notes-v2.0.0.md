@@ -1,20 +1,20 @@
-# v2.0.0 — Vulnerability testing, ILSpy-style explorer, modular architecture
+# v2.0.0 — Vulnerabilities Scan, ILSpy-style explorer, modular architecture
 
-**v2.0.0 adds built-in vulnerability testing.** Scan your dependencies for known CVEs, see **Critical and High** risks first, and get a verified, actionable fix for each - without leaving the assembly explorer. This release also brings an ILSpy-style explorer with inheritance graphs, merged call graphs and circular-dependency detection, on top of a modular architecture.
+**v2.0.0 adds a built-in Vulnerabilities Scan.** Scan your dependencies for known CVEs, see **Critical and High** risks first, and get a verified, actionable fix for each - without leaving the assembly explorer. This release also brings an ILSpy-style explorer with inheritance graphs, merged call graphs and circular-dependency detection, on top of a modular architecture.
 
 ![Vulnerability scan with a Critical finding selected](https://github.com/Aizaz-hash/dotnet-Assembly-Visualizer/raw/v2/docs/images/v2-vuln-main.png)
 
-## 🛡 Vulnerability testing (new)
+## 🛡 Vulnerabilities Scan (new)
 
-A new **Vulnerabilities** tab checks the *exact* package versions of your dependencies against [OSV.dev](https://osv.dev) (GitHub Security Advisories, NVD and others).
+A new **Vulnerabilities Scan** tab checks the *exact* package versions of the loaded assembly's dependencies against [OSV.dev](https://osv.dev) (GitHub Security Advisories, NVD and others).
 
 - **Critical and High first.** Severity is classified from the CVSS v3 vector (score computed per the FIRST.org specification), with the advisory's own rating as a fallback for CVSS v4-only advisories. Summary cards count findings per severity (Critical, High, Medium, Low, Unknown) and double as filters.
 - **Everything you need per finding:** CVE / GHSA id, CVSS score and vector, affected component and version, weakness (CWE), potential impact and exploitation conditions derived from the vector, fixed versions, advisory text and references.
 - **Actionable remediation:** the recommended upgrade version plus a ready-to-copy command (`dotnet add package …` / `npm install …`). The tool **never changes your dependencies** - the commands are for you to run.
-- **Filters and status tracking:** filter by severity, component, status and confidence, or search by CVE / package. Mark findings **Open**, **Accepted Risk** or **Fixed**; a finding you marked as fixed re-opens automatically if the next scan still reports it. Export the report as JSON.
+- **Filters and status tracking:** filter by severity, component, status and confidence, or search by CVE / package. Mark findings **Open**, **Accepted Risk** or **Fixed**; a finding you marked as fixed re-opens automatically if the next scan still reports it. Export the report as **PDF** (print dialog → *Save as PDF*) or JSON.
 - **Confirmed vs potential:** each finding is verified against the advisory's affected-version ranges. *Confirmed* means the exact version is in range and the package really ships code. *Potential* means that could not be established - for example a legacy `System.*` package the .NET shared framework supplies at runtime - so you are not told that every dependency warning is exploitable.
 - **Honest about gaps:** an unreachable database, a failed component or a missing advisory record marks the scan **incomplete** - it never shows "no vulnerabilities" when something could not be checked.
-- **What is scanned:** the packages this application ships with, plus - when you add the `.deps.json` of the application you analysed - all of its dependencies with exact versions. Assembly references of the loaded DLL are listed as an inventory (an assembly reference only carries an assembly version, which does not identify the NuGet package version).
+- **What is scanned:** the dependencies of the loaded assembly with exact versions, from the `.deps.json` built with it (optionally also this tool's own packages). Results belong to the loaded assembly: they are kept while you switch between assemblies and disappear when you remove it. Assembly references of the loaded DLL are listed as an inventory (an assembly reference only carries an assembly version, which does not identify the NuGet package version).
 - **Privacy:** only package names and versions are sent to `api.osv.dev` - never your code or assemblies - and the UI asks before the first scan. Turn the feature off with `Vulnerability:Enabled = false`.
 
 ![A potential finding explained](https://github.com/Aizaz-hash/dotnet-Assembly-Visualizer/raw/v2/docs/images/v2-vuln-potential.png)

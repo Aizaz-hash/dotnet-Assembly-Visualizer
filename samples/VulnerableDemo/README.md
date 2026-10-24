@@ -23,8 +23,9 @@ This produces `samples/VulnerableDemo/out/VulnerableDemo.dll` and `VulnerableDem
 
 1. Start the visualizer and click **Open** to load `VulnerableDemo.dll`. Its types, inheritance and a
    circular call chain (`Normalizer.Normalize` -> `Validate` -> `Normalize`) appear as usual.
-2. Open the **Vulnerabilities** tab, click **Add .deps.json...** and choose `VulnerableDemo.deps.json`.
-3. Untick *This application's packages* if you only want the demo, then press **Run scan**.
+2. Open the **Vulnerabilities Scan** tab, click **Add .deps.json...** and choose `VulnerableDemo.deps.json`.
+3. Press **Run scan** (the scan needs a loaded assembly; its result belongs to `VulnerableDemo.dll`).
+4. Optionally press **Export PDF** (choose *Save as PDF*) or **Export JSON**.
 
 Expected: 1 Critical, 5 High and 1 Medium finding (the exact list changes as advisories are published); the findings for log4net and Newtonsoft.Json are marked
 *confirmed*, while the legacy System.* packages that the shared framework supplies are marked *potential*.

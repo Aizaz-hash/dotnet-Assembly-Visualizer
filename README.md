@@ -46,22 +46,22 @@ Methods that take part in a circular call chain are marked in the explorer and g
 
 ![Circular dependency view](docs/images/v2-cycles.png)
 
-### Vulnerability testing
+### Vulnerabilities Scan
 
-The **Vulnerabilities** tab checks your dependencies for known security vulnerabilities and puts **Critical and High** findings first. It looks up the *exact* package versions in [OSV.dev](https://osv.dev) (GitHub Security Advisories, NVD and others) - nothing is executed, installed or modified.
+The **Vulnerabilities Scan** tab checks the dependencies of the assembly you have loaded for known security vulnerabilities and puts **Critical and High** findings first. It looks up the *exact* package versions in [OSV.dev](https://osv.dev) (GitHub Security Advisories, NVD and others) - nothing is executed, installed or modified.
 
 ![Vulnerability scan with a Critical finding selected](docs/images/v2-vuln-main.png)
 
-- **What is scanned:** the packages this application ships with, and - if you add the `.deps.json` of the application you analysed - all of its dependencies with exact versions. The assemblies referenced by the loaded DLL are listed too, but not matched to packages (an assembly reference only carries an assembly version such as `8.0.0.0`, which does not identify the NuGet package version).
+- **What is scanned:** the dependencies of the loaded assembly, with exact versions, from the `.deps.json` that was built with it (add it with *Add .deps.json…*). You can also tick *Include this tool's own packages*. The scan needs a loaded assembly: its result belongs to that assembly, is kept while you switch between assemblies, and disappears when you remove it. The assemblies referenced by the loaded DLL are listed too, but not matched to packages (an assembly reference only carries an assembly version such as `8.0.0.0`, which does not identify the NuGet package version).
 - **What you get for every finding:** CVE / GHSA identifier, CVSS score and severity (computed from the CVSS v3 vector, or the advisory's own rating when only a v4 vector is published), affected component and version, the weakness (CWE), potential impact and exploitation conditions derived from the vector, fixed versions, a recommended upgrade with a command *for you to run*, the advisory text and references.
-- **Summary and filters:** counts per severity (click a card to filter), filters for severity, component, status and confidence, plus text search. Statuses are **Open**, **Accepted Risk** and **Fixed**; a finding you mark as fixed re-opens automatically if the next scan still reports it. Reports can be exported as JSON.
+- **Summary and filters:** counts per severity (click a card to filter), filters for severity, component, status and confidence, plus text search. Statuses are **Open**, **Accepted Risk** and **Fixed**; a finding you mark as fixed re-opens automatically if the next scan still reports it. Reports can be exported as **PDF** (the browser's print dialog - choose *Save as PDF*) or as JSON.
 - **Confirmed vs potential:** every finding is verified against the advisory's affected-version ranges. It is *confirmed* when the exact version is in range and the package really ships code. It is *potential* when that cannot be established - for example a legacy `System.*` package that the .NET shared framework supplies at runtime, so the vulnerable code may not be what runs.
 
 ![A potential finding explained](docs/images/v2-vuln-potential.png)
 
 - **Honest about gaps:** if the database cannot be reached, a component fails, or an advisory cannot be downloaded, the report says the scan is **incomplete** instead of showing "no vulnerabilities". The .NET runtime / base image itself is not scanned.
 - **Privacy:** only package names and versions are sent to `api.osv.dev` - never your code or assemblies - and the UI asks for confirmation before the first scan. Set `Vulnerability:Enabled` to `false` to switch the feature off (for air-gapped use).
-- **Try it:** `samples/VulnerableDemo` is a deliberately vulnerable test assembly (log4net 2.0.8, Newtonsoft.Json 12.0.1, System.Text.Json 8.0.0). Build it, open the DLL, then add its `.deps.json` in the Vulnerabilities tab. See [samples/VulnerableDemo/README.md](samples/VulnerableDemo/README.md).
+- **Try it:** `samples/VulnerableDemo` is a deliberately vulnerable test assembly (log4net 2.0.8, Newtonsoft.Json 12.0.1, System.Text.Json 8.0.0). Build it, open the DLL, then add its `.deps.json` in the Vulnerabilities Scan tab. See [samples/VulnerableDemo/README.md](samples/VulnerableDemo/README.md).
 
 ### More
 
@@ -121,7 +121,7 @@ Then open **http://localhost:8080**. (To run the `v2` line, `git checkout v2` fi
 | **Explorer** | Lists the loaded assemblies (right-click: Reload, Remove); browse namespaces, types and methods; search for types and methods; methods in a circular chain carry a red ⚠. |
 | **Inheritance** | Graph (or tree) of base types, interfaces and derived types for the selected type, or for the whole assembly; adjustable depth. |
 | **Method Calls** | Callers and callees of the selected method; adjustable depth; merged nodes and edges. |
-| **Vulnerabilities** | Scan the application's (and an optional `.deps.json`'s) packages against OSV.dev; summary by severity, filters, details, remediation, status tracking, JSON export. |
+| **Vulnerabilities Scan** | Scan the loaded assembly's dependencies (its `.deps.json`) against OSV.dev; summary by severity, filters, details, remediation, status tracking, PDF and JSON export. |
 | **Circular Dependencies** | Every distinct circular call chain, grouped by class; filter to a single method; click to jump to its call graph. |
 
 Graph generation is optimised for unobfuscated assemblies or basic (first-level) obfuscation. Deeply packed or control-flow-flattened binaries are not supported.
