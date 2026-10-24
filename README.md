@@ -69,11 +69,14 @@ Files up to **200 MB** can be analysed. Change it with `Upload:MaxFileSizeMB` in
 
 ## Using the UI
 
-- **Upload:** click *Choose DLL* or drag a `.dll` / `.exe` anywhere onto the page. Several assemblies can be loaded in one session and switched via the dropdown next to the file name.
-- **Inheritance View:** pick a type to see its base types and interfaces.
-- **Method Call View:** pick a type, then a method, to see its callers and callees. Types with many methods ask you to pick a method first.
-- **Circular Dependency View:** lists call chains that loop back on themselves; select one to draw it (numbers show call order).
-- **Fit / Export PNG** buttons appear under the graph. The app works offline: `vis-network` is bundled in `wwwroot/lib`.
+The interface follows the ILSpy layout: an assembly explorer on the left, tabbed views on the right, a toolbar with Back / Forward (Alt+Left / Alt+Right) and a status bar.
+
+- **Open:** click *Open* or drag a `.dll` / `.exe` anywhere onto the page. Several assemblies can be loaded in one session and switched from the toolbar.
+- **Explorer:** assembly → namespaces → types → *Base Types*, *Derived Types* and methods. Methods that take part in a circular call chain are marked with a red ⚠. Use the search box to find types and methods quickly.
+- **Inheritance:** a tree of the selected type's base types / interfaces and derived types. Click a type to navigate to it, ▸ to expand further. *Whole assembly* shows every type hierarchy.
+- **Method Calls:** callers and callees of the selected method (depth 1-4). A method appears once however many paths reach it; repeated calls are shown as ×N on one edge. Double-click a node to re-centre on it.
+- **Circular Dependencies:** methods that are part of a circular call chain get a clickable *⚠ Circular Dependency Detected* marker above them (and in the title bar). It opens the dedicated view listing every distinct chain through that method, e.g. `A() → B() → C() → A()`, with the start and the loop-back marked. Click a method in the chain to jump back to its call graph.
+- **Fit / PNG** export the current graph. The app works offline: `vis-network` is bundled in `wwwroot/lib`.
 
 ---
 
