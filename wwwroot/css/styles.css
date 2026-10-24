@@ -253,3 +253,121 @@ body.dragging #dropOverlay { display: flex; }
 }
 .method-note .mn-icon { font-size: 13px; margin-right: 6px; }
 .method-note .mn-link { color: var(--accent); font-weight: 600; }
+
+/* ==========================================================================
+   Colour scheme of the main branch (dark #212529 header, #343a40 tab bar,
+   green #28a745 primary button, #007bff selection, orange / blue / green /
+   red graph colours). Layout stays ILSpy-style; only colours are set here.
+   ========================================================================== */
+:root {
+    --bg: #f8f9fa;
+    --chrome: #f1f3f5;
+    --chrome-border: #dee2e6;
+    --text: #212529;
+    --muted: #6c757d;
+    --sel-bg: #007bff;
+    --sel-border: #0069d9;
+    --hover: #e9ecef;
+    --accent: #007bff;
+    --danger: #dc3545;
+    --danger-bg: #ffebeb;
+    --class: #fb8c00;
+    --iface: #1e88e5;
+    --method: #4caf50;
+    --asm: #adb5bd;
+}
+
+body { background: #f8f9fa; color: #212529; }
+
+/* header / toolbar */
+#toolbar { background: #212529; border-bottom: 1px solid #343a40; color: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+#toolbar .tb-btn { color: #fff; }
+#toolbar .tb-btn:hover:not(:disabled) { background: #495057; border-color: #6c757d; }
+#toolbar .tb-sep { background: #495057; }
+.app-title { color: #fff; font-size: 14px; font-weight: 600; }
+.tb-open { background: #28a745; border-color: #218838 !important; font-weight: 500; }
+#toolbar .tb-open:hover:not(:disabled) { background: #218838; border-color: #1e7e34; }
+.dll-name-display { color: #fff; }
+.upload-hint { color: #adb5bd; }
+#assemblySwitcher { background: #495057; color: #fff; border: 1px solid #6c757d; }
+
+/* notices and messages */
+#obfuscationNotice { background: #fff3cd; color: #856404; border-bottom: 1px solid #ffeeba; }
+.msg-success { background: #d4edda; color: #155724; border-color: #c3e6cb !important; }
+.msg-error { background: #f8d7da; color: #721c24; border-color: #f5c6cb !important; }
+.msg-info { background: #e2e3e5; color: #383d41; border-color: #d6d8db !important; }
+
+/* explorer */
+.pane-title { background: #f1f3f5; color: #495057; border-bottom: 1px solid #dee2e6; }
+.explorer-search { background: #f8f9fa; border-bottom: 1px solid #e9ecef; }
+.explorer-search input { border: 1px solid #ced4da; }
+.explorer-search input:focus { outline: none; border-color: #007bff; box-shadow: 0 0 0 2px rgba(0,123,255,.2); }
+#splitter { background: #dee2e6; }
+.t-row:hover { background: #e9ecef; }
+.t-row.selected { background: #007bff; border-color: #0069d9; color: #fff; }
+.t-row.selected .t-sub { color: #cfe4ff; }
+.t-row.selected .t-arrow { color: #fff; }
+.t-row.selected .t-tag { background: rgba(255,255,255,.2); color: #fff; }
+.t-row.selected .t-badge-cycle { color: #fff; }
+.t-tag { background: #e2e3e5; color: #495057; }
+.t-badge-cycle { color: #dc3545; }
+.ico-asm { background: #6c757d; }
+.ico-class { background: #fb8c00; }
+.ico-iface { background: #1e88e5; }
+.ico-method { background: #4caf50; }
+.ico-folder { background: #adb5bd; }
+.folder-count { color: #6c757d; }
+
+/* tab bar */
+.tab-strip { background: #343a40; border-bottom: none; padding: 4px 4px 0 4px; }
+.tab { color: #adb5bd; border: none; padding: 8px 18px; font-weight: 500; }
+.tab:hover { background: #495057; color: #fff; }
+.tab.active { background: #f8f9fa; color: #212529; font-weight: 600; border: none; }
+.tab-badge { background: #6c757d; color: #fff; }
+.tab-badge.has { background: #dc3545; }
+
+/* view chrome */
+#mainPane, .view-title { background: #f8f9fa; }
+.view-title { border-bottom: 1px solid #dee2e6; }
+.view-toolbar { background: #f1f3f5; border-bottom: 1px solid #dee2e6; }
+.seg-btn.active { background: #343a40; color: #fff; }
+.tb-btn.small { background: #fff; border: 1px solid #ced4da; color: #212529; }
+.tb-btn.small:hover:not(:disabled) { background: #e9ecef; }
+.crumb { color: #007bff; }
+.canvas-wrap { background: #fafafa; }
+.canvas-message-btn { background: #28a745; border-color: #218838; }
+.canvas-message-btn:hover { background: #218838; filter: none; }
+.spinner-wheel { border: 5px solid #e9ecef; border-top-color: #007bff; }
+#canvasLoaderOverlay { color: #495057; }
+
+/* legend swatches = graph colours */
+.lg-class { background: #fff3e0; border-color: #fb8c00; }
+.lg-iface { background: #e3f2fd; border-color: #1e88e5; }
+.lg-norm { background: #e8f5e9; border-color: #4caf50; }
+.lg-ext { background: #f5f5f5; border-color: #9e9e9e; }
+.lg-cyc { background: #ffebeb; border-color: #dc3545; }
+.lg-sel { background: #cce5ff; border-color: #007bff; }
+
+/* circular dependency UI */
+.cyc-chip { background: #ffebeb; color: #721c24; border-color: #f5c6cb; }
+.cyc-chip:hover { background: #f8d7da; }
+.cycle-link { color: #721c24; background: #ffebeb; border-color: #f5c6cb; }
+.method-note { background: #fff3cd; color: #856404; border-bottom: 1px solid #ffeeba; }
+.method-note .mn-link { color: #007bff; }
+.cyc-group-head { background: #f1f3f5; color: #495057; border-bottom: 1px solid #dee2e6; }
+.cyc-item .ci-top { color: #dc3545; }
+.cyc-item:hover { background: #e9ecef; }
+.cyc-item.selected { background: #007bff; }
+.cyc-item.selected .ci-top, .cyc-item.selected .ci-path { color: #fff; }
+.filter-chip { background: #e2e3e5; border-color: #d6d8db; color: #383d41; }
+.chain-method { color: #007bff; border-bottom-color: #007bff; }
+.chain-method.start { color: #155724; border-bottom-color: #155724; }
+.chain-note.start { background: #d4edda; color: #155724; }
+.chain-note.loop { background: #ffebeb; color: #721c24; }
+
+/* status bar = main's footer */
+#statusBar { background: #212529; color: #adb5bd; border-top: 1px solid #343a40; }
+#statusBar a { color: #fff; opacity: 1; }
+
+/* drag & drop */
+#dropOverlay { background: rgba(0,123,255,.10); border-color: #007bff; color: #007bff; }

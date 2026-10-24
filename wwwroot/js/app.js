@@ -548,10 +548,10 @@ function inhNodeStyle(id, selected) {
     const iface = !!t && t.type === 'Interface';
     const external = !t;
     let color = iface
-        ? { background: '#e3f2fd', border: '#42a5f5', highlight: { background: '#cfe8fc', border: '#1e88e5' } }
-        : { background: '#fff3e0', border: '#e0a030', highlight: { background: '#ffe8c2', border: '#c07f10' } };
-    if (external) color = { background: '#f0f0f0', border: '#9e9e9e', highlight: { background: '#e4e4e4', border: '#757575' } };
-    if (selected) color = { background: iface ? '#cfe8fc' : '#cce8ff', border: '#0063b1', highlight: { background: '#b9ddfb', border: '#004a85' } };
+        ? { background: '#e3f2fd', border: '#1e88e5', highlight: { background: '#cfe8fc', border: '#1565c0' } }
+        : { background: '#fff3e0', border: '#fb8c00', highlight: { background: '#ffe0b2', border: '#e65100' } };
+    if (external) color = { background: '#f5f5f5', border: '#9e9e9e', highlight: { background: '#e4e4e4', border: '#757575' } };
+    if (selected) color = { background: iface ? '#e3f2fd' : '#fff3e0', border: '#007bff', highlight: { background: iface ? '#cfe8fc' : '#ffe0b2', border: '#0056b3' } };
     return {
         id, label: t ? t.name : shortName(id), shape: iface ? 'ellipse' : 'box', margin: 10,
         borderWidth: selected ? 3 : 1.5, color,
@@ -741,14 +741,14 @@ function nodeStyle(id, selected) {
     const info = methodInfo(id);
     const cyclic = cyclesOfMethod.has(id);
     const label = `${cyclic ? '⚠ ' : ''}${shortName(info.className)}\n➔ ${truncate(info.name, 40)}`;
-    let color = { background: '#f1e9fb', border: '#7b3fb4', highlight: { background: '#e5d6f6', border: '#5a2d8a' } };
-    if (info.external) color = { background: '#f0f0f0', border: '#9e9e9e', highlight: { background: '#e4e4e4', border: '#757575' } };
-    if (cyclic) color = { background: '#fdecea', border: '#c62828', highlight: { background: '#fbd7d3', border: '#8e1c1c' } };
-    if (selected) color = { background: cyclic ? '#fdecea' : '#cce8ff', border: cyclic ? '#c62828' : '#0063b1', highlight: { background: '#b9ddfb', border: '#004a85' } };
+    let color = { background: '#e8f5e9', border: '#4caf50', highlight: { background: '#c8e6c9', border: '#2e7d32' } };
+    if (info.external) color = { background: '#f5f5f5', border: '#9e9e9e', highlight: { background: '#e4e4e4', border: '#757575' } };
+    if (cyclic) color = { background: '#ffebeb', border: '#dc3545', highlight: { background: '#f8d7da', border: '#bd2130' } };
+    if (selected) color = { background: cyclic ? '#ffebeb' : (info.external ? '#f5f5f5' : '#e8f5e9'), border: '#007bff', highlight: { background: cyclic ? '#f8d7da' : '#c8e6c9', border: '#0056b3' } };
     return {
         id, label, shape: 'box', margin: 8,
         borderWidth: selected ? 3 : 1.5,
-        color, font: { face: 'Segoe UI, sans-serif', size: 12, multi: false, color: cyclic ? '#8a1c1c' : '#1e1e1e' },
+        color, font: { face: 'Segoe UI, sans-serif', size: 12, multi: false, color: cyclic ? '#721c24' : '#212529' },
         title: `${info.className}.${info.name}${cyclic ? '\n⚠ part of a circular call chain' : ''}${info.external ? '\n(external / not in this assembly)' : ''}`
     };
 }
@@ -790,7 +790,7 @@ function buildCallGraph(center, depth, wantCallers, wantCallees) {
             edges.push({
                 from: id, to: c, arrows: 'to',
                 label: count > 1 ? `×${count}` : undefined,
-                color: cyc ? { color: '#c62828', highlight: '#8e1c1c' } : { color: '#8a8a8a', highlight: '#444' },
+                color: cyc ? { color: '#dc3545', highlight: '#bd2130' } : { color: '#8a8a8a', highlight: '#444' },
                 dashes: cyc ? [7, 4] : false,
                 width: cyc ? 2 : 1,
                 font: { size: 10, color: '#555', strokeWidth: 3, strokeColor: '#fcfcfc' },
@@ -1023,8 +1023,8 @@ function renderCycleDetail(body, chain, canvas) {
         st.x = Math.cos(angle) * radius * 1.5; st.y = Math.sin(angle) * radius;
         st.fixed = true;
         st.color = i === 0
-            ? { background: '#e3f4e6', border: '#1b6e2d', highlight: { background: '#cdebd3', border: '#1b6e2d' } }
-            : { background: '#fdecea', border: '#c62828', highlight: { background: '#fbd7d3', border: '#8e1c1c' } };
+            ? { background: '#d4edda', border: '#28a745', highlight: { background: '#c3e6cb', border: '#1e7e34' } }
+            : { background: '#ffebeb', border: '#dc3545', highlight: { background: '#f8d7da', border: '#bd2130' } };
         st.borderWidth = i === 0 ? 3 : 2;
         st.label = (i === 0 ? '▶ start\n' : '') + `${shortName(methodInfo(id).className)}\n➔ ${truncate(methodInfo(id).name, 36)}`;
         return st;
@@ -1035,9 +1035,9 @@ function renderCycleDetail(body, chain, canvas) {
         return {
             from: id, to, arrows: 'to', width: 2.5,
             label: closing ? `${i + 1} ↺` : String(i + 1),
-            color: { color: '#c62828', highlight: '#8e1c1c' },
+            color: { color: '#dc3545', highlight: '#bd2130' },
             dashes: closing ? [7, 4] : false,
-            font: { size: 11, color: '#8e1c1c', strokeWidth: 3, strokeColor: '#fcfcfc' },
+            font: { size: 11, color: '#721c24', strokeWidth: 3, strokeColor: '#fafafa' },
             smooth: n === 1 ? { type: 'curvedCW', roundness: 0.6 } : { type: 'curvedCW', roundness: 0.18 }
         };
     });
