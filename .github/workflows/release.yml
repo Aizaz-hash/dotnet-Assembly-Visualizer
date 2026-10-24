@@ -1,109 +1,19 @@
 name: Release
 
-# Two ways to release - both always build the CURRENT tip of the release branch:
-#
-#  1. Actions -> Release -> "Run workflow": pick the branch (main for v0.x, v2 for v2.x) and enter the
-#     version (e.g. 2.0.0). The workflow builds that branch's latest commit, then creates or moves the
-#     tag v<version> onto exactly that commit.
-#  2. Push a tag v<version>. The workflow refuses to build if the tag is not the tip of its release
-#     branch (main for 0.x, v<major> for everything else), so a stale tag can never ship old code.
-
 on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version to release, e.g. 2.0.0 (tag v<version> is created or moved to the tip of the selected branch)'
-        required: true
-        type: string
 
 permissions:
-  contents: write   # create GitHub Release + upload assets + move the tag
+  contents: write   # create GitHub Release + upload assets
   packages: write   # push image to GHCR
 
-concurrency:
-  group: release
-  cancel-in-progress: false
-
-env:
-  # The Docker tag "latest" and GitHub's "Latest release" badge follow this branch.
-  LATEST_BRANCH: v2
-
 jobs:
-  prepare:
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.p.outputs.version }}
-      minor: ${{ steps.p.outputs.minor }}
-      tag: ${{ steps.p.outputs.tag }}
-      sha: ${{ steps.p.outputs.sha }}
-      branch: ${{ steps.p.outputs.branch }}
-      latest: ${{ steps.p.outputs.latest }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Resolve version, branch and commit
-        id: p
-        shell: bash
-        env:
-          INPUT_VERSION: ${{ inputs.version }}
-        run: |
-          set -euo pipefail
-
-          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
-            if [ "$GITHUB_REF_TYPE" != "branch" ]; then
-              echo "::error::Run this workflow from a branch (main or v2), not from a tag."
-              exit 1
-            fi
-            VERSION="${INPUT_VERSION#v}"
-            BRANCH="$GITHUB_REF_NAME"
-            SHA="$GITHUB_SHA"
-          else
-            VERSION="${GITHUB_REF_NAME#v}"
-            SHA="$GITHUB_SHA"
-            MAJOR="${VERSION%%.*}"
-            if [ "$MAJOR" = "0" ]; then BRANCH="main"; else BRANCH="v${MAJOR}"; fi
-
-            TIP="$(git ls-remote --heads origin "$BRANCH" | cut -f1)"
-            if [ -z "$TIP" ]; then
-              echo "::error::Release branch '$BRANCH' for tag $GITHUB_REF_NAME was not found."
-              exit 1
-            fi
-            if [ "$TIP" != "$SHA" ]; then
-              echo "::error::Tag $GITHUB_REF_NAME points at ${SHA:0:7}, but the tip of '$BRANCH' is ${TIP:0:7}. The tag is stale - merge your work into '$BRANCH' first and re-tag, or run this workflow manually from '$BRANCH' (Actions -> Release -> Run workflow)."
-              exit 1
-            fi
-          fi
-
-          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?$ ]]; then
-            echo "::error::'$VERSION' is not a valid version (expected e.g. 2.0.0)."
-            exit 1
-          fi
-
-          MINOR="$(echo "$VERSION" | cut -d. -f1,2)"
-          LATEST=false
-          if [ "$BRANCH" = "$LATEST_BRANCH" ]; then LATEST=true; fi
-
-          {
-            echo "version=$VERSION"
-            echo "minor=$MINOR"
-            echo "tag=v$VERSION"
-            echo "sha=$SHA"
-            echo "branch=$BRANCH"
-            echo "latest=$LATEST"
-          } >> "$GITHUB_OUTPUT"
-
-          echo "Releasing v$VERSION from branch '$BRANCH' at commit ${SHA:0:7}" >> "$GITHUB_STEP_SUMMARY"
-
   docker-image:
-    needs: prepare
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.prepare.outputs.sha }}
 
       - name: Compute image name (lowercase owner)
         id: img
@@ -124,12 +34,9 @@ jobs:
         with:
           images: ${{ steps.img.outputs.name }}
           tags: |
-            type=raw,value=${{ needs.prepare.outputs.version }}
-            type=raw,value=${{ needs.prepare.outputs.minor }}
-            type=raw,value=latest,enable=${{ needs.prepare.outputs.latest == 'true' }}
-          labels: |
-            org.opencontainers.image.revision=${{ needs.prepare.outputs.sha }}
-            org.opencontainers.image.version=${{ needs.prepare.outputs.version }}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -140,15 +47,12 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
   build-artifacts:
-    needs: prepare
     runs-on: ubuntu-latest
     strategy:
       matrix:
         rid: [win-x64, linux-x64]
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.prepare.outputs.sha }}
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
@@ -160,9 +64,8 @@ jobs:
           -o publish/${{ matrix.rid }}
 
       - name: Package
-        env:
-          VERSION: ${{ needs.prepare.outputs.version }}
         run: |
+          VERSION="${GITHUB_REF_NAME#v}"
           BASE="dotnet-visualizer-${VERSION}-${{ matrix.rid }}"
           mkdir -p dist
           if [ "${{ matrix.rid }}" = "win-x64" ]; then
@@ -177,13 +80,9 @@ jobs:
           path: dist/*
 
   release:
-    needs: [prepare, build-artifacts, docker-image]
+    needs: build-artifacts
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.prepare.outputs.sha }}
-
       - name: Download packaged artifacts
         uses: actions/download-artifact@v4
         with:
@@ -191,24 +90,10 @@ jobs:
           pattern: package-*
           merge-multiple: true
 
-      # Manual runs: make the tag point at exactly the commit that was built.
-      # (Pushes made with GITHUB_TOKEN do not start another workflow run.)
-      - name: Point the tag at the built commit
-        if: github.event_name == 'workflow_dispatch'
-        env:
-          TAG: ${{ needs.prepare.outputs.tag }}
-          SHA: ${{ needs.prepare.outputs.sha }}
-        run: |
-          git tag -f "$TAG" "$SHA"
-          git push -f origin "refs/tags/$TAG"
-
       - name: Generate release notes
-        env:
-          VERSION: ${{ needs.prepare.outputs.version }}
-          SHA: ${{ needs.prepare.outputs.sha }}
-          BRANCH: ${{ needs.prepare.outputs.branch }}
         run: |
           IMAGE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/dotnet-visualizer-web"
+          VERSION="${GITHUB_REF_NAME#v}"
           cat > RELEASE_NOTES.md <<'EOF'
           ## 🐳 Docker image
 
@@ -220,29 +105,22 @@ jobs:
           ```
 
           Then open http://localhost:8080 and upload a `.dll`.
+          Also available as `__IMAGE__:latest`.
 
           ## 📦 Self-contained builds (no .NET required)
 
           Download the archive for your platform from the assets below, extract it,
           and run the `dotnet-Assembly-Visualizer` executable. The app listens on port 8080
-          (configurable via `Urls` in `appsettings.json`).
+          (configurable via `appsettings.json`).
 
           - **Windows (x64):** `dotnet-visualizer-__VERSION__-win-x64.zip`
           - **Linux (x64):** `dotnet-visualizer-__VERSION__-linux-x64.tar.gz`
-
-          ---
-          Built from branch `__BRANCH__` at commit `__SHA__`.
           EOF
-          sed -i "s#__IMAGE__#${IMAGE}#g; s#__VERSION__#${VERSION}#g; s#__BRANCH__#${BRANCH}#g; s#__SHA__#${SHA}#g" RELEASE_NOTES.md
+          sed -i "s#__IMAGE__#${IMAGE}#g; s#__VERSION__#${VERSION}#g" RELEASE_NOTES.md
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.prepare.outputs.tag }}
-          target_commitish: ${{ needs.prepare.outputs.sha }}
-          name: ${{ needs.prepare.outputs.tag }}
-          make_latest: ${{ needs.prepare.outputs.latest }}
           body_path: RELEASE_NOTES.md
           append_body: true   # keep UI-authored notes; add install section below them
-          fail_on_unmatched_files: true
           files: dist/*

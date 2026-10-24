@@ -25,6 +25,3 @@ node_modules/
 .env
 .env.local
 /RULES.md
-
-# build output of the deliberately vulnerable sample
-samples/**/out/
