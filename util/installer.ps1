@@ -1,8 +1,32 @@
+<#
+.SYNOPSIS
+    Installs DotNetVisualizer.Web as an auto-start Windows Service.
+
+.DESCRIPTION
+    One-shot deployment script. It:
+      1. Stops and removes any existing "DAV" service.
+      2. Wipes and recreates the target folder (C:\DAV).
+      3. Publishes a self-contained win-x64 build into that folder.
+      4. Grants NT AUTHORITY\SYSTEM full control over the folder.
+      5. Registers the service and sets it to listen on http://*:9999.
+      6. Opens an inbound firewall rule for TCP 9999.
+      7. Starts the service and verifies it is running.
+
+.NOTES
+    - Must be run from an elevated (Administrator) PowerShell session.
+    - Run from the repo root so the relative $ProjectPath resolves.
+    - Edit the CONFIGURATION block below to change name, port, or paths.
+
+.EXAMPLE
+    # From an Administrator PowerShell at the repo root:
+    .\util\installer.ps1
+#>
+
 # ==================================================================================
 # CONFIGURATION
 # ==================================================================================
 $ProjectName   = "DotNetVisualizer.Web"
-$ProjectPath   = ".\DotNetVisualizer.Web\DotNetVisualizer.Web.csproj"
+$ProjectPath   = ".\DotNetVisualizer.Web.csproj"
 $TargetFolder  = "C:\DAV"
 $ServiceName   = "DAV"
 $Port          = "9999"
@@ -32,7 +56,7 @@ if (Get-Service -Name $ServiceName -ErrorAction SilentlyContinue) {
 # Clear out target directory to prevent System.BadImageFormatException architecture mixups
 if (Test-Path $TargetFolder) {
     Write-Host "-> Wiping destination folder '$TargetFolder' to ensure clean state..." -ForegroundColor Yellow
-    Remove-Item -Path "$TargetFolder\*" -Recurve -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$TargetFolder\*" -Recurse -Force -ErrorAction SilentlyContinue
 } else {
     Write-Host "-> Creating target folder configuration directory..." -ForegroundColor Green
     New-Item -ItemType Directory -Force -Path $TargetFolder | Out-Null
