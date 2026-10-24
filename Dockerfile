@@ -17,6 +17,7 @@ COPY --from=build /app .
 
 # aspnet:8.0 defaults to port 8080 and a non-root "app" user
 EXPOSE 8080
+ENV Urls=http://+:8080
 USER app
 
 ENTRYPOINT ["dotnet", "dotnet-Assembly-Visualizer.dll"]
