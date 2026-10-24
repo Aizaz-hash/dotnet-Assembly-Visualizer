@@ -455,3 +455,89 @@ footer {
         color: #ffffff;
         text-decoration: none;
     }
+
+/* ---------- usability additions ---------- */
+
+header { flex-wrap: wrap; gap: 8px; }
+.header-left { flex-wrap: wrap; gap: 12px 20px; }
+#controls { flex-wrap: wrap; }
+
+.custom-dropdown { width: 340px; max-width: 100%; }
+
+/* roomier, readable dropdown menus (menu may be wider than its trigger) */
+.dropdown-menu {
+    width: max(100%, 520px);
+    max-width: min(90vw, 760px);
+    max-height: 75vh;
+}
+.tree-content { max-height: 60vh; overflow-x: hidden; }
+.folder-header { align-items: center; gap: 6px; }
+.folder-name { flex: 1; word-break: break-all; }
+.folder-count { font-weight: normal; color: #868e96; font-size: 0.72rem; }
+.class-item, .method-item { word-break: break-word; }
+.class-item-ns { display: block; font-size: 0.7rem; color: #6c757d; word-break: break-all; }
+.empty-note { padding: 12px; color: #6c757d; text-align: center; font-size: 0.85rem; }
+
+.dll-name-display { max-width: 260px; }
+.upload-hint { font-size: 0.72rem; color: #868e96; }
+#assemblySwitcher {
+    background: #495057; color: #fff; border: 1px solid #6c757d;
+    border-radius: 4px; padding: 6px 8px; font-size: 0.8rem; max-width: 220px;
+}
+
+/* messages drawn on the canvas (empty state, big-class hint, ...) */
+.canvas-message {
+    max-width: 520px; margin: 60px auto 0; padding: 0 20px;
+    text-align: center; color: #6c757d; font-size: 0.95rem; line-height: 1.5;
+}
+.canvas-message-btn {
+    margin-top: 14px; padding: 8px 16px; border: 1px solid #28a745; background: #28a745;
+    color: #fff; border-radius: 4px; cursor: pointer; font-size: 0.85rem;
+}
+.canvas-message-btn:hover { background: #218838; }
+
+/* graph tools (fit / export) */
+#graphTools {
+    position: absolute; right: 16px; bottom: 16px; z-index: 6; gap: 8px;
+}
+#graphTools button {
+    background: #fff; border: 1px solid #ced4da; border-radius: 4px; padding: 6px 12px;
+    font-size: 0.8rem; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+#graphTools button:hover { background: #f1f3f5; }
+
+/* circular chain list */
+.cycle-btn {
+    text-align: left; padding: 10px; background: #fff5f5; border: 1px solid #feb2b2;
+    border-radius: 6px; cursor: pointer; font-size: 0.8rem; width: 100%; box-sizing: border-box;
+    transition: all 0.2s;
+}
+.cycle-btn:hover { background: #ffe9e9; }
+.cycle-btn.selected { background: #fed7d7; border-color: #fc8181; }
+.cycle-head { display: flex; justify-content: space-between; align-items: baseline; color: #c53030; }
+.cycle-len { font-size: 0.7rem; color: #9b2c2c; }
+.cycle-class { margin-top: 4px; font-weight: 600; color: #2d3748; word-break: break-all; }
+.cycle-path { margin-top: 2px; font-family: monospace; font-size: 0.75rem; color: #4a5568; word-break: break-all; }
+.cycle-none { color: #28a745; font-size: 0.85rem; font-weight: bold; padding: 10px; background: #e2f0d9; border-radius: 4px; }
+
+/* drag & drop overlay */
+#dropOverlay {
+    display: none; position: fixed; inset: 0; z-index: 1000; align-items: center; justify-content: center;
+    background: rgba(40, 167, 69, 0.18); border: 4px dashed #28a745; color: #1e7e34;
+    font-size: 1.4rem; font-weight: 600; pointer-events: none;
+}
+body.dragging #dropOverlay { display: flex; }
+
+/* narrow screens */
+@media (max-width: 900px) {
+    header { padding: 10px 12px; }
+    .custom-dropdown { width: 100%; }
+    #controls { width: 100%; }
+    .dropdown-menu { width: 100%; max-width: 100%; }
+    .dll-name-display { max-width: 140px; }
+    .main-workspace { flex-direction: column; }
+    #deadlocksSidePanel { width: 100%; min-width: 0; max-height: 40%; border-left: none; border-top: 1px solid #dee2e6; }
+}
+
+.dropdown-trigger > span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.dropdown-trigger > span:last-child { margin-left: 8px; flex-shrink: 0; }

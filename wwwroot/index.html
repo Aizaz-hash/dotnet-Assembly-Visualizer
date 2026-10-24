@@ -4,10 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dotnet Assembly Visualizer</title>
-    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <script src="lib/vis-network.min.js"></script>
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
+    <div id="dropOverlay">Drop a .dll or .exe to analyse it</div>
 
     <header>
         <div class="header-left">
@@ -16,9 +17,11 @@
                 <div class="file-upload-container">
                     <div class="file-upload-wrapper">
                         <div class="file-upload-label" id="uploadLabel">Choose DLL</div>
-                        <input type="file" id="dllFile" accept=".dll" />
+                        <input type="file" id="dllFile" accept=".dll,.exe" />
                     </div>
                     <span id="currentDllName" class="dll-name-display">No file selected</span>
+                    <select id="assemblySwitcher" title="Switch between assemblies loaded in this session" style="display:none;"></select>
+                    <span id="uploadHint" class="upload-hint"></span>
                 </div>
 
                 <div class="custom-dropdown" id="classDropdownWrapper">
@@ -92,11 +95,15 @@
                     <span>Circular Dependency</span>
                 </div>
             </div>
+            <div id="graphTools" style="display:none;">
+                <button onclick="fitGraph()" title="Zoom to fit the whole graph">Fit</button>
+                <button onclick="exportGraphPng()" title="Download the current graph as PNG">Export PNG</button>
+            </div>
             <div id="mynetwork"></div>
         </div>
         <div id="deadlocksSidePanel">
-            <h3 class="panel-title">Detected Cycles</h3>
-            <p class="panel-subtitle">Select a circular chain below to display its call structure isolating the loop chain:</p>
+            <h3 class="panel-title">Circular call chains</h3>
+            <p class="panel-subtitle">Methods that eventually call themselves. Select a chain to draw it (numbers show the call order):</p>
             <div id="deadlockList"></div>
         </div>
     </div>

@@ -3,9 +3,27 @@ let currentViewMode = 'inheritance';
 let currentSelectedClass = null;
 let currentSelectedMethod = null;
 let currentSelectedDeadlockIndex = null;
+let showAllMethods = false;
 let networkInstance = null;
 let originalGroups = {};
 let messageTimeout = null;
+let layoutTimeout = null;
+let hasAssembly = false;
+
+// Previously analysed assemblies of this session (name -> analysis result); lets the user switch without re-uploading.
+const loadedAssemblies = new Map();
+const MAX_LOADED_ASSEMBLIES = 5;
+const LARGE_CLASS_METHOD_THRESHOLD = 60;
+let maxUploadMb = null;
+
+// ---------- helpers ----------
+
+function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+}
 
 function showLoader(statusText) {
     const loader = document.getElementById('canvasLoaderOverlay');
@@ -13,13 +31,14 @@ function showLoader(statusText) {
     if (loader && txt) { txt.textContent = statusText; loader.style.display = 'flex'; }
 }
 
-function toggleFolder(headerElement) {
-    headerElement.parentElement.classList.toggle('collapsed');
-}
-
 function hideLoader() {
     const loader = document.getElementById('canvasLoaderOverlay');
     if (loader) loader.style.display = 'none';
+    if (layoutTimeout) { clearTimeout(layoutTimeout); layoutTimeout = null; }
+}
+
+function toggleFolder(headerElement) {
+    headerElement.parentElement.classList.toggle('collapsed');
 }
 
 function showMessage(text, type = 'info') {
@@ -41,7 +60,46 @@ function closeMessage() {
 
 function clearCanvas() {
     if (networkInstance !== null) { networkInstance.destroy(); networkInstance = null; }
+    setGraphToolsVisible(false);
 }
+
+function setGraphToolsVisible(visible) {
+    const tools = document.getElementById('graphTools');
+    if (tools) tools.style.display = visible ? 'flex' : 'none';
+}
+
+function showCanvasMessage(text, buttonText, onButton) {
+    const container = document.getElementById('mynetwork');
+    container.innerHTML = '';
+    const box = el('div', 'canvas-message');
+    box.appendChild(el('div', 'canvas-message-text', text));
+    if (buttonText) {
+        const btn = el('button', 'canvas-message-btn', buttonText);
+        btn.onclick = onButton;
+        box.appendChild(btn);
+    }
+    container.appendChild(box);
+}
+
+// "ns.Class.Method(System.String)" -> { className: "ns.Class", methodName: "Method(System.String)" }
+function splitMethodId(id) {
+    const paren = id.indexOf('(');
+    const head = paren > -1 ? id.substring(0, paren) : id;
+    const tail = paren > -1 ? id.substring(paren) : '';
+    const lastDot = head.lastIndexOf('.');
+    if (lastDot < 0) return { className: '', methodName: id };
+    return { className: head.substring(0, lastDot), methodName: head.substring(lastDot + 1) + tail };
+}
+
+function truncate(text, max) {
+    return text.length > max ? text.substring(0, max - 1) + "…" : text;
+}
+
+function shortClass(fullName) {
+    return fullName ? fullName.split('.').pop() : '';
+}
+
+// ---------- view switching ----------
 
 function switchViewMode(mode) {
     currentViewMode = mode;
@@ -81,6 +139,7 @@ function switchViewMode(mode) {
 function selectClassItem(fullName, shortName) {
     currentSelectedClass = fullName;
     currentSelectedMethod = null;
+    showAllMethods = false;
     document.getElementById('triggerText').textContent = shortName;
     document.getElementById('dropdownMenu').style.display = 'none';
     document.getElementById('methodTriggerText').textContent = "-- Select Target Method --";
@@ -94,6 +153,7 @@ function selectClassItem(fullName, shortName) {
 function selectMethodItem(methodId, methodName) {
     currentSelectedMethod = methodId;
     document.getElementById('methodTriggerText').textContent = methodName;
+    document.getElementById('methodTriggerText').title = methodId;
     document.getElementById('methodMenu').style.display = 'none';
     renderGraphMap();
 }
@@ -108,7 +168,7 @@ function populateMethodsDropdown(filterText = "") {
     const methods = rawAssemblyData.methodGraph.nodes.filter(m => m.parentClass === currentSelectedClass);
 
     if (methods.length === 0) {
-        container.innerHTML = `<div style="padding:12px; color:#6c757d; text-align:center;">No executable methods found.</div>`;
+        container.appendChild(el('div', 'empty-note', 'No executable methods found.'));
         trigger.classList.add('disabled');
         return;
     }
@@ -117,9 +177,9 @@ function populateMethodsDropdown(filterText = "") {
     const filtered = methods.filter(m => m.name.toLowerCase().includes(query));
 
     filtered.sort((a, b) => a.name.localeCompare(b.name)).forEach(method => {
-        const div = document.createElement('div');
-        div.className = 'method-item';
-        div.innerHTML = `<strong>${method.name}()</strong>`;
+        const div = el('div', 'method-item');
+        div.title = method.id;
+        div.appendChild(el('strong', null, `${method.name}()`));
         div.onclick = () => selectMethodItem(method.id, method.name);
         container.appendChild(div);
     });
@@ -134,7 +194,7 @@ function renderTreeView(filterText = "") {
     const sortedNamespaces = Object.keys(originalGroups).sort();
 
     if (query !== "") {
-        let suggestions = [];
+        const suggestions = [];
         sortedNamespaces.forEach(ns => {
             originalGroups[ns].forEach(item => {
                 if (item.shortName.toLowerCase().includes(query) || item.fullName.toLowerCase().includes(query)) {
@@ -144,49 +204,76 @@ function renderTreeView(filterText = "") {
         });
 
         if (suggestions.length === 0) {
-            treeContent.innerHTML = `<div style="padding:12px; color:#6c757d; text-align:center;">No structural matches found.</div>`;
+            treeContent.appendChild(el('div', 'empty-note', 'No structural matches found.'));
             return;
         }
 
-        suggestions.slice(0, 30).forEach(item => {
-            const div = document.createElement('div');
-            div.className = 'class-item';
-            div.innerHTML = `<strong>${item.shortName}</strong><span style="font-size:0.7rem;color:#6c757d;">${item.namespace}</span>`;
+        suggestions.slice(0, 50).forEach(item => {
+            const div = el('div', 'class-item');
+            div.title = item.fullName;
+            div.appendChild(el('strong', null, item.shortName));
+            div.appendChild(el('span', 'class-item-ns', item.namespace || '(Global Namespace)'));
             div.onclick = () => selectClassItem(item.fullName, item.shortName);
             treeContent.appendChild(div);
         });
+        if (suggestions.length > 50) {
+            treeContent.appendChild(el('div', 'empty-note', `Showing first 50 of ${suggestions.length} matches - keep typing to narrow down.`));
+        }
         return;
     }
 
     sortedNamespaces.forEach(ns => {
         const items = originalGroups[ns];
-        const group = document.createElement('div');
-        group.className = 'folder-group collapsed';
-        group.innerHTML = `
-            <div class="folder-header" onclick="toggleFolder(this)">
-                <span class="folder-toggle-icon">▼</span>
-                <span>${ns || '(Global Namespace)'}</span>
-            </div>
-            <div class="folder-children"></div>
-        `;
-        const childrenContainer = group.querySelector('.folder-children');
+        const group = el('div', 'folder-group collapsed');
+
+        const header = el('div', 'folder-header');
+        header.onclick = () => toggleFolder(header);
+        header.appendChild(el('span', 'folder-toggle-icon', '▼'));
+        header.appendChild(el('span', 'folder-name', ns || '(Global Namespace)'));
+        header.appendChild(el('span', 'folder-count', String(items.length)));
+        header.title = ns || '(Global Namespace)';
+        group.appendChild(header);
+
+        const childrenContainer = el('div', 'folder-children');
         items.forEach(item => {
-            const div = document.createElement('div');
-            div.className = 'class-item';
-            div.textContent = item.shortName;
+            const div = el('div', 'class-item', item.shortName);
+            div.title = item.fullName;
             div.onclick = () => selectClassItem(item.fullName, item.shortName);
             childrenContainer.appendChild(div);
         });
+        group.appendChild(childrenContainer);
         treeContent.appendChild(group);
     });
 }
 
+// ---------- graph rendering ----------
+
+function methodNodeFor(id, methodToClassMap) {
+    const localNode = rawAssemblyData.methodGraph.nodes.find(n => n.id === id);
+    let methodName = localNode ? localNode.name : "";
+    let fullClassName = (methodToClassMap && methodToClassMap[id]) || (localNode ? localNode.parentClass : "");
+
+    if (!methodName || !fullClassName) {
+        const parts = splitMethodId(id);
+        methodName = parts.methodName.replace(/\(\)$/, '');
+        fullClassName = parts.className || "External Reference";
+    }
+    return { localNode, methodName, fullClassName };
+}
+
 function renderGraphMap() {
     clearCanvas();
+    hideLoader();
     const container = document.getElementById('mynetwork');
+    container.innerHTML = "";
+
+    if (!hasAssembly) {
+        showCanvasMessage('Upload a .NET assembly to begin: click "Choose DLL" or drop a .dll file anywhere on this page.');
+        return;
+    }
 
     if (currentViewMode !== 'deadlocks' && !currentSelectedClass) {
-        container.innerHTML = `<div style="padding:40px;text-align:center;color:#6c757d;">Please choose a Target Type from the directory stream above.</div>`;
+        showCanvasMessage('Choose a Target Type from the dropdown above.');
         return;
     }
 
@@ -201,7 +288,7 @@ function renderGraphMap() {
         });
 
         nodes = rawAssemblyData.inheritance.nodes.filter(n => connectedNodes.has(n.id)).map(n => ({
-            id: n.id, label: n.name, shape: n.type === 'Interface' ? 'ellipse' : 'box',
+            id: n.id, label: n.name, title: n.id, shape: n.type === 'Interface' ? 'ellipse' : 'box',
             color: n.type === 'Interface' ? '#e3f2fd' : '#fff3e0'
         }));
 
@@ -232,31 +319,23 @@ function renderGraphMap() {
                 }
             });
         } else {
-            rawAssemblyData.methodGraph.nodes.filter(m => m.parentClass === currentSelectedClass).forEach(m => relevantMethods.add(m.id));
+            const classMethods = rawAssemblyData.methodGraph.nodes.filter(m => m.parentClass === currentSelectedClass);
+            if (classMethods.length > LARGE_CLASS_METHOD_THRESHOLD && !showAllMethods) {
+                showCanvasMessage(
+                    `${shortClass(currentSelectedClass)} has ${classMethods.length} methods - drawing all of them would be unreadable. ` +
+                    'Pick a method from "Select Target Method" to see its callers and callees.',
+                    `Show all ${classMethods.length} methods anyway`,
+                    () => { showAllMethods = true; renderGraphMap(); });
+                return;
+            }
+            classMethods.forEach(m => relevantMethods.add(m.id));
         }
 
         relevantMethods.forEach(id => {
-            const localNode = rawAssemblyData.methodGraph.nodes.find(n => n.id === id);
-            let methodName = localNode ? localNode.name : "";
-            let fullClassName = methodToClassMap[id] || (localNode ? localNode.parentClass : "");
-
-            if (!methodName || !fullClassName) {
-                const cleanId = id.replace("()", "");
-                const lastDot = cleanId.lastIndexOf('.');
-                if (lastDot > -1) {
-                    methodName = cleanId.substring(lastDot + 1);
-                    fullClassName = cleanId.substring(0, lastDot);
-                } else {
-                    methodName = id;
-                    fullClassName = "Unknown Class";
-                }
-            }
-
-            const shortClassName = fullClassName.split('.').pop();
-
+            const { localNode, methodName, fullClassName } = methodNodeFor(id, methodToClassMap);
             nodes.push({
                 id: id,
-                label: `${shortClassName}\n➔ ${methodName}()`,
+                label: `${shortClass(fullClassName)}\n➔ ${truncate(methodName, 40)}()`,
                 shape: 'box',
                 color: localNode ? '#e8f5e9' : '#f5f5f5',
                 title: `Full Path: ${fullClassName}.${methodName}()`,
@@ -270,7 +349,10 @@ function renderGraphMap() {
 
     } else if (currentViewMode === 'deadlocks') {
         if (currentSelectedDeadlockIndex === null) {
-            container.innerHTML = `<div style="padding:40px;text-align:center;color:#6c757d;">Please select a detected deadlock cycle path trace option from the sidebar directory.</div>`;
+            showCanvasMessage(
+                rawAssemblyData.deadlocks.length === 0
+                    ? 'No circular call chains were detected in this assembly.'
+                    : 'Select a circular call chain from the list on the right to draw it.');
             return;
         }
 
@@ -278,22 +360,10 @@ function renderGraphMap() {
         const nodesInCycle = new Set(activeCyclePath);
 
         nodesInCycle.forEach(id => {
-            const localNode = rawAssemblyData.methodGraph.nodes.find(n => n.id === id);
-            let methodName = localNode ? localNode.name : "";
-            let fullClassName = localNode ? localNode.parentClass : "";
-
-            if (!methodName) {
-                const cleanId = id.replace("()", "");
-                const lastDot = cleanId.lastIndexOf('.');
-                methodName = lastDot > -1 ? cleanId.substring(lastDot + 1) : id;
-                fullClassName = lastDot > -1 ? cleanId.substring(0, lastDot) : "External Reference";
-            }
-
-            const shortClassName = fullClassName.split('.').pop();
-
+            const { methodName, fullClassName } = methodNodeFor(id, null);
             nodes.push({
                 id: id,
-                label: `${shortClassName}\n➔ ${methodName}()`,
+                label: `${shortClass(fullClassName)}\n➔ ${truncate(methodName, 40)}()`,
                 shape: 'box',
                 borderWidth: 2,
                 color: {
@@ -302,7 +372,7 @@ function renderGraphMap() {
                     highlight: { background: '#ffcdd2', border: '#b71c1c' }
                 },
                 font: { multi: true, color: '#721c24' },
-                title: `Deadlock Component: ${fullClassName}.${methodName}()`
+                title: `Part of a circular chain: ${fullClassName}.${methodName}()`
             });
         });
 
@@ -313,8 +383,8 @@ function renderGraphMap() {
                 arrows: 'to',
                 color: { color: '#dc3545', highlight: '#b71c1c' },
                 width: 3,
-                label: 'causes lock',
-                font: { color: '#b71c1c', size: 10, vadjust: -10 }
+                label: `${i + 1}`,
+                font: { color: '#b71c1c', size: 11, vadjust: -10 }
             });
         }
     }
@@ -322,8 +392,10 @@ function renderGraphMap() {
     const options = {
         nodes: { font: { face: 'sans-serif', multi: true }, margin: 12 },
         edges: { selectionWidth: 2, font: { size: 11 } },
+        interaction: { tooltipDelay: 200, hover: true },
         physics: {
             solver: 'forceAtlas2Based',
+            stabilization: { iterations: 250, fit: true },
             forceAtlas2Based: {
                 gravitationalConstant: -80,
                 centralGravity: 0.01,
@@ -335,92 +407,217 @@ function renderGraphMap() {
         }
     };
 
-    networkInstance = new vis.Network(container, { nodes, edges }, options);
+    const needsLayoutWait = nodes.length > 1;
+    if (needsLayoutWait) showLoader(`Laying out ${nodes.length} nodes...`);
 
-    networkInstance.on("stabilizationIterationsDone", function () {
-        networkInstance.setOptions({ physics: false });
+    // Let the loader paint before the (potentially heavy) layout starts.
+    setTimeout(() => {
+        networkInstance = new vis.Network(container, { nodes, edges }, options);
+        setGraphToolsVisible(true);
+
+        const finish = () => {
+            hideLoader();
+            if (networkInstance) {
+                networkInstance.setOptions({ physics: false });
+                networkInstance.fit({ animation: false });
+            }
+        };
+        networkInstance.once("stabilizationIterationsDone", finish);
+        if (needsLayoutWait) layoutTimeout = setTimeout(finish, 10000);
+    }, 30);
+}
+
+function fitGraph() {
+    if (networkInstance) networkInstance.fit({ animation: { duration: 300 } });
+}
+
+function exportGraphPng() {
+    if (!networkInstance) { showMessage('Nothing to export yet - draw a graph first.', 'info'); return; }
+    const canvas = document.querySelector('#mynetwork canvas');
+    if (!canvas) return;
+    const out = document.createElement('canvas');
+    out.width = canvas.width; out.height = canvas.height;
+    const ctx = out.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, out.width, out.height);
+    ctx.drawImage(canvas, 0, 0);
+    const a = document.createElement('a');
+    a.href = out.toDataURL('image/png');
+    a.download = `${currentViewMode}-graph.png`;
+    a.click();
+}
+
+// ---------- circular chain list ----------
+
+function renderCycleList() {
+    const found = rawAssemblyData.deadlocks || [];
+    document.getElementById('deadlockCount').textContent = found.length;
+
+    const list = document.getElementById('deadlockList');
+    list.innerHTML = '';
+
+    if (found.length === 0) {
+        list.appendChild(el('div', 'cycle-none', '✓ No circular call chains detected.'));
+        return;
+    }
+
+    found.forEach((cycle, index) => {
+        const steps = cycle.length - 1;
+        const first = splitMethodId(cycle[0]);
+        const last = splitMethodId(cycle[cycle.length - 2] || cycle[0]);
+
+        const btn = el('button', 'cycle-btn');
+        btn.title = cycle.join('\n➔ ');
+
+        const head = el('div', 'cycle-head');
+        head.appendChild(el('b', null, `Loop #${index + 1}`));
+        head.appendChild(el('span', 'cycle-len', `${steps} call${steps === 1 ? '' : 's'}`));
+        btn.appendChild(head);
+
+        const classLine = first.className === last.className
+            ? shortClass(first.className)
+            : `${shortClass(first.className)} … ${shortClass(last.className)}`;
+        btn.appendChild(el('div', 'cycle-class', classLine));
+        btn.appendChild(el('div', 'cycle-path', `${first.methodName} ➔ … ➔ ${last.methodName}`));
+
+        btn.onclick = () => {
+            Array.from(list.children).forEach(child => child.classList.remove('selected'));
+            btn.classList.add('selected');
+            currentSelectedDeadlockIndex = index;
+            renderGraphMap();
+        };
+        list.appendChild(btn);
     });
 }
 
-document.getElementById('dllFile').addEventListener('change', async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+// ---------- assembly loading ----------
+
+function updateAssemblySwitcher(activeName) {
+    const select = document.getElementById('assemblySwitcher');
+    if (!select) return;
+    select.innerHTML = '';
+    loadedAssemblies.forEach((_, name) => {
+        const opt = el('option', null, name);
+        opt.value = name;
+        select.appendChild(opt);
+    });
+    select.value = activeName;
+    select.style.display = loadedAssemblies.size > 1 ? 'inline-block' : 'none';
+}
+
+function activateAssembly(name) {
+    rawAssemblyData = loadedAssemblies.get(name);
+    hasAssembly = true;
 
     currentSelectedClass = null;
     currentSelectedMethod = null;
     currentSelectedDeadlockIndex = null;
+    showAllMethods = false;
     document.getElementById('triggerText').textContent = "-- Select Target Type --";
     document.getElementById('methodTriggerText').textContent = "-- Select Target Method --";
-
     document.getElementById('searchClass').value = "";
     document.getElementById('searchMethod').value = "";
-    document.getElementById('currentDllName').textContent = file.name;
+    document.getElementById('currentDllName').textContent = name;
+    document.getElementById('currentDllName').title = name;
 
-    showLoader('Parsing IL Assemblies...');
+    renderCycleList();
+
+    originalGroups = {};
+    rawAssemblyData.classes.forEach(fullName => {
+        const parts = fullName.split('.');
+        const shortName = parts.pop();
+        const ns = parts.join('.').trim();
+        if (!originalGroups[ns]) originalGroups[ns] = [];
+        originalGroups[ns].push({ fullName, shortName });
+    });
+
+    document.getElementById('dropdownTrigger').classList.remove('disabled');
+    renderTreeView();
+    updateAssemblySwitcher(name);
+    renderGraphMap();
+}
+
+async function readErrorMessage(response) {
+    let text = '';
+    try { text = await response.text(); } catch { /* ignore */ }
+    if (text) {
+        try {
+            const body = JSON.parse(text);
+            if (body && body.errors) {
+                const msgs = Object.values(body.errors).flat();
+                if (msgs.length) return msgs.join(' ');
+            }
+            if (body && (body.detail || body.title)) return body.detail || body.title;
+        } catch { /* plain text body */ }
+        return text;
+    }
+    if (response.status === 413) return `File too large (limit ${maxUploadMb ?? '?'} MB).`;
+    return `Server returned ${response.status} ${response.statusText}.`;
+}
+
+async function loadFile(file) {
+    if (!file) return;
+
+    if (!/\.(dll|exe)$/i.test(file.name)) {
+        showMessage(`"${file.name}" is not a .dll or .exe file.`, 'error');
+        return;
+    }
+    if (maxUploadMb && file.size > maxUploadMb * 1024 * 1024) {
+        showMessage(`"${file.name}" is ${(file.size / 1048576).toFixed(1)} MB; the upload limit is ${maxUploadMb} MB.`, 'error');
+        return;
+    }
+
+    showLoader(`Parsing ${file.name}...`);
     const formData = new FormData();
     formData.append('file', file);
 
     try {
         const response = await fetch('/api/analysis/analyze', { method: 'POST', body: formData });
-        if (!response.ok) throw new Error("Metadata generation failed.");
-        rawAssemblyData = await response.json();
+        if (!response.ok) throw new Error(await readErrorMessage(response));
+        const data = await response.json();
 
-        const deadlocksFound = rawAssemblyData.deadlocks || [];
-        document.getElementById('deadlockCount').innerText = deadlocksFound.length;
-
-        const deadlockContainer = document.getElementById('deadlockList');
-        deadlockContainer.innerHTML = '';
-
-        if (deadlocksFound.length === 0) {
-            deadlockContainer.innerHTML = '<div style="color: #28a745; font-size:0.85rem; font-weight:bold; padding: 10px; background: #e2f0d9; border-radius:4px;">✓ No deadlocks or circular recursion paths detected!</div>';
-        } else {
-            deadlocksFound.forEach((cycle, index) => {
-                const btn = document.createElement('button');
-                btn.style = "text-align: left; padding: 10px; background: #fff5f5; border: 1px solid #feb2b2; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-family: monospace; transition: all 0.2s; width: 100%; box-sizing: border-box;";
-
-                const originNode = cycle[0].split('.').pop();
-                const targetNode = cycle[cycle.length - 2].split('.').pop();
-
-                btn.innerHTML = `<b style="color: #c53030;">[Loop #${index + 1}]</b> <br/> ${originNode} ➔ ... ➔ ${targetNode}`;
-
-                btn.onclick = () => {
-                    Array.from(deadlockContainer.children).forEach(child => child.style.background = '#fff5f5');
-                    btn.style.background = '#fed7d7';
-                    currentSelectedDeadlockIndex = index;
-                    renderGraphMap();
-                };
-                deadlockContainer.appendChild(btn);
-            });
+        loadedAssemblies.delete(file.name);
+        loadedAssemblies.set(file.name, data);
+        while (loadedAssemblies.size > MAX_LOADED_ASSEMBLIES) {
+            loadedAssemblies.delete(loadedAssemblies.keys().next().value);
         }
 
-        originalGroups = {};
-        rawAssemblyData.classes.forEach(fullName => {
-            const parts = fullName.split('.');
-            const shortName = parts.pop();
-            const ns = parts.join('.');
-            if (!originalGroups[ns]) originalGroups[ns] = [];
-            originalGroups[ns].push({ fullName, shortName });
-        });
-
-        document.getElementById('dropdownTrigger').classList.remove('disabled');
-
-        setTimeout(() => {
-            renderTreeView();
-            hideLoader();
-            renderGraphMap();
-            showMessage('Assembly structures parsed cleanly.', 'success');
-        }, 50);
-
+        hideLoader();
+        activateAssembly(file.name);
+        showMessage(`Parsed ${data.classes.length} types, ${data.methodGraph.nodes.length} methods, ${(data.deadlocks || []).length} circular chains.`, 'success');
     } catch (err) {
         hideLoader();
-        showMessage(err.message, 'error');
+        const reason = err instanceof TypeError
+            ? `the connection was closed - the file may exceed the server's upload limit${maxUploadMb ? ` (${maxUploadMb} MB)` : ''}.`
+            : err.message;
+        showMessage(`Could not analyse "${file.name}": ${reason}`, 'error');
     }
+}
+
+// ---------- wiring ----------
+
+document.getElementById('dllFile').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    await loadFile(file);
+    e.target.value = '';   // allow re-selecting the same file
+});
+
+document.getElementById('assemblySwitcher').addEventListener('change', (e) => {
+    if (loadedAssemblies.has(e.target.value)) activateAssembly(e.target.value);
 });
 
 document.getElementById('searchClass').addEventListener('input', (e) => renderTreeView(e.target.value));
 document.getElementById('searchMethod').addEventListener('input', (e) => populateMethodsDropdown(e.target.value));
-document.getElementById('dropdownTrigger').onclick = () => { document.getElementById('dropdownMenu').style.display = 'flex'; };
-document.getElementById('methodTrigger').onclick = () => { document.getElementById('methodMenu').style.display = 'flex'; };
+document.getElementById('dropdownTrigger').onclick = () => {
+    if (document.getElementById('dropdownTrigger').classList.contains('disabled')) return;
+    document.getElementById('dropdownMenu').style.display = 'flex';
+    document.getElementById('searchClass').focus();
+};
+document.getElementById('methodTrigger').onclick = () => {
+    if (document.getElementById('methodTrigger').classList.contains('disabled')) return;
+    document.getElementById('methodMenu').style.display = 'flex';
+    document.getElementById('searchMethod').focus();
+};
 
 window.onclick = function (event) {
     const classWrapper = document.getElementById('classDropdownWrapper');
@@ -432,4 +629,34 @@ window.onclick = function (event) {
     if (methodWrapper && !methodWrapper.contains(event.target)) {
         document.getElementById('methodMenu').style.display = "none";
     }
-}
+};
+
+// Drag & drop a DLL anywhere on the page.
+let dragDepth = 0;
+window.addEventListener('dragenter', (e) => {
+    if (!e.dataTransfer || !Array.from(e.dataTransfer.types).includes('Files')) return;
+    dragDepth++;
+    document.body.classList.add('dragging');
+});
+window.addEventListener('dragleave', () => {
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) document.body.classList.remove('dragging');
+});
+window.addEventListener('dragover', (e) => { e.preventDefault(); });
+window.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    dragDepth = 0;
+    document.body.classList.remove('dragging');
+    const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    await loadFile(file);
+});
+
+// Show the real upload limit next to the upload button.
+fetch('/api/analysis/limits').then(r => r.ok ? r.json() : null).then(info => {
+    if (!info) return;
+    maxUploadMb = info.maxFileSizeMB;
+    const hint = document.getElementById('uploadHint');
+    if (hint) hint.textContent = `.dll / .exe, max ${maxUploadMb} MB`;
+}).catch(() => { /* hint is optional */ });
+
+renderGraphMap();

@@ -57,14 +57,30 @@ docker run --rm -p 8080:8080 dotnet-visualizer
 
 Then open **http://localhost:8080** and upload your `.dll`.
 
-> Inside the container the port is set by the `Urls` environment variable in the Dockerfile (`appsettings.json` defaults to 9999 for the Windows service). To map a different host port, change the left side, e.g. `-p 5000:8080`.
+> Inside the container the port is fixed to 8080 by the `Urls` environment variable in the Dockerfile (it overrides `appsettings.json`). To use a different host port, change the left side, e.g. `-p 5000:8080`.
+
+The image has a `HEALTHCHECK` that calls `/healthz`; `docker ps` shows `healthy` once the app is up.
+
+### Upload limit
+
+Files up to **200 MB** can be analysed. Change it with `Upload:MaxFileSizeMB` in `appsettings.json` or the environment variable `Upload__MaxFileSizeMB`, e.g. `docker run -e Upload__MaxFileSizeMB=500 ...`. The UI shows the active limit next to the upload button.
+
+---
+
+## Using the UI
+
+- **Upload:** click *Choose DLL* or drag a `.dll` / `.exe` anywhere onto the page. Several assemblies can be loaded in one session and switched via the dropdown next to the file name.
+- **Inheritance View:** pick a type to see its base types and interfaces.
+- **Method Call View:** pick a type, then a method, to see its callers and callees. Types with many methods ask you to pick a method first.
+- **Circular Dependency View:** lists call chains that loop back on themselves; select one to draw it (numbers show call order).
+- **Fit / Export PNG** buttons appear under the graph. The app works offline: `vis-network` is bundled in `wwwroot/lib`.
 
 ---
 
 ## How to use it
 
 1.  **Clone the repo:** `git clone https://github.com/Aizaz-hash/dotnet-Assembly-Visualizer`
-2.  **Switch to v2:** `git checkout task-Dotnet-Visualizer-Web-v2`
+2.  **Switch to v2:** `git checkout v2`
 3.  **Fire it up:** Just run `dotnet run`.
 4.  **Explore:** Upload your `.dll`, pick a class, and start digging into the dependencies.
 
