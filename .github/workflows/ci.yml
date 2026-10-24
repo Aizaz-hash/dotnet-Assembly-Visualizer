@@ -1,10 +1,8 @@
 name: CI
 
 on:
-  push:
-    branches: [task-Dotnet-Visualizer-Web-v2]
   pull_request:
-    branches: [task-Dotnet-Visualizer-Web-v2]
+    branches: [main, v2]
 
 jobs:
   build:
@@ -14,8 +12,8 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-      - run: dotnet restore DotNetVisualizer.Web.csproj
-      - run: dotnet build DotNetVisualizer.Web.csproj -c Release --no-restore
+      - run: dotnet restore
+      - run: dotnet build -c Release --no-restore
 
   smoke-test:
     runs-on: ubuntu-latest

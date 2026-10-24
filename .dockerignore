@@ -1,6 +1,18 @@
+# Build artifacts
 bin/
 obj/
-*.user
+
+# Git / IDE
+.git/
+.gitignore
 .vs/
-publish/
-dist/
+.vscode/
+*.user
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Docs
+README.md
+readme.md

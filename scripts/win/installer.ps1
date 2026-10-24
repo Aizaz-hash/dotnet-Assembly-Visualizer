@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Installs DotNetVisualizer.Web as an auto-start Windows Service.
+    Installs dotnet-Assembly-Visualizer as an auto-start Windows Service.
 
 .DESCRIPTION
     One-shot deployment script. It:
@@ -19,14 +19,14 @@
 
 .EXAMPLE
     # From an Administrator PowerShell at the repo root:
-    .\util\installer.ps1
+    .\scripts\win\installer.ps1
 #>
 
 # ==================================================================================
 # CONFIGURATION
 # ==================================================================================
-$ProjectName   = "DotNetVisualizer.Web"
-$ProjectPath   = ".\DotNetVisualizer.Web.csproj"
+$ProjectName   = "dotnet-Assembly-Visualizer"
+$ProjectPath   = ".\dotnet-Assembly-Visualizer.csproj"
 $TargetFolder  = "C:\DAV"
 $ServiceName   = "DAV"
 $Port          = "9999"
