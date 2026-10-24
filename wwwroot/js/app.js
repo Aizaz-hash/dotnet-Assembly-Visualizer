@@ -523,7 +523,11 @@ function methodsFolderOpt(typeId) {
     return { icon: 'ico-folder', label: 'Methods', sub: String(methods.length), children: () => methods.map(methodLeafOpt) };
 }
 
-function inheritanceOpt(ref, direction, ancestors) {
+function inhDepthValue() {
+    return parseInt(byId('inhDepth').value, 10) || 1;
+}
+
+function inheritanceOpt(ref, direction, ancestors, level = 1) {
     const t = typeNodes.get(ref.id);
     const loop = ancestors.has(ref.id);
     const nextAnc = new Set(ancestors); nextAnc.add(ref.id);
@@ -534,9 +538,11 @@ function inheritanceOpt(ref, direction, ancestors) {
             const kids = [];
             const folder = methodsFolderOpt(ref.id);
             if (folder) kids.push(folder);
-            if (!loop) list.forEach(r => kids.push(inheritanceOpt(r, direction, nextAnc)));
+            if (!loop) list.forEach(r => kids.push(inheritanceOpt(r, direction, nextAnc, level + 1)));
             return kids;
         } : undefined,
+        // Depth = how many levels of the hierarchy are opened automatically (you can still expand further by hand).
+        expanded: !loop && list.length > 0 && level < inhDepthValue(),
         onSelect: t ? () => navigate({ view: 'inheritance', type: ref.id, method: null }) : undefined
     });
 }
@@ -567,6 +573,7 @@ function renderInheritanceGraph() {
 
     if (!hasAssembly) { canvasMessage(canvas, 'Upload a .NET assembly to begin: click "Open" or drop a .dll file anywhere on this page.'); return; }
 
+    const depth = inhDepthValue();
     const levels = new Map();   // typeId -> level (negative = base types above, positive = derived types below)
     let truncated = false;
     const add = (id, lvl) => {
@@ -586,7 +593,7 @@ function renderInheritanceGraph() {
         roots.sort((a, b) => typeNodes.get(a).name.localeCompare(typeNodes.get(b).name));
         let frontier = [];
         roots.forEach(r => { if (add(r, 0)) frontier.push(r); });
-        for (let d = 1; frontier.length && d <= 20; d++) {
+        for (let d = 1; frontier.length && d <= depth; d++) {
             const next = [];
             frontier.forEach(id => (derivedOf.get(id) || []).forEach(c => { if (typeNodes.has(c.id) && add(c.id, d)) next.push(c.id); }));
             frontier = next;
@@ -594,7 +601,6 @@ function renderInheritanceGraph() {
         if (levels.size === 0) { canvasMessage(canvas, 'No type in this assembly derives from or implements another type of the same assembly.'); return; }
     } else {
         if (!state.type) { canvasMessage(canvas, 'Select a type in the explorer to draw its inheritance graph.'); return; }
-        const depth = parseInt(byId('inhDepth').value, 10);
         levels.set(state.type, 0);
         let up = [state.type], down = [state.type];
         for (let d = 1; d <= depth && (up.length || down.length); d++) {
@@ -624,8 +630,11 @@ function renderInheritanceGraph() {
         });
     }));
 
-    byId('inhHint').textContent = `${nodes.length} types · ${edges.length} relations` +
-        (truncated ? ` · limited to ${INH_MAX_NODES} types - use "Selected type" for the full picture` : ' · double-click a type to centre on it');
+    let reached = 0;
+    levels.forEach(l => { reached = Math.max(reached, Math.abs(l)); });
+    byId('inhHint').textContent = `${nodes.length} types · ${edges.length} relations · depth ${depth}` +
+        (truncated ? ` · limited to ${INH_MAX_NODES} types - use "Selected type" for the full picture`
+            : (reached < depth ? ` · nothing deeper than ${reached} level${reached === 1 ? '' : 's'}` : ' · double-click a type to centre on it'));
 
     const options = {
         layout: { hierarchical: { enabled: true, direction: 'UD', sortMethod: 'directed', levelSeparation: 110, nodeSpacing: 240, treeSpacing: 240, blockShifting: true, edgeMinimization: true, parentCentralization: true } },
@@ -665,7 +674,7 @@ function renderInheritance() {
     byId('inhLegend').style.display = graph ? 'flex' : 'none';
     byId('btnFitInh').style.display = graph ? 'inline-block' : 'none';
     byId('btnExportInh').style.display = graph ? 'inline-block' : 'none';
-    byId('inhDepthLabel').style.display = (graph && state.inhMode !== 'all') ? 'flex' : 'none';
+    byId('inhDepthLabel').style.display = 'flex';
     if (graph) { byId('inhHint').textContent = ''; renderInheritanceGraph(); }
     else { byId('inhHint').textContent = 'Click a type to navigate to it · ▸ expands'; renderInheritanceTree(); }
     renderMembersPanel();
@@ -800,7 +809,9 @@ function buildCallGraph(center, depth, wantCallers, wantCallees) {
             });
         }
     });
-    return { nodes, edges, truncated };
+    let reached = 0;
+    levels.forEach(l => { reached = Math.max(reached, Math.abs(l)); });
+    return { nodes, edges, truncated, reached };
 }
 
 // Shown only when the dependency analysis found this method in a circular call chain.
@@ -849,7 +860,9 @@ function renderCalls() {
     const depth = parseInt(byId('callDepth').value, 10);
     const g = buildCallGraph(state.method, depth, byId('optCallers').checked, byId('optCallees').checked);
     const callees = (calleesOf.get(state.method) || []).length, callers = (callersOf.get(state.method) || []).length;
-    byId('callStats').textContent = `${g.nodes.length} methods · ${g.edges.length} calls · ${callers} direct caller${callers === 1 ? '' : 's'}, ${callees} direct callee${callees === 1 ? '' : 's'}` + (g.truncated ? ` · limited to ${MAX_CALL_NODES} nodes - lower the depth` : '');
+    byId('callStats').textContent = `${g.nodes.length} methods · ${g.edges.length} calls · ${callers} direct caller${callers === 1 ? '' : 's'}, ${callees} direct callee${callees === 1 ? '' : 's'}` + ` · depth ${depth}` +
+        (g.truncated ? ` · limited to ${MAX_CALL_NODES} nodes - lower the depth`
+            : (g.reached < depth ? ` · nothing deeper than ${g.reached} level${g.reached === 1 ? '' : 's'}` : ''));
 
     const options = {
         layout: { hierarchical: { enabled: true, direction: 'LR', sortMethod: 'directed', levelSeparation: 230, nodeSpacing: 36, treeSpacing: 60, blockShifting: true, edgeMinimization: true, parentCentralization: true } },
