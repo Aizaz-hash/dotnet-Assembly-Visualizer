@@ -239,3 +239,17 @@ body.dragging #dropOverlay { display: flex; }
 #inhCanvas { position: absolute; inset: 0; }
 .lg-class { background: #fff3e0; border-color: #e0a030; }
 .lg-iface { background: #e3f2fd; border-color: #42a5f5; border-radius: 50%; }
+
+/* inheritance members panel, method view breadcrumb and circular dependency note */
+.inh-row { flex: 1; display: flex; min-height: 0; }
+.inh-row .canvas-wrap { flex: 1; min-width: 0; }
+#inhMembers { width: 280px; min-width: 200px; border-left: 1px solid var(--chrome-border); background: #fff; flex-direction: column; display: none; }
+#inhMembersList { flex: 1; overflow: auto; }
+.crumb { color: var(--accent); cursor: pointer; }
+.crumb:hover { text-decoration: underline; }
+.method-note {
+    display: none; padding: 4px 10px; font-size: 11.5px; line-height: 1.5;
+    background: #fff8e1; color: #6b5a14; border-bottom: 1px solid #f0dc9a;
+}
+.method-note .mn-icon { font-size: 13px; margin-right: 6px; }
+.method-note .mn-link { color: var(--accent); font-weight: 600; }

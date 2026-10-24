@@ -88,7 +88,13 @@
                     <button id="btnFitInh" class="tb-btn small" title="Zoom to fit">Fit</button>
                     <button id="btnExportInh" class="tb-btn small" title="Download as PNG">PNG</button>
                 </div>
-                <div id="inhGraphWrap" class="canvas-wrap"><div id="inhCanvas"></div></div>
+                <div id="inhGraphRow" class="inh-row">
+                    <div id="inhGraphWrap" class="canvas-wrap"><div id="inhCanvas"></div></div>
+                    <aside id="inhMembers">
+                        <div class="pane-title" id="inhMembersTitle">Methods</div>
+                        <div id="inhMembersList" class="tree"></div>
+                    </aside>
+                </div>
                 <div id="inheritanceBody" class="scroll-body" style="display:none;"></div>
             </section>
 
@@ -110,6 +116,7 @@
                     <button id="btnFit" class="tb-btn small" title="Zoom to fit">Fit</button>
                     <button id="btnExport" class="tb-btn small" title="Download as PNG">PNG</button>
                 </div>
+                <div id="methodNote" class="method-note" style="display:none;"></div>
                 <div id="callCanvasWrap" class="canvas-wrap">
                     <div id="callCanvas"></div>
                     <div id="chipLayer"></div>

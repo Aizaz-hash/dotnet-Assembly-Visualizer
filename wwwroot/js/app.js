@@ -287,7 +287,7 @@ function typeLinkOpt(ref, extra) {
         tag: ref.relation ? ref.relation.toLowerCase() : undefined,
         external: !t,
         title: ref.id,
-        onSelect: t ? () => navigate({ view: state.view === 'calls' ? 'calls' : 'inheritance', type: ref.id, method: null }) : undefined,
+        onSelect: t ? () => navigate({ view: 'inheritance', type: ref.id, method: null }) : undefined,
         ...extra
     };
 }
@@ -321,7 +321,7 @@ function typeOpt(typeId) {
             (methodsByClass.get(typeId) || []).forEach(m => kids.push(methodOpt(m)));
             return kids;
         },
-        onSelect: () => navigate({ view: state.view === 'calls' ? 'calls' : 'inheritance', type: typeId, method: null })
+        onSelect: () => navigate({ view: 'inheritance', type: typeId, method: null })
     };
 }
 
@@ -478,11 +478,19 @@ function renderTitle() {
     }
     if (state.view === 'calls' && state.method) {
         const info = methodInfo(state.method);
+        const toInheritance = () => { if (typeNodes.has(info.className)) navigate({ view: 'inheritance', type: info.className, method: null }); };
+        const back = el('span', 'crumb', '◀ Inheritance');
+        back.title = 'Back to the inheritance view of ' + info.className;
+        back.onclick = toInheritance;
+        t.appendChild(back);
         t.appendChild(el('span', 'ico ico-method'));
-        t.appendChild(el('span', 'vt-name', truncate(info.name, 80)));
-        t.appendChild(el('span', 'vt-sub', info.className));
-        const link = cycleLink(state.method);
-        if (link) t.appendChild(link);
+        const name = el('span', 'vt-name', truncate(info.name, 90));
+        name.title = info.className + '.' + info.name;
+        t.appendChild(name);
+        const decl = el('span', 'vt-sub crumb', 'declared in ' + info.className);
+        decl.title = 'Open this type in the inheritance view';
+        decl.onclick = toInheritance;
+        t.appendChild(decl);
         return;
     }
     if (state.type) {
@@ -499,6 +507,22 @@ function renderTitle() {
 //  Inheritance view
 // ============================================================================
 
+function methodLeafOpt(m) {
+    const o = methodOpt(m);
+    delete o.key;                       // the explorer owns the registered keys
+    return o;
+}
+
+function methodsOf(typeId) {
+    return methodsByClass.get(typeId) || [];
+}
+
+function methodsFolderOpt(typeId) {
+    const methods = methodsOf(typeId);
+    if (!methods.length) return null;
+    return { icon: 'ico-folder', label: 'Methods', sub: String(methods.length), children: () => methods.map(methodLeafOpt) };
+}
+
 function inheritanceOpt(ref, direction, ancestors) {
     const t = typeNodes.get(ref.id);
     const loop = ancestors.has(ref.id);
@@ -506,7 +530,13 @@ function inheritanceOpt(ref, direction, ancestors) {
     const list = direction === 'up' ? (basesOf.get(ref.id) || []) : (derivedOf.get(ref.id) || []);
     return typeLinkOpt(ref, {
         sub: t ? (nsOf.get(ref.id) || '') : ref.id,
-        children: (!loop && list.length) ? () => list.map(r => inheritanceOpt(r, direction, nextAnc)) : undefined,
+        children: (methodsOf(ref.id).length || (!loop && list.length)) ? () => {
+            const kids = [];
+            const folder = methodsFolderOpt(ref.id);
+            if (folder) kids.push(folder);
+            if (!loop) list.forEach(r => kids.push(inheritanceOpt(r, direction, nextAnc)));
+            return kids;
+        } : undefined,
         onSelect: t ? () => navigate({ view: 'inheritance', type: ref.id, method: null }) : undefined
     });
 }
@@ -614,10 +644,23 @@ function renderInheritanceGraph() {
     });
 }
 
+function renderMembersPanel() {
+    const panel = byId('inhMembers');
+    const show = state.inhFormat !== 'tree' && state.inhMode !== 'all' && !!state.type && hasAssembly;
+    panel.style.display = show ? 'flex' : 'none';
+    if (!show) return;
+    const methods = methodsOf(state.type);
+    byId('inhMembersTitle').textContent = 'Methods (' + methods.length + ') - click to open';
+    const list = byId('inhMembersList');
+    list.innerHTML = '';
+    if (!methods.length) { list.appendChild(el('div', 'empty-note', 'This type has no executable methods.')); return; }
+    methods.forEach(m => list.appendChild(makeTreeNode(methodLeafOpt(m)).el));
+}
+
 function renderInheritance() {
     if (inhNetwork) { inhNetwork.destroy(); inhNetwork = null; }
     const graph = state.inhFormat !== 'tree';
-    byId('inhGraphWrap').style.display = graph ? 'block' : 'none';
+    byId('inhGraphRow').style.display = graph ? 'flex' : 'none';
     byId('inheritanceBody').style.display = graph ? 'none' : 'block';
     byId('inhLegend').style.display = graph ? 'flex' : 'none';
     byId('btnFitInh').style.display = graph ? 'inline-block' : 'none';
@@ -625,6 +668,7 @@ function renderInheritance() {
     byId('inhDepthLabel').style.display = (graph && state.inhMode !== 'all') ? 'flex' : 'none';
     if (graph) { byId('inhHint').textContent = ''; renderInheritanceGraph(); }
     else { byId('inhHint').textContent = 'Click a type to navigate to it · ▸ expands'; renderInheritanceTree(); }
+    renderMembersPanel();
 }
 
 function renderInheritanceTree() {
@@ -656,7 +700,14 @@ function renderInheritanceTree() {
     if (!state.type) { body.appendChild(el('div', 'empty-note', 'Select a type in the explorer to see its base types and derived types.')); return; }
 
     const self = el('div', 'inh-section inh-self');
-    self.appendChild(makeTreeNode(typeLinkOpt({ id: state.type }, { sub: nsOf.get(state.type) || '', onSelect: undefined, tag: undefined })).el);
+    {
+        const count = methodsOf(state.type).length;
+        const label = (nsOf.get(state.type) || '') + (count ? ' · ' + count + ' method' + (count === 1 ? '' : 's') : '');
+        self.appendChild(makeTreeNode(typeLinkOpt({ id: state.type }, {
+            sub: label, onSelect: undefined, tag: undefined,
+            children: count ? () => methodsOf(state.type).map(methodLeafOpt) : undefined
+        })).el);
+    }
     body.appendChild(self);
 
     const anc = new Set([state.type]);
@@ -752,9 +803,27 @@ function buildCallGraph(center, depth, wantCallers, wantCallees) {
     return { nodes, edges, truncated };
 }
 
+// Shown only when the dependency analysis found this method in a circular call chain.
+function renderMethodNote() {
+    const note = byId('methodNote');
+    note.innerHTML = '';
+    const n = (state.view === 'calls' && state.method) ? (cyclesOfMethod.get(state.method) || []).length : 0;
+    if (!n) { note.style.display = 'none'; return; }
+    note.appendChild(el('span', 'mn-icon', 'ⓘ'));
+    note.appendChild(document.createTextNode('This method may have a circular dependency. Click '));
+    const link = el('a', 'mn-link', 'Circular Dependency View');
+    link.href = '#';
+    link.title = 'Show the ' + n + ' circular call chain' + (n === 1 ? '' : 's') + ' through this method';
+    link.onclick = (e) => { e.preventDefault(); navigate({ view: 'cycles', cycleMethod: state.method, cycleIdx: 0 }); };
+    note.appendChild(link);
+    note.appendChild(document.createTextNode(' to investigate.'));
+    note.style.display = 'block';
+}
+
 function renderCalls() {
     destroyCallNetwork();
     hideLoader();
+    renderMethodNote();
     const canvas = byId('callCanvas');
     canvas.innerHTML = '';
     byId('callStats').textContent = '';
