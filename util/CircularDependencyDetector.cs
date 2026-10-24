@@ -1,8 +1,4 @@
-using DotNetVisualizer.Web.Interfaces;
-
-namespace DotNetVisualizer.Web.Services;
-
-public class CircularDependencyDetectorService : ICircularDependencyDetector
+﻿public class CircularDependencyDetector
 {
     private enum NodeColor
     {
@@ -11,7 +7,7 @@ public class CircularDependencyDetectorService : ICircularDependencyDetector
         Black  // Fully processed (Safe, verified cycle-free from this node onwards)
     }
 
-    public List<List<string>> DetectCycles(Dictionary<string, List<string>> adjacencyList)
+    public static List<List<string>> DetectCycles(Dictionary<string, List<string>> adjacencyList)
     {
         var cycles = new List<List<string>>();
         var colors = new Dictionary<string, NodeColor>(StringComparer.OrdinalIgnoreCase);
@@ -36,7 +32,7 @@ public class CircularDependencyDetectorService : ICircularDependencyDetector
         return cycles;
     }
 
-    private void DFS(
+    private static void DFS(
         string currentNode,
         Dictionary<string, List<string>> adjacencyList,
         Dictionary<string, NodeColor> colors,

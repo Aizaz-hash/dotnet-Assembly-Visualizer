@@ -1,6 +1,4 @@
-using DotNetVisualizer.Web.Interfaces;
-using DotNetVisualizer.Web.Services.Vulnerabilities;
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -11,20 +9,11 @@ using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
 
-namespace DotNetVisualizer.Web.Services;
-
-public class AssemblyAnalyzerService : IAssemblyAnalyzer
+public static class AssemblyAnalyzer
 {
-    private readonly ICircularDependencyDetector _detector;
-
-    public AssemblyAnalyzerService(ICircularDependencyDetector detector)
-    {
-        _detector = detector;
-    }
-
     private static readonly Dictionary<short, OpCode> IlOpCodes = CreateIlOpCodeMap();
 
-    public object Analyze(IFormFile file)
+    public static object Analyze(IFormFile file)
     {
         var inheritanceNodes = new List<object>();
         var inheritanceEdges = new List<object>();
@@ -369,7 +358,7 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
         }
 
         // DETECT CIRCULAR DEPENDENCIES
-        List<List<string>> detectedDeadlocks = _detector.DetectCycles(methodAdjacencyList);
+        List<List<string>> detectedDeadlocks = CircularDependencyDetector.DetectCycles(methodAdjacencyList);
 
         // RETURN ANALYSIS RESULT
         return new
@@ -388,10 +377,7 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
                 edges = methodEdges
             },
 
-            deadlocks = detectedDeadlocks,
-
-            // Assembly references (name + assembly version); shown by the vulnerability view as an inventory.
-            references = AssemblyReferenceReader.Read(mdReader)
+            deadlocks = detectedDeadlocks
         };
     }
 

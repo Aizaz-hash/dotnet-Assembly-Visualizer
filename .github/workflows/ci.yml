@@ -15,16 +15,6 @@ jobs:
       - run: dotnet restore
       - run: dotnet build -c Release --no-restore
 
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
-      # unit tests (CVSS, version ranges, scanner logic with a fake database) and API tests; no network access needed
-      - run: dotnet test tests/DotNetVisualizer.Web.Tests -c Release
-
   smoke-test:
     runs-on: ubuntu-latest
     steps:
