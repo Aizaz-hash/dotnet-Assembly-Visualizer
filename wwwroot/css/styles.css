@@ -234,3 +234,8 @@ body.dragging #dropOverlay { display: flex; }
     #cycleLayout { flex-direction: column; }
     #cycleList { width: 100%; max-height: 38%; border-right: none; border-bottom: 1px solid var(--chrome-border); }
 }
+
+/* inheritance graph */
+#inhCanvas { position: absolute; inset: 0; }
+.lg-class { background: #fff3e0; border-color: #e0a030; }
+.lg-iface { background: #e3f2fd; border-color: #42a5f5; border-radius: 50%; }

@@ -1,6 +1,6 @@
 # .NET Assembly Visualizer
 
-Explore the architecture of a .NET assembly in seconds - inheritance trees, method call graphs and circular call chains - without loading or running the assembly.
+Explore the architecture of a .NET assembly in seconds - inheritance graphs, method call graphs and circular call chains - without loading or running the assembly.
 
 I built this tool because I was tired of staring at massive, unreadable dependency graphs when trying to understand how the parts of a complex .NET assembly talk to each other. It reads the DLL binary directly (`System.Reflection.Metadata` plus IL scanning), so there is no runtime overhead and no slow loading.
 
@@ -28,13 +28,13 @@ I built this tool because I was tired of staring at massive, unreadable dependen
 
 ### Assembly explorer and inheritance view
 
-An ILSpy-style explorer on the left (assembly → namespaces → types → base types, derived types and methods) with search and Back / Forward navigation. The **Inheritance** tab shows the selected type's base types, interfaces and derived types as an expandable tree; click any type to navigate to it.
+An ILSpy-style explorer on the left (assembly → namespaces → types → base types, derived types and methods) with search and Back / Forward navigation. The **Inheritance** tab draws the selected type's base types, interfaces and derived types as an interactive **graph** (bases above, derived types below, dashed lines for interface implementations). Use *Depth* to control how many levels are shown, double-click a type to centre the graph on it, and use *Fit* or *PNG* to zoom or export. A **Tree** toggle switches to an expandable list of the same relationships if you prefer it.
 
-![Inheritance tree for a type](docs/images/v2-inheritance.png)
+![Inheritance graph for a type](docs/images/v2-inheritance.png)
 
-The **Whole assembly** mode lists every type hierarchy in the assembly. Nodes expand lazily, so large assemblies stay compact.
+The **Whole assembly** mode draws every type hierarchy of the assembly in one graph (capped at 300 types for readability; the tree view lists all of them and expands lazily).
 
-![Whole-assembly type hierarchy](docs/images/v2-all.png)
+![Whole-assembly inheritance graph](docs/images/v2-all.png)
 
 ### Method calls
 
@@ -101,7 +101,7 @@ Then open **http://localhost:8080**. (To run the `v2` line, `git checkout v2` fi
 |---|---|
 | **Toolbar** | *Open* an assembly, switch between loaded assemblies, Back / Forward (Alt+Left / Alt+Right). |
 | **Explorer** | Browse namespaces, types and methods; search for types and methods; methods in a circular chain carry a red ⚠. |
-| **Inheritance** | Base types, interfaces and derived types of the selected type, or the whole assembly. |
+| **Inheritance** | Graph (or tree) of base types, interfaces and derived types for the selected type, or for the whole assembly; adjustable depth. |
 | **Method Calls** | Callers and callees of the selected method; adjustable depth; merged nodes and edges. |
 | **Circular Dependencies** | Every distinct circular call chain, grouped by class; filter to a single method; click to jump to its call graph. |
 

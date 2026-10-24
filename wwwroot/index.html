@@ -65,13 +65,31 @@
 
             <section id="viewInheritance" class="view">
                 <div class="view-toolbar">
+                    <div class="seg" title="How to draw the hierarchy">
+                        <button id="inhFmtGraph" class="seg-btn active">Graph</button>
+                        <button id="inhFmtTree" class="seg-btn">Tree</button>
+                    </div>
                     <div class="seg">
                         <button id="inhModeSelected" class="seg-btn active">Selected type</button>
                         <button id="inhModeAll" class="seg-btn">Whole assembly</button>
                     </div>
-                    <span class="view-hint">Click a type to navigate to it · ▸ expands</span>
+                    <label id="inhDepthLabel">Depth
+                        <select id="inhDepth">
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3" selected>3</option>
+                            <option value="5">5</option>
+                            <option value="10">all</option>
+                        </select>
+                    </label>
+                    <span id="inhHint" class="view-hint"></span>
+                    <span class="tb-spacer"></span>
+                    <span id="inhLegend" class="legend-inline"><i class="lg lg-class"></i>Class <i class="lg lg-iface"></i>Interface <i class="lg lg-ext"></i>External <i class="lg lg-sel"></i>Selected</span>
+                    <button id="btnFitInh" class="tb-btn small" title="Zoom to fit">Fit</button>
+                    <button id="btnExportInh" class="tb-btn small" title="Download as PNG">PNG</button>
                 </div>
-                <div id="inheritanceBody" class="scroll-body"></div>
+                <div id="inhGraphWrap" class="canvas-wrap"><div id="inhCanvas"></div></div>
+                <div id="inheritanceBody" class="scroll-body" style="display:none;"></div>
             </section>
 
             <section id="viewCalls" class="view">

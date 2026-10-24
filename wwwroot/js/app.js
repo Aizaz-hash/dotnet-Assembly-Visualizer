@@ -34,13 +34,15 @@ let cyclesOfMethod = new Map();    // methodId -> [cycle index]
 let cyclicEdges = new Set();       // "from\u0001to"
 
 // Navigation state
-let state = { view: 'inheritance', type: null, method: null, cycleMethod: null, cycleIdx: 0, inhMode: 'selected' };
+let state = { view: 'inheritance', type: null, method: null, cycleMethod: null, cycleIdx: 0, inhMode: 'selected', inhFormat: 'graph' };
 let history = [];
 let historyIdx = -1;
 
 // Graph instances
 let callNetwork = null;
 let cycleNetwork = null;
+let inhNetwork = null;
+const INH_MAX_NODES = 300;
 let chips = [];
 let explorerNodes = new Map();     // key -> tree handle
 let selectedExplorerKey = null;
@@ -408,7 +410,7 @@ function renderSearchResults(query) {
 
 function sameState(a, b) {
     return a.view === b.view && a.type === b.type && a.method === b.method &&
-        a.cycleMethod === b.cycleMethod && a.cycleIdx === b.cycleIdx && a.inhMode === b.inhMode;
+        a.cycleMethod === b.cycleMethod && a.cycleIdx === b.cycleIdx && a.inhMode === b.inhMode && a.inhFormat === b.inhFormat;
 }
 
 function navigate(patch, push = true) {
@@ -443,6 +445,8 @@ function applyState() {
     });
     byId('inhModeSelected').classList.toggle('active', state.inhMode === 'selected');
     byId('inhModeAll').classList.toggle('active', state.inhMode === 'all');
+    byId('inhFmtGraph').classList.toggle('active', state.inhFormat === 'graph');
+    byId('inhFmtTree').classList.toggle('active', state.inhFormat === 'tree');
 
     revealInExplorer(state.method ? 'm:' + state.method : (state.type ? 't:' + state.type : null));
     renderTitle();
@@ -507,7 +511,123 @@ function inheritanceOpt(ref, direction, ancestors) {
     });
 }
 
+// ---------- inheritance: graph ----------
+
+function inhNodeStyle(id, selected) {
+    const t = typeNodes.get(id);
+    const iface = !!t && t.type === 'Interface';
+    const external = !t;
+    let color = iface
+        ? { background: '#e3f2fd', border: '#42a5f5', highlight: { background: '#cfe8fc', border: '#1e88e5' } }
+        : { background: '#fff3e0', border: '#e0a030', highlight: { background: '#ffe8c2', border: '#c07f10' } };
+    if (external) color = { background: '#f0f0f0', border: '#9e9e9e', highlight: { background: '#e4e4e4', border: '#757575' } };
+    if (selected) color = { background: iface ? '#cfe8fc' : '#cce8ff', border: '#0063b1', highlight: { background: '#b9ddfb', border: '#004a85' } };
+    return {
+        id, label: t ? t.name : shortName(id), shape: iface ? 'ellipse' : 'box', margin: 10,
+        borderWidth: selected ? 3 : 1.5, color,
+        font: { face: 'Segoe UI, sans-serif', size: 13, color: external ? '#6b6b6b' : '#1e1e1e' },
+        title: `${id}${external ? '\n(not in this assembly)' : ''}`
+    };
+}
+
+function renderInheritanceGraph() {
+    const canvas = byId('inhCanvas');
+    canvas.innerHTML = '';
+    byId('inhHint').textContent = '';
+
+    if (!hasAssembly) { canvasMessage(canvas, 'Upload a .NET assembly to begin: click "Open" or drop a .dll file anywhere on this page.'); return; }
+
+    const levels = new Map();   // typeId -> level (negative = base types above, positive = derived types below)
+    let truncated = false;
+    const add = (id, lvl) => {
+        if (levels.has(id)) return false;
+        if (levels.size >= INH_MAX_NODES) { truncated = true; return false; }
+        levels.set(id, lvl);
+        return true;
+    };
+
+    if (state.inhMode === 'all') {
+        const roots = [];
+        typeNodes.forEach((t, id) => {
+            if (!nsOf.has(id)) return;
+            const hasBase = (basesOf.get(id) || []).some(b => typeNodes.has(b.id));
+            if (!hasBase && (derivedOf.get(id) || []).length) roots.push(id);
+        });
+        roots.sort((a, b) => typeNodes.get(a).name.localeCompare(typeNodes.get(b).name));
+        let frontier = [];
+        roots.forEach(r => { if (add(r, 0)) frontier.push(r); });
+        for (let d = 1; frontier.length && d <= 20; d++) {
+            const next = [];
+            frontier.forEach(id => (derivedOf.get(id) || []).forEach(c => { if (typeNodes.has(c.id) && add(c.id, d)) next.push(c.id); }));
+            frontier = next;
+        }
+        if (levels.size === 0) { canvasMessage(canvas, 'No type in this assembly derives from or implements another type of the same assembly.'); return; }
+    } else {
+        if (!state.type) { canvasMessage(canvas, 'Select a type in the explorer to draw its inheritance graph.'); return; }
+        const depth = parseInt(byId('inhDepth').value, 10);
+        levels.set(state.type, 0);
+        let up = [state.type], down = [state.type];
+        for (let d = 1; d <= depth && (up.length || down.length); d++) {
+            const nu = [], nd = [];
+            up.forEach(id => (basesOf.get(id) || []).forEach(b => { if (add(b.id, -d)) nu.push(b.id); }));
+            down.forEach(id => (derivedOf.get(id) || []).forEach(c => { if (add(c.id, d)) nd.push(c.id); }));
+            up = nu; down = nd;
+        }
+    }
+
+    const nodes = [], edges = [];
+    levels.forEach((lvl, id) => {
+        const n = inhNodeStyle(id, state.inhMode !== 'all' && id === state.type);
+        n.level = lvl;
+        nodes.push(n);
+    });
+    levels.forEach((_, id) => (basesOf.get(id) || []).forEach(b => {
+        if (!levels.has(b.id)) return;
+        const implementsRel = !!b.relation && b.relation.toLowerCase() === 'implements';
+        edges.push({
+            from: id, to: b.id, arrows: 'to',
+            label: b.relation ? b.relation.toLowerCase() : undefined,
+            dashes: implementsRel ? [6, 4] : false,
+            color: { color: '#7a7a7a', highlight: '#333' },
+            font: { size: 10, color: '#555', strokeWidth: 3, strokeColor: '#fcfcfc', align: 'middle' },
+            smooth: { enabled: true, type: 'cubicBezier', forceDirection: 'vertical', roundness: 0.5 }
+        });
+    }));
+
+    byId('inhHint').textContent = `${nodes.length} types · ${edges.length} relations` +
+        (truncated ? ` · limited to ${INH_MAX_NODES} types - use "Selected type" for the full picture` : ' · double-click a type to centre on it');
+
+    const options = {
+        layout: { hierarchical: { enabled: true, direction: 'UD', sortMethod: 'directed', levelSeparation: 110, nodeSpacing: 240, treeSpacing: 240, blockShifting: true, edgeMinimization: true, parentCentralization: true } },
+        physics: false,
+        interaction: { hover: true, tooltipDelay: 200 },
+        edges: { selectionWidth: 2 }
+    };
+    inhNetwork = new vis.Network(canvas, { nodes, edges }, options);
+    inhNetwork.once('afterDrawing', () => inhNetwork && inhNetwork.fit({ animation: false }));
+    inhNetwork.on('click', (p) => { if (p.nodes.length) setStatus(p.nodes[0]); });
+    inhNetwork.on('doubleClick', (p) => {
+        if (!p.nodes.length) return;
+        const id = p.nodes[0];
+        if (!typeNodes.has(id)) { showMessage('That type is outside the analysed assembly.', 'info'); return; }
+        navigate({ view: 'inheritance', inhMode: 'selected', type: id, method: null });
+    });
+}
+
 function renderInheritance() {
+    if (inhNetwork) { inhNetwork.destroy(); inhNetwork = null; }
+    const graph = state.inhFormat !== 'tree';
+    byId('inhGraphWrap').style.display = graph ? 'block' : 'none';
+    byId('inheritanceBody').style.display = graph ? 'none' : 'block';
+    byId('inhLegend').style.display = graph ? 'flex' : 'none';
+    byId('btnFitInh').style.display = graph ? 'inline-block' : 'none';
+    byId('btnExportInh').style.display = graph ? 'inline-block' : 'none';
+    byId('inhDepthLabel').style.display = (graph && state.inhMode !== 'all') ? 'flex' : 'none';
+    if (graph) { byId('inhHint').textContent = ''; renderInheritanceGraph(); }
+    else { byId('inhHint').textContent = 'Click a type to navigate to it · ▸ expands'; renderInheritanceTree(); }
+}
+
+function renderInheritanceTree() {
     const body = byId('inheritanceBody');
     body.innerHTML = '';
     if (!hasAssembly) { body.appendChild(el('div', 'empty-note', 'Upload a .NET assembly to begin: click "Open" or drop a .dll file anywhere on this page.')); return; }
@@ -717,12 +837,12 @@ function renderCalls() {
 }
 
 function fitCallGraph() {
-    const net = state.view === 'cycles' ? cycleNetwork : callNetwork;
+    const net = state.view === 'cycles' ? cycleNetwork : (state.view === 'inheritance' ? inhNetwork : callNetwork);
     if (net) net.fit({ animation: { duration: 300 } });
 }
 
 function exportGraphPng() {
-    const canvas = document.querySelector(state.view === 'cycles' ? '#cycleCanvas canvas' : '#callCanvas canvas');
+    const canvas = document.querySelector(state.view === 'cycles' ? '#cycleCanvas canvas' : (state.view === 'inheritance' ? '#inhCanvas canvas' : '#callCanvas canvas'));
     if (!canvas) { showMessage('Nothing to export yet - draw a graph first.', 'info'); return; }
     const out = document.createElement('canvas');
     out.width = canvas.width; out.height = canvas.height;
@@ -894,7 +1014,7 @@ function activateAssembly(name) {
     badge.textContent = String(cycles.length);
     badge.classList.toggle('has', cycles.length > 0);
 
-    state = { view: 'inheritance', type: null, method: null, cycleMethod: null, cycleIdx: 0, inhMode: state.inhMode };
+    state = { view: 'inheritance', type: null, method: null, cycleMethod: null, cycleIdx: 0, inhMode: state.inhMode, inhFormat: state.inhFormat };
     history = [{ ...state }];
     historyIdx = 0;
     buildExplorer();
@@ -973,6 +1093,11 @@ document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', (
 }));
 byId('inhModeSelected').onclick = () => navigate({ inhMode: 'selected' });
 byId('inhModeAll').onclick = () => navigate({ inhMode: 'all' });
+byId('inhFmtGraph').onclick = () => navigate({ inhFormat: 'graph' });
+byId('inhFmtTree').onclick = () => navigate({ inhFormat: 'tree' });
+byId('inhDepth').addEventListener('change', () => { if (state.view === 'inheritance') renderInheritance(); });
+byId('btnFitInh').onclick = fitCallGraph;
+byId('btnExportInh').onclick = exportGraphPng;
 
 byId('btnBack').onclick = () => goHistory(-1);
 byId('btnForward').onclick = () => goHistory(+1);
