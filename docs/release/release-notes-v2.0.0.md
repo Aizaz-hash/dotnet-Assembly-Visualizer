@@ -19,7 +19,7 @@ A new **Vulnerabilities Scan** tab checks the *exact* package versions of the lo
 
 ![A potential finding explained](https://github.com/Aizaz-hash/dotnet-Assembly-Visualizer/raw/v2/docs/images/v2-vuln-potential.png)
 
-**Try it:** `samples/VulnerableDemo` is a deliberately vulnerable test assembly (log4net 2.0.8, Newtonsoft.Json 12.0.1, System.Text.Json 8.0.0). Build it, open the DLL, add its `.deps.json` in the Vulnerabilities tab: it returns 1 Critical (CVE-2018-1285, CVSS 9.8) and 5 High findings, the same advisories NuGet's own audit reports (build warnings and `dotnet list package --vulnerable --include-transitive`). The application itself scans clean (38 components, 0 findings at release time).
+**Try it:** `samples/VulnerableDemo` is a deliberately vulnerable test assembly (log4net 2.0.8, Newtonsoft.Json 12.0.1, System.Text.Json 8.0.0). Build it, open the DLL, add its `.deps.json` in the Vulnerabilities Scan tab: it returns 1 Critical (CVE-2018-1285, CVSS 9.8), 5 High and 1 Medium finding, the same advisories NuGet's own audit reports (build warnings and `dotnet list package --vulnerable --include-transitive`). The application itself scans clean (38 components, 0 findings at release time).
 
 ## ✨ Explorer, graphs and circular dependencies
 
