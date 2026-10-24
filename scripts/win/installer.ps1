@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Installs DotNetVisualizer.Web as an auto-start Windows Service.
+    Installs dotnet-Assembly-Visualizer as an auto-start Windows Service.
 
 .DESCRIPTION
     One-shot deployment script. It:
@@ -25,8 +25,8 @@
 # ==================================================================================
 # CONFIGURATION
 # ==================================================================================
-$ProjectName   = "DotNetVisualizer.Web"
-$ProjectPath   = ".\DotNetVisualizer.Web\DotNetVisualizer.Web.csproj"
+$ProjectName   = "dotnet-Assembly-Visualizer"
+$ProjectPath   = ".\dotnet-Assembly-Visualizer.csproj"
 $TargetFolder  = "C:\DAV"
 $ServiceName   = "DAV"
 $Port          = "9999"
@@ -56,7 +56,7 @@ if (Get-Service -Name $ServiceName -ErrorAction SilentlyContinue) {
 # Clear out target directory to prevent System.BadImageFormatException architecture mixups
 if (Test-Path $TargetFolder) {
     Write-Host "-> Wiping destination folder '$TargetFolder' to ensure clean state..." -ForegroundColor Yellow
-    Remove-Item -Path "$TargetFolder\*" -Recurve -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$TargetFolder\*" -Recurse -Force -ErrorAction SilentlyContinue
 } else {
     Write-Host "-> Creating target folder configuration directory..." -ForegroundColor Green
     New-Item -ItemType Directory -Force -Path $TargetFolder | Out-Null

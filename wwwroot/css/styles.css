@@ -1,0 +1,457 @@
+﻿body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    margin: 0;
+    background: #f8f9fa;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+header {
+    background: #212529;
+    color: white;
+    padding: 12px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 10;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.header-left {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+h1 {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+#controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.file-upload-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.file-upload-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.file-upload-label {
+    display: inline-block;
+    padding: 8px 16px;
+    background: #28a745;
+    color: white;
+    border: 1px solid #218838;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    font-weight: 500;
+    user-select: none;
+}
+
+    .file-upload-label:hover {
+        background: #218838;
+    }
+
+#dllFile {
+    position: absolute;
+    left: 0;
+    top: 0;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+}
+
+.dll-name-display {
+    font-size: 0.85rem;
+    color: #adb5bd;
+    font-weight: 500;
+    max-width: 180px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.custom-dropdown {
+    position: relative;
+    display: inline-block;
+    width: 300px;
+}
+
+.dropdown-trigger {
+    background: #495057;
+    border: 1px solid #6c757d;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    user-select: none;
+}
+
+    .dropdown-trigger.disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+
+.dropdown-menu {
+    position: absolute;
+    top: 105%;
+    left: 0;
+    width: 100%;
+    max-height: 400px;
+    background: white;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    display: none;
+    flex-direction: column;
+    z-index: 100;
+}
+
+.search-box-container {
+    padding: 8px;
+    border-bottom: 1px solid #e9ecef;
+    background: #f8f9fa;
+}
+
+#searchClass, #searchMethod {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 7px 10px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+
+.tree-content {
+    overflow-y: auto;
+    flex-grow: 1;
+    padding: 5px 0;
+    max-height: 320px;
+}
+
+.folder-group {
+    margin-bottom: 2px;
+}
+
+.folder-header {
+    padding: 6px 12px;
+    font-weight: bold;
+    font-size: 0.8rem;
+    color: #495057;
+    background: #f1f3f5;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    user-select: none;
+}
+
+    .folder-header:hover {
+        background: #e9ecef;
+    }
+
+.folder-toggle-icon {
+    font-size: 0.7rem;
+    transition: transform 0.2s;
+    display: inline-block;
+    width: 10px;
+}
+
+.folder-group.collapsed .folder-toggle-icon {
+    transform: rotate(-90deg);
+}
+
+.folder-children {
+    display: block;
+    padding-left: 12px;
+}
+
+.folder-group.collapsed .folder-children {
+    display: none;
+}
+
+.class-item, .method-item {
+    padding: 8px 14px;
+    font-size: 0.85rem;
+    color: #212529;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+}
+
+    .class-item:hover, .method-item:hover {
+        background: #007bff;
+        color: white;
+    }
+
+.view-tabs {
+    display: flex;
+    background: #343a40;
+    padding: 4px 4px 0 4px;
+    gap: 2px;
+}
+
+.tab-btn {
+    background: transparent;
+    border: none;
+    color: #adb5bd;
+    padding: 10px 20px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    transition: all 0.15s ease-in-out;
+}
+
+    .tab-btn:hover {
+        background: #495057;
+        color: white;
+    }
+
+    .tab-btn.active {
+        background: #f8f9fa;
+        color: #212529;
+        font-weight: 600;
+    }
+
+#obfuscationNotice {
+    background: #fff3cd;
+    color: #856404;
+    border-bottom: 1px solid #ffeeba;
+    padding: 8px 20px;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#msgWindow {
+    padding: 10px 20px;
+    font-size: 0.9rem;
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.msg-error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border-bottom: 1px solid #f5c6cb;
+}
+
+.msg-success {
+    background-color: #d4edda;
+    color: #155724;
+    border-bottom: 1px solid #c3e6cb;
+}
+
+.msg-info {
+    background-color: #e2e3e5;
+    color: #383d41;
+    border-bottom: 1px solid #d6d8db;
+}
+
+#msgWindow button {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    color: inherit;
+    font-weight: bold;
+}
+
+.main-workspace {
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+    height: calc(100vh - 150px);
+    position: relative;
+    overflow: hidden;
+}
+
+#network-container {
+    flex: 1;
+    height: 100%;
+    background: #fafafa;
+    position: relative;
+}
+
+#mynetwork {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+#canvasLoaderOverlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(250, 250, 250, 0.85);
+    z-index: 200;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    backdrop-filter: blur(2px);
+}
+
+.spinner-wheel {
+    width: 50px;
+    height: 50px;
+    border: 5px solid #e9ecef;
+    border-top: 5px solid #007bff;
+    border-radius: 50%;
+    animation: spinAnimation 0.8s linear infinite;
+}
+
+#loaderStatusText {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: #495057;
+}
+
+@keyframes spinAnimation {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.graph-legend {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    padding: 12px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.08);
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+}
+
+.legend-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    font-weight: bold;
+    color: #6c757d;
+    border-bottom: 1px solid #dee2e6;
+    padding-bottom: 4px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.8rem;
+}
+
+.legend-shape {
+    width: 20px;
+    height: 14px;
+    border-width: 2px;
+    border-style: solid;
+}
+
+.shape-class {
+    background-color: #fff3e0;
+    border-color: #fb8c00;
+    border-radius: 3px;
+}
+
+.shape-interface {
+    background-color: #e3f2fd;
+    border-color: #1e88e5;
+    border-radius: 50%;
+}
+
+.shape-method {
+    background-color: #e8f5e9;
+    border-color: #4caf50;
+    border-radius: 6px;
+}
+
+.shape-deadlock {
+    background-color: #ffebeb;
+    border-color: #dc3545;
+    border-radius: 3px;
+}
+
+#deadlocksSidePanel {
+    width: 320px;
+    min-width: 320px;
+    height: 100%;
+    border-left: 1px solid #dee2e6;
+    background: #ffffff;
+    display: none;
+    flex-direction: column;
+    padding: 15px;
+    overflow-y: auto;
+    box-sizing: border-box;
+    z-index: 5;
+}
+
+.panel-title {
+    margin-top: 0;
+    color: #dc3545;
+    font-size: 1.1rem;
+    border-bottom: 2px solid #dc3545;
+    padding-bottom: 8px;
+}
+
+.panel-subtitle {
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+#deadlockList {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+footer {
+    background: #212529;
+    color: #adb5bd;
+    padding: 10px 20px;
+    font-size: 0.75rem;
+    text-align: center;
+    border-top: 1px solid #343a40;
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+}
+
+    footer a {
+        color: #ffffff;
+        text-decoration: none;
+    }
