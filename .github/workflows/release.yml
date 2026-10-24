@@ -87,6 +87,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: dist
+          pattern: package-*
           merge-multiple: true
 
       - name: Generate release notes
