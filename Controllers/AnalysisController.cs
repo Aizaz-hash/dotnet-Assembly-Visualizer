@@ -29,9 +29,13 @@ namespace DotNetVisualizer.Web.Controllers
             {
                 return BadRequest(ex.Message);
             }
+            catch (BadImageFormatException)
+            {
+                return BadRequest("This file is not a valid .NET assembly (native, corrupt or unsupported DLL).");
+            }
             catch (Exception ex)
             {
-                return BadRequest($"Failed to process raw DLL binary metadata stream: {ex.Message}");
+                return BadRequest($"Could not read this file as a .NET assembly: {ex.Message}");
             }
         }
     }

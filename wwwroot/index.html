@@ -2,63 +2,38 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Dotnet Assembly Visualizer</title>
-    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <script src="lib/vis-network.min.js"></script>
     <link rel="stylesheet" href="css/styles.css">
 </head>
+
 <body>
+    <div id="dropOverlay">Drop a .dll or .exe to analyse it</div>
 
-    <header>
-        <div class="header-left">
-            <h1>Dotnet Assembly Visualizer</h1>
-            <div id="controls">
-                <div class="file-upload-container">
-                    <div class="file-upload-wrapper">
-                        <div class="file-upload-label" id="uploadLabel">Choose DLL</div>
-                        <input type="file" id="dllFile" accept=".dll" />
-                    </div>
-                    <span id="currentDllName" class="dll-name-display">No file selected</span>
-                </div>
-
-                <div class="custom-dropdown" id="classDropdownWrapper">
-                    <div id="dropdownTrigger" class="dropdown-trigger disabled">
-                        <span id="triggerText">-- Select Target Type --</span>
-                        <span>▼</span>
-                    </div>
-                    <div id="dropdownMenu" class="dropdown-menu">
-                        <div class="search-box-container">
-                            <input type="text" id="searchClass" placeholder="🔍 Filter types..." autocomplete="off" />
-                        </div>
-                        <div id="treeContent" class="tree-content"></div>
-                    </div>
-                </div>
-
-                <div class="custom-dropdown" id="methodDropdownWrapper" style="display: none;">
-                    <div id="methodTrigger" class="dropdown-trigger disabled">
-                        <span id="methodTriggerText">-- Select Target Method --</span>
-                        <span>▼</span>
-                    </div>
-                    <div id="methodMenu" class="dropdown-menu">
-                        <div class="search-box-container">
-                            <input type="text" id="searchMethod" placeholder="🔍 Filter methods..." autocomplete="off" />
-                        </div>
-                        <div id="methodTreeContent" class="tree-content"></div>
-                    </div>
-                </div>
-            </div>
+    <!-- Toolbar -->
+    <header id="toolbar">
+        <div class="tb-group">
+            <button id="btnBack" class="tb-btn" title="Back (Alt+Left)" disabled>◀</button>
+            <button id="btnForward" class="tb-btn" title="Forward (Alt+Right)" disabled>▶</button>
         </div>
+        <div class="tb-sep"></div>
+        <div class="tb-group">
+            <div class="file-upload-wrapper">
+                <div class="tb-btn tb-open" id="uploadLabel" title="Open an assembly (.dll / .exe) - or drop one on the page">📂 Open</div>
+                <input type="file" id="dllFile" accept=".dll,.exe" />
+            </div>
+            <select id="assemblySwitcher" title="Switch between assemblies loaded in this session" style="display:none;"></select>
+            <span id="currentDllName" class="dll-name-display">No assembly loaded</span>
+            <span id="uploadHint" class="upload-hint"></span>
+        </div>
+        <div class="tb-spacer"></div>
+        <h1 class="app-title">Dotnet Assembly Visualizer</h1>
     </header>
 
-    <div class="view-tabs">
-        <button class="tab-btn active" id="tabInheritance" onclick="switchViewMode('inheritance')">Inheritance View</button>
-        <button class="tab-btn" id="tabMethods" onclick="switchViewMode('methods')">Method Call View</button>
-        <button class="tab-btn" id="tabDeadlocks" onclick="switchViewMode('deadlocks')">Circular Dependency View(<span id="deadlockCount">0</span>)</button>
-    </div>
-
     <div id="obfuscationNotice">
-        <span>⚠️</span>
-        <strong>Note:</strong> Structure and method call graph generation is only optimized for unobfuscated assemblies or basic (first-level) obfuscated metadata. Deeply packed or control-flow flattened binaries are currently unsupported.
+        <span>⚠</span>
+        Structure and call graph generation is only optimised for unobfuscated assemblies or basic (first-level) obfuscation. Deeply packed or control-flow flattened binaries are not supported.
     </div>
 
     <div id="msgWindow">
@@ -66,44 +41,85 @@
         <button onclick="closeMessage()">&times;</button>
     </div>
 
-    <div class="main-workspace">
-        <div id="network-container">
-            <div id="canvasLoaderOverlay">
-                <div class="spinner-wheel"></div>
-                <div id="loaderStatusText">Parsing pipeline structures...</div>
+    <div id="workspace">
+        <!-- Assembly explorer (tree) -->
+        <aside id="explorer">
+            <div class="pane-title">Assemblies</div>
+            <div class="explorer-search">
+                <input type="text" id="searchBox" placeholder="Search types and methods…" autocomplete="off" disabled />
+            </div>
+            <div id="explorerTree" class="tree" role="tree"></div>
+        </aside>
+
+        <div id="splitter" title="Drag to resize"></div>
+
+        <!-- Main pane -->
+        <main id="mainPane">
+            <div class="tab-strip" id="tabStrip">
+                <button class="tab" id="tabInheritance" data-view="inheritance">Inheritance</button>
+                <button class="tab" id="tabCalls" data-view="calls">Method Calls</button>
+                <button class="tab" id="tabCycles" data-view="cycles">Circular Dependencies <span id="cycleCount" class="tab-badge">0</span></button>
             </div>
 
-            <div class="graph-legend" id="mainLegend">
-                <div class="legend-title">Map Directory Legend</div>
-                <div class="legend-item" id="legendClassItem">
-                    <div class="legend-shape shape-class"></div>
-                    <span>Class</span>
+            <div id="viewTitle" class="view-title"></div>
+
+            <section id="viewInheritance" class="view">
+                <div class="view-toolbar">
+                    <div class="seg">
+                        <button id="inhModeSelected" class="seg-btn active">Selected type</button>
+                        <button id="inhModeAll" class="seg-btn">Whole assembly</button>
+                    </div>
+                    <span class="view-hint">Click a type to navigate to it · ▸ expands</span>
                 </div>
-                <div class="legend-item" id="legendInterfaceItem">
-                    <div class="legend-shape shape-interface"></div>
-                    <span>Interface</span>
+                <div id="inheritanceBody" class="scroll-body"></div>
+            </section>
+
+            <section id="viewCalls" class="view">
+                <div class="view-toolbar">
+                    <label>Depth
+                        <select id="callDepth">
+                            <option value="1">1</option>
+                            <option value="2" selected>2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                        </select>
+                    </label>
+                    <label><input type="checkbox" id="optCallers" checked /> Callers</label>
+                    <label><input type="checkbox" id="optCallees" checked /> Callees</label>
+                    <span id="callStats" class="view-hint"></span>
+                    <span class="tb-spacer"></span>
+                    <span class="legend-inline"><i class="lg lg-sel"></i>Selected <i class="lg lg-norm"></i>Method <i class="lg lg-ext"></i>External <i class="lg lg-cyc"></i>Circular</span>
+                    <button id="btnFit" class="tb-btn small" title="Zoom to fit">Fit</button>
+                    <button id="btnExport" class="tb-btn small" title="Download as PNG">PNG</button>
                 </div>
-                <div class="legend-item" id="legendMethodItem" style="display:none;">
-                    <div class="legend-shape shape-method"></div>
-                    <span>Method</span>
+                <div id="callCanvasWrap" class="canvas-wrap">
+                    <div id="callCanvas"></div>
+                    <div id="chipLayer"></div>
+                    <div id="canvasLoaderOverlay"><div class="spinner-wheel"></div><div id="loaderStatusText">Working…</div></div>
                 </div>
-                <div class="legend-item" id="legendDeadlockItem" style="display:none;">
-                    <div class="legend-shape shape-deadlock"></div>
-                    <span>Circular Dependency</span>
+            </section>
+
+            <section id="viewCycles" class="view">
+                <div class="view-toolbar">
+                    <span id="cycleFilter" class="filter-chip" style="display:none;"></span>
+                    <span id="cycleStats" class="view-hint"></span>
                 </div>
-            </div>
-            <div id="mynetwork"></div>
-        </div>
-        <div id="deadlocksSidePanel">
-            <h3 class="panel-title">Detected Cycles</h3>
-            <p class="panel-subtitle">Select a circular chain below to display its call structure isolating the loop chain:</p>
-            <div id="deadlockList"></div>
-        </div>
+                <div id="cycleLayout">
+                    <div id="cycleList" class="scroll-body"></div>
+                    <div id="cycleDetail">
+                        <div id="cycleChain"></div>
+                        <div id="cycleCanvas" class="canvas-wrap"></div>
+                    </div>
+                </div>
+            </section>
+        </main>
     </div>
 
-    <footer>
-        <div><span>GitHub:</span> <a href="https://github.com/aizaz-hash" target="_blank">aizaz-hash</a></div>
-        <div><span>Email:</span> <a href="mailto:send2aizaz@gmail.com">send2aizaz@gmail.com</a></div>
+    <footer id="statusBar">
+        <span id="statusText">Ready</span>
+        <span class="tb-spacer"></span>
+        <a href="https://github.com/aizaz-hash" target="_blank" rel="noopener">GitHub: aizaz-hash</a>
+        <a href="mailto:send2aizaz@gmail.com">send2aizaz@gmail.com</a>
     </footer>
 
     <script src="js/app.js"></script>

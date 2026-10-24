@@ -57,14 +57,33 @@ docker run --rm -p 8080:8080 dotnet-visualizer
 
 Then open **http://localhost:8080** and upload your `.dll`.
 
-> Inside the container the port is set by the `Urls` environment variable in the Dockerfile (`appsettings.json` defaults to 9999 for the Windows service). To map a different host port, change the left side, e.g. `-p 5000:8080`.
+> Inside the container the port is fixed to 8080 by the `Urls` environment variable in the Dockerfile (it overrides `appsettings.json`). To use a different host port, change the left side, e.g. `-p 5000:8080`.
+
+The image has a `HEALTHCHECK` that calls `/healthz`; `docker ps` shows `healthy` once the app is up.
+
+### Upload limit
+
+Files up to **200 MB** can be analysed. Change it with `Upload:MaxFileSizeMB` in `appsettings.json` or the environment variable `Upload__MaxFileSizeMB`, e.g. `docker run -e Upload__MaxFileSizeMB=500 ...`. The UI shows the active limit next to the upload button.
+
+---
+
+## Using the UI
+
+The interface follows the ILSpy layout: an assembly explorer on the left, tabbed views on the right, a toolbar with Back / Forward (Alt+Left / Alt+Right) and a status bar.
+
+- **Open:** click *Open* or drag a `.dll` / `.exe` anywhere onto the page. Several assemblies can be loaded in one session and switched from the toolbar.
+- **Explorer:** assembly → namespaces → types → *Base Types*, *Derived Types* and methods. Methods that take part in a circular call chain are marked with a red ⚠. Use the search box to find types and methods quickly.
+- **Inheritance:** a tree of the selected type's base types / interfaces and derived types. Click a type to navigate to it, ▸ to expand further. *Whole assembly* shows every type hierarchy.
+- **Method Calls:** callers and callees of the selected method (depth 1-4). A method appears once however many paths reach it; repeated calls are shown as ×N on one edge. Double-click a node to re-centre on it.
+- **Circular Dependencies:** methods that are part of a circular call chain get a clickable *⚠ Circular Dependency Detected* marker above them (and in the title bar). It opens the dedicated view listing every distinct chain through that method, e.g. `A() → B() → C() → A()`, with the start and the loop-back marked. Click a method in the chain to jump back to its call graph.
+- **Fit / PNG** export the current graph. The app works offline: `vis-network` is bundled in `wwwroot/lib`.
 
 ---
 
 ## How to use it
 
 1.  **Clone the repo:** `git clone https://github.com/Aizaz-hash/dotnet-Assembly-Visualizer`
-2.  **Switch to v2:** `git checkout task-Dotnet-Visualizer-Web-v2`
+2.  **Switch to v2:** `git checkout v2`
 3.  **Fire it up:** Just run `dotnet run`.
 4.  **Explore:** Upload your `.dll`, pick a class, and start digging into the dependencies.
 
