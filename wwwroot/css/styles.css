@@ -371,3 +371,66 @@ body { background: #f8f9fa; color: #212529; }
 
 /* drag & drop */
 #dropOverlay { background: rgba(0,123,255,.10); border-color: #007bff; color: #007bff; }
+
+/* ==========================================================================
+   Larger UI scale (the compact 12px layout was too small to read comfortably)
+   ========================================================================== */
+body { font-size: 14px; }
+
+#toolbar { padding: 6px 12px; min-height: 44px; gap: 8px; }
+.tb-btn { padding: 5px 12px; font-size: 14px; }
+.tb-btn.small { padding: 4px 12px; font-size: 13px; }
+.app-title { font-size: 16px; }
+.dll-name-display { font-size: 14px; max-width: 300px; }
+.upload-hint { font-size: 12px; }
+#assemblySwitcher { padding: 4px 6px; font-size: 13px; }
+#obfuscationNotice { font-size: 12.5px; padding: 6px 14px; }
+#msgWindow { font-size: 13.5px; padding: 7px 14px; }
+
+#explorer { width: 380px; }
+.pane-title { font-size: 12px; padding: 5px 10px; }
+.explorer-search { padding: 8px; }
+.explorer-search input { padding: 7px 10px; font-size: 14px; }
+.t-row { min-height: 27px; gap: 5px; padding-right: 8px; }
+.t-arrow { width: 18px; font-size: 11px; }
+.t-children { margin-left: 16px; }
+.t-sub { font-size: 12.5px; }
+.t-tag { font-size: 11.5px; padding: 0 8px; }
+.t-badge-cycle { font-size: 13px; }
+.t-more { padding: 3px 10px 3px 28px; font-size: 13px; }
+
+.ico { width: 17px; height: 17px; }
+.ico-class::after, .ico-iface::after { font-size: 11.5px; line-height: 17px; }
+.ico-ns::after { font-size: 11px; line-height: 17px; }
+.ico-folder { height: 13px; margin-top: 2px; }
+
+.tab { padding: 10px 22px; font-size: 14.5px; }
+.tab-badge { font-size: 11.5px; padding: 0 7px; }
+.view-title { padding: 9px 14px; min-height: 40px; gap: 10px; }
+.view-title .vt-name { font-size: 18px; }
+.view-title .vt-sub { font-size: 13.5px; }
+.view-toolbar { padding: 7px 14px; gap: 14px; font-size: 13.5px; }
+.view-hint { font-size: 12.5px; }
+.seg-btn { padding: 5px 14px; font-size: 13.5px; }
+.legend-inline { font-size: 12.5px; }
+.lg { width: 13px; height: 13px; }
+.cycle-link { font-size: 12.5px; padding: 2px 10px; }
+
+.empty-note { font-size: 14.5px; padding: 18px; }
+.canvas-message { font-size: 16px; max-width: 620px; }
+.canvas-message-btn { font-size: 14px; padding: 7px 18px; }
+.cyc-chip { font-size: 12.5px; line-height: 19px; padding: 0 8px; }
+.cyc-chip.main { font-size: 13px; }
+.method-note { font-size: 13.5px; padding: 7px 14px; }
+
+#inhMembers { width: 320px; }
+#cycleList { width: 360px; }
+.cyc-group-head { font-size: 13px; padding: 5px 10px; }
+.cyc-item { padding: 8px 12px; }
+.cyc-item .ci-top { font-size: 14px; }
+.cyc-item .ci-path { font-size: 12.5px; }
+#cycleChain { font-size: 14.5px; padding: 10px 14px; }
+.chain-note { font-size: 12px; }
+.chain-class { font-size: 12.5px; }
+
+#statusBar { font-size: 12.5px; padding: 4px 14px; }

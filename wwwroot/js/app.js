@@ -1,5 +1,5 @@
 ﻿// ============================================================================
-//  Dotnet Assembly Visualizer - ILSpy-style explorer
+//  dotnet Assembly Visualizer - ILSpy-style explorer
 //  Data comes from POST /api/analysis/analyze:
 //    { classes[], inheritance{nodes,edges}, methodGraph{nodes,edges}, deadlocks[][] }
 // ============================================================================
@@ -553,9 +553,9 @@ function inhNodeStyle(id, selected) {
     if (external) color = { background: '#f5f5f5', border: '#9e9e9e', highlight: { background: '#e4e4e4', border: '#757575' } };
     if (selected) color = { background: iface ? '#e3f2fd' : '#fff3e0', border: '#007bff', highlight: { background: iface ? '#cfe8fc' : '#ffe0b2', border: '#0056b3' } };
     return {
-        id, label: t ? t.name : shortName(id), shape: iface ? 'ellipse' : 'box', margin: 10,
+        id, label: t ? t.name : shortName(id), shape: iface ? 'ellipse' : 'box', margin: 12,
         borderWidth: selected ? 3 : 1.5, color,
-        font: { face: 'Segoe UI, sans-serif', size: 13, color: external ? '#6b6b6b' : '#1e1e1e' },
+        font: { face: 'Segoe UI, sans-serif', size: 15, color: external ? '#6b6b6b' : '#1e1e1e' },
         title: `${id}${external ? '\n(not in this assembly)' : ''}`
     };
 }
@@ -619,7 +619,7 @@ function renderInheritanceGraph() {
             label: b.relation ? b.relation.toLowerCase() : undefined,
             dashes: implementsRel ? [6, 4] : false,
             color: { color: '#7a7a7a', highlight: '#333' },
-            font: { size: 10, color: '#555', strokeWidth: 3, strokeColor: '#fcfcfc', align: 'middle' },
+            font: { size: 12, color: '#555', strokeWidth: 3, strokeColor: '#fcfcfc', align: 'middle' },
             smooth: { enabled: true, type: 'cubicBezier', forceDirection: 'vertical', roundness: 0.5 }
         });
     }));
@@ -634,7 +634,7 @@ function renderInheritanceGraph() {
         edges: { selectionWidth: 2 }
     };
     inhNetwork = new vis.Network(canvas, { nodes, edges }, options);
-    inhNetwork.once('afterDrawing', () => inhNetwork && inhNetwork.fit({ animation: false }));
+    inhNetwork.once('afterDrawing', () => inhNetwork && inhNetwork.fit({ animation: false, maxZoomLevel: 1.2 }));
     inhNetwork.on('click', (p) => { if (p.nodes.length) setStatus(p.nodes[0]); });
     inhNetwork.on('doubleClick', (p) => {
         if (!p.nodes.length) return;
@@ -746,9 +746,9 @@ function nodeStyle(id, selected) {
     if (cyclic) color = { background: '#ffebeb', border: '#dc3545', highlight: { background: '#f8d7da', border: '#bd2130' } };
     if (selected) color = { background: cyclic ? '#ffebeb' : (info.external ? '#f5f5f5' : '#e8f5e9'), border: '#007bff', highlight: { background: cyclic ? '#f8d7da' : '#c8e6c9', border: '#0056b3' } };
     return {
-        id, label, shape: 'box', margin: 8,
+        id, label, shape: 'box', margin: 10,
         borderWidth: selected ? 3 : 1.5,
-        color, font: { face: 'Segoe UI, sans-serif', size: 12, multi: false, color: cyclic ? '#721c24' : '#212529' },
+        color, font: { face: 'Segoe UI, sans-serif', size: 14, multi: false, color: cyclic ? '#721c24' : '#212529' },
         title: `${info.className}.${info.name}${cyclic ? '\n⚠ part of a circular call chain' : ''}${info.external ? '\n(external / not in this assembly)' : ''}`
     };
 }
@@ -862,7 +862,7 @@ function renderCalls() {
     setTimeout(() => {
         if (state.view !== 'calls' || !state.method) { hideLoader(); return; }
         callNetwork = new vis.Network(canvas, { nodes: g.nodes, edges: g.edges }, options);
-        callNetwork.once('afterDrawing', () => { hideLoader(); callNetwork && callNetwork.fit({ animation: false }); });
+        callNetwork.once('afterDrawing', () => { hideLoader(); callNetwork && callNetwork.fit({ animation: false, maxZoomLevel: 1.2 }); });
         layoutTimeout = setTimeout(hideLoader, 8000);
 
         // Circular Dependency chips (HTML overlay positioned above cyclic nodes)
@@ -907,7 +907,7 @@ function renderCalls() {
 
 function fitCallGraph() {
     const net = state.view === 'cycles' ? cycleNetwork : (state.view === 'inheritance' ? inhNetwork : callNetwork);
-    if (net) net.fit({ animation: { duration: 300 } });
+    if (net) net.fit({ animation: { duration: 300 }, maxZoomLevel: 1.2 });
 }
 
 function exportGraphPng() {
@@ -1037,7 +1037,7 @@ function renderCycleDetail(body, chain, canvas) {
             label: closing ? `${i + 1} ↺` : String(i + 1),
             color: { color: '#dc3545', highlight: '#bd2130' },
             dashes: closing ? [7, 4] : false,
-            font: { size: 11, color: '#721c24', strokeWidth: 3, strokeColor: '#fafafa' },
+            font: { size: 13, color: '#721c24', strokeWidth: 3, strokeColor: '#fafafa' },
             smooth: n === 1 ? { type: 'curvedCW', roundness: 0.6 } : { type: 'curvedCW', roundness: 0.18 }
         };
     });
@@ -1045,7 +1045,7 @@ function renderCycleDetail(body, chain, canvas) {
     const holder = el('div'); holder.style.position = 'absolute'; holder.style.inset = '0';
     canvas.appendChild(holder);
     cycleNetwork = new vis.Network(holder, { nodes, edges }, { physics: false, interaction: { hover: true, tooltipDelay: 200 } });
-    cycleNetwork.once('afterDrawing', () => cycleNetwork && cycleNetwork.fit({ animation: false }));
+    cycleNetwork.once('afterDrawing', () => cycleNetwork && cycleNetwork.fit({ animation: false, maxZoomLevel: 1.2 }));
     cycleNetwork.on('doubleClick', (p) => {
         if (!p.nodes.length) return;
         const info = methodInfo(p.nodes[0]);
