@@ -7,6 +7,18 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- the test project lives below this folder; keep its sources out of the web app -->
+    <Compile Remove="tests/**" />
+    <Content Remove="tests/**" />
+    <EmbeddedResource Remove="tests/**" />
+    <None Remove="tests/**" />
+    <Compile Remove="samples/**" />
+    <Content Remove="samples/**" />
+    <EmbeddedResource Remove="samples/**" />
+    <None Remove="samples/**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.9" />
     <PackageReference Include="System.Reflection.Metadata" Version="10.0.9" />
     <PackageReference Include="System.Reflection.MetadataLoadContext" Version="10.0.9" />
