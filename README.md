@@ -18,12 +18,33 @@ Then open **http://localhost:8080** and upload your `.dll`.
 
 ---
 
+## Screenshots
+
+**Method Calls** - each method appears once; methods in a circular call chain get a clickable *Circular Dependency Detected* marker, and cyclic calls are drawn red and dashed.
+
+![Method calls with circular dependency markers](docs/images/v2-calls.png)
+
+**Circular Dependencies** - every distinct chain, with the start and the loop-back marked; click a method to jump to its call graph.
+
+![Circular dependency view](docs/images/v2-cycles.png)
+
+**Inheritance** - base types, interfaces and derived types as an expandable tree.
+
+![Inheritance tree for a type](docs/images/v2-inheritance.png)
+
+**Whole-assembly hierarchy** - every type hierarchy in the assembly, expanded lazily.
+
+![Whole-assembly type hierarchy](docs/images/v2-all.png)
+
+---
+
 ## What's new in v2
 
-- **Modular Monolith architecture:** Logic is now split into `Controllers/`, `Services/`, and `Interfaces/` for cleaner separation of concerns.
-- **Dependency-injected services:** `IAssemblyAnalyzer` and `ICircularDependencyDetector` are registered via DI — easier to test and extend.
-- **Frontend split:** CSS and JS moved into separate files (`wwwroot/css/styles.css`, `wwwroot/js/app.js`) instead of a single monolithic HTML file.
-- **MiscUtil helper:** Shared utility logic extracted into `util/MiscUtil.cs`.
+- **ILSpy-style explorer:** assembly tree (namespaces, types, base/derived types, methods), tabbed views, Back/Forward navigation, search, drag-and-drop open.
+- **Inheritance tree** and **merged call graph:** each method appears once, repeated calls collapse into a single `xN` edge.
+- **Circular dependency detection:** clickable markers on affected methods and a dedicated view for each distinct chain.
+- **Modular Monolith architecture:** `Controllers/`, `Services/` and `Interfaces/`, with `IAssemblyAnalyzer` and `ICircularDependencyDetector` registered via DI.
+- **Frontend split** into `wwwroot/css/styles.css` and `wwwroot/js/app.js`; `vis-network` is bundled so the UI works offline.
 
 ---
 
@@ -98,3 +119,7 @@ I'm actively working on this, so if you find a bug or have an idea for a feature
 
 ---
 *Built by [Aizaz](https://github.com/aizaz-hash) — Happy coding!*
+
+## License
+
+Released under the [MIT License](LICENSE) - Copyright (c) 2026 Aizaz Zaheen.
