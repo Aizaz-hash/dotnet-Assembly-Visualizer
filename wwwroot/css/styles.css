@@ -551,3 +551,15 @@ body { font-size: 14px; }
 
 #vulnScope { display: none; }   /* the assembly name is already in the banner and the tooltip */
 #vulnToolbar .tb-spacer { flex: 1; }
+
+/* global loading overlay (shown while an assembly is uploaded, parsed and drawn) */
+#appLoader { position: fixed; inset: 0; z-index: 1000; background: rgba(255,255,255,.72); display: flex; align-items: center; justify-content: center; }
+#appLoader[hidden] { display: none; }
+.app-loader-card { min-width: 280px; max-width: 420px; padding: 22px 28px; background: #fff; border: 1px solid #dee2e6; border-radius: 6px; box-shadow: 0 6px 24px rgba(0,0,0,.18); display: flex; flex-direction: column; align-items: center; gap: 9px; color: #495057; }
+.app-loader-title { font-weight: 600; font-size: 14px; color: #212529; text-align: center; word-break: break-all; }
+.app-loader-stage { font-size: 12.5px; text-align: center; }
+.app-loader-elapsed { font-size: 11.5px; color: #868e96; min-height: 14px; }
+.app-loader-bar { width: 100%; height: 5px; background: #e9ecef; border-radius: 3px; overflow: hidden; position: relative; }
+.app-loader-bar #appLoaderFill { height: 100%; width: 0; background: #007bff; transition: width .15s linear; }
+.app-loader-bar.indeterminate #appLoaderFill { width: 35%; position: absolute; animation: loader-slide 1.1s ease-in-out infinite; }
+@keyframes loader-slide { 0% { left: -35%; } 100% { left: 100%; } }

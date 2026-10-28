@@ -24,6 +24,11 @@ jobs:
           dotnet-version: '8.0.x'
       # unit tests (CVSS, version ranges, scanner logic with a fake database) and API tests; no network access needed
       - run: dotnet test tests/DotNetVisualizer.Web.Tests -c Release
+      # pure UI logic (depth model, graph layout, double-click handling, loader stages)
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: node --test tests/js/*.test.js
 
   smoke-test:
     runs-on: ubuntu-latest
