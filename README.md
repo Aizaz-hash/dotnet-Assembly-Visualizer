@@ -60,8 +60,9 @@ The **Vulnerabilities Scan** tab checks the dependencies of the assembly you hav
 ![A potential finding explained](docs/images/v2-vuln-potential.png)
 
 - **Honest about gaps:** if the database cannot be reached, a component fails, or an advisory cannot be downloaded, the report says the scan is **incomplete** instead of showing "no vulnerabilities". The .NET runtime / base image itself is not scanned.
-- **Privacy:** only package names and versions are sent to `api.osv.dev` - never your code or assemblies - and the UI asks for confirmation before the first scan. Set `Vulnerability:Enabled` to `false` to switch the feature off (for air-gapped use).
-- **Try it:** `samples/VulnerableDemo` is a deliberately vulnerable test assembly (log4net 2.0.8, Newtonsoft.Json 12.0.1, System.Text.Json 8.0.0). Build it, open the DLL, then add its `.deps.json` in the Vulnerabilities Scan tab. See [samples/VulnerableDemo/README.md](samples/VulnerableDemo/README.md).
+- **No manifest needed:** the scan starts from the loaded assembly's own references (level 1), matches them to NuGet packages, then follows each package's declared dependencies down to **level 4** (level 0 is the assembly itself). Every dependency is listed once with its level, where its version came from (exact from a `.deps.json`, estimated from the assembly version, or the lowest version the parent accepts) and a plain status: *Assembly discovered*, *Package identified*, *Version identified*, *Vulnerability found*, *Vulnerability lookup unavailable* or *Dependency could not be resolved*. Findings with an estimated version are marked *potential*; adding the `.deps.json` makes versions exact.
+- **Privacy:** only package names and versions are sent to `api.osv.dev` and, to find a package's dependencies, `api.nuget.org` - never your code or assemblies - and the UI asks for confirmation before the first scan. Set `Vulnerability:Enabled` to `false` to switch the feature off (for air-gapped use).
+- **Try it:** `samples/VulnerableDemo` is a deliberately vulnerable test assembly (log4net 2.0.8, Newtonsoft.Json 12.0.1, System.Text.Json 8.0.0). Build it, open the DLL and press *Run scan* (no `.deps.json` needed). See [samples/VulnerableDemo/README.md](samples/VulnerableDemo/README.md).
 
 ### More
 
@@ -121,7 +122,7 @@ Then open **http://localhost:8080**. (To run the `v2` line, `git checkout v2` fi
 | **Explorer** | Lists the loaded assemblies (right-click: Reload, Remove); browse namespaces, types and methods; search for types and methods; methods in a circular chain carry a red ⚠. |
 | **Inheritance** | Graph (or tree) of base types, interfaces and derived types for the selected type, or for the whole assembly; adjustable depth. |
 | **Method Calls** | Callers and callees of the selected method; adjustable depth; merged nodes and edges. |
-| **Vulnerabilities Scan** | Scan the loaded assembly's dependencies (its `.deps.json`) against OSV.dev; summary by severity, filters, details, remediation, status tracking, PDF and JSON export. |
+| **Vulnerabilities Scan** | Scan the loaded assembly's dependencies (levels 1-4, no manifest needed) against OSV.dev; summary by severity, filters, details, remediation, status tracking, PDF and JSON export. |
 | **Circular Dependencies** | Every distinct circular call chain, grouped by class; filter to a single method; click to jump to its call graph. |
 
 Graph generation is optimised for unobfuscated assemblies or basic (first-level) obfuscation. Deeply packed or control-flow-flattened binaries are not supported.
@@ -136,6 +137,7 @@ Graph generation is optimised for unobfuscated assemblies or basic (first-level)
 | `Upload:MaxFileSizeMB` | `200` | Maximum assembly size. Set it in `appsettings.json` or with the environment variable `Upload__MaxFileSizeMB`, e.g. `docker run -e Upload__MaxFileSizeMB=500 ...`. The UI shows the active limit next to *Open*. |
 | `Vulnerability:Enabled` | `true` | Switch the vulnerability lookup off (e.g. air-gapped). Env var: `Vulnerability__Enabled`. |
 | `Vulnerability:OsvBaseUrl` | `https://api.osv.dev/` | Vulnerability database endpoint (OSV API). |
+| `Vulnerability:NuGetBaseUrl` | `https://api.nuget.org/v3-flatcontainer/` | NuGet flat container used to find packages and their dependencies. |
 | `Vulnerability:TimeoutSeconds` | `20` | Timeout for each database request. |
 
 Endpoints: `POST /api/analysis/analyze` (analyse an uploaded assembly), `GET /api/analysis/limits`, `POST /api/vulnerabilities/scan`, `GET /api/vulnerabilities/status`, `GET /healthz`.
@@ -157,11 +159,12 @@ Endpoints: `POST /api/analysis/analyze` (analyse an uploaded assembly), `GET /ap
 Controllers/     HTTP API (AnalysisController)
 Services/        AssemblyAnalyzerService, CircularDependencyDetectorService
 Interfaces/      IAssemblyAnalyzer, ICircularDependencyDetector
-Services/Vulnerabilities/   OSV client, CVSS calculator, version ranges, scanner
+Services/Vulnerabilities/   OSV + NuGet clients, dependency resolver (levels 1-4), CVSS calculator, version ranges, scanner
 util/            shared helpers
 wwwroot/         index.html, css/, js/, lib/ (bundled vis-network)
 test-classes/    sample classes used to test the analyzer
-tests/           unit and API tests (xUnit)
+tests/           unit and API tests (xUnit) and tests/js (node --test: depth model, graph layout, UI logic)
+tools/PerfPoc/   per-stage timing benchmark for the analyzer (see docs/performance/PERFORMANCE_REPORT.md)
 samples/         VulnerableDemo - a deliberately vulnerable test assembly
 scripts/win/     Windows service installer
 docs/images/     screenshots used in this README
@@ -174,9 +177,10 @@ docs/images/     screenshots used in this README
 
 ```bash
 dotnet test tests/DotNetVisualizer.Web.Tests -c Release
+node --test tests/js/*.test.js
 ```
 
-The suite covers the CVSS calculator (reference scores), version-range matching, the scanner (confirmed vs potential, incomplete scans, duplicates, withdrawn advisories) with a fake database, the OSV client and the HTTP API. It needs no network access; CI runs it on every pull request.
+The suite covers the CVSS calculator (reference scores), version-range matching, the scanner (confirmed vs potential, incomplete scans, duplicates, withdrawn advisories) with a fake database, the OSV client, the dependency resolver (levels 1-4, cycles, duplicates, missing package/version metadata, outages, a vulnerability at every level) with a fake NuGet, the analyzer's stage timings and the HTTP API. The `node --test` suite covers the shared depth model, the Method View layout, double-click handling and the loader stages. Neither needs network access; CI runs it on every pull request.
 
 ---
 

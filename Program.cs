@@ -33,11 +33,20 @@ builder.Services.AddHttpClient<IOsvClient, OsvClient>(c =>
     c.Timeout = TimeSpan.FromSeconds(osvTimeout);
     c.DefaultRequestHeaders.UserAgent.ParseAdd("dotnet-Assembly-Visualizer");
 });
+var nugetBase = builder.Configuration.GetValue("Vulnerability:NuGetBaseUrl", "https://api.nuget.org/v3-flatcontainer/")!;
+builder.Services.AddHttpClient<INuGetClient, NuGetClient>(c =>
+{
+    c.BaseAddress = new Uri(nugetBase.EndsWith("/") ? nugetBase : nugetBase + "/");
+    c.Timeout = TimeSpan.FromSeconds(osvTimeout);
+    c.DefaultRequestHeaders.UserAgent.ParseAdd("dotnet-Assembly-Visualizer");
+});
+builder.Services.AddSingleton<IDependencyResolver>(sp => new DependencyResolver(sp.GetRequiredService<INuGetClient>()));
 builder.Services.AddSingleton<IVulnerabilityScanner>(sp => new VulnerabilityScanner(
     sp.GetRequiredService<IOsvClient>(), vulnEnabled,
     sp.GetRequiredService<IWebHostEnvironment>().WebRootFileProvider,
     AppContext.BaseDirectory,
-    System.Reflection.Assembly.GetEntryAssembly()?.GetName().Name ?? "dotnet-Assembly-Visualizer"));
+    System.Reflection.Assembly.GetEntryAssembly()?.GetName().Name ?? "dotnet-Assembly-Visualizer",
+    sp.GetRequiredService<IDependencyResolver>()));
 
 var app = builder.Build();
 
