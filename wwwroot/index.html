@@ -76,11 +76,6 @@
                     </div>
                     <label id="inhDepthLabel">Depth
                         <select id="inhDepth">
-                            <option value="1">1</option>
-                            <option value="2">2</option>
-                            <option value="3" selected>3</option>
-                            <option value="5">5</option>
-                            <option value="10">all</option>
                         </select>
                     </label>
                     <span id="inhHint" class="view-hint"></span>
@@ -103,10 +98,6 @@
                 <div class="view-toolbar">
                     <label>Depth
                         <select id="callDepth">
-                            <option value="1">1</option>
-                            <option value="2" selected>2</option>
-                            <option value="3">3</option>
-                            <option value="4">4</option>
                         </select>
                     </label>
                     <label><input type="checkbox" id="optCallers" checked /> Callers</label>
@@ -177,6 +168,18 @@
 
     <div id="ctxMenu"></div>
 
+    <div id="appLoader" role="status" aria-live="polite" aria-busy="true" hidden>
+        <div class="app-loader-card">
+            <div class="spinner-wheel"></div>
+            <div id="appLoaderTitle" class="app-loader-title">Loading…</div>
+            <div id="appLoaderStage" class="app-loader-stage"></div>
+            <div class="app-loader-bar" id="appLoaderBar"><div id="appLoaderFill"></div></div>
+            <div id="appLoaderElapsed" class="app-loader-elapsed"></div>
+        </div>
+    </div>
+
+    <script src="js/graph-utils.js"></script>
+    <script src="js/ui-logic.js"></script>
     <script src="js/app.js"></script>
     <script src="js/vuln.js"></script>
 </body>

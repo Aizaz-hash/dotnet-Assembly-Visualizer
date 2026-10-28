@@ -76,7 +76,8 @@ function vulnConsent() {
     const host = (vulnInfo && vulnInfo.host) || 'api.osv.dev';
     const ok = window.confirm(
         'Vulnerability scan\n\nThis sends package names and versions (never your code or assemblies) to ' + host + ' (OSV.dev) ' +
-        'and only reads the answer. Nothing is installed or changed.\n\nContinue?');
+        'and, to find each package\'s own dependencies, to ' + ((vulnInfo && vulnInfo.dependencyHost) || 'api.nuget.org') + ' (NuGet). ' +
+        'It only reads the answers. Nothing is installed or changed.\n\nContinue?');
     if (ok) { try { localStorage.setItem(VULN_CONSENT_KEY, 'yes'); } catch { /* ignore */ } }
     return ok;
 }
@@ -119,19 +120,17 @@ async function runVulnScan() {
     if (!hasAssembly) { showMessage('Open an assembly first - the scan is run for the loaded assembly.', 'error'); return; }
     const name = currentAssemblyName;
     const includeApp = byId('vulnOptApp').checked;
-    if (!includeApp && !vulnDepsFile) {
-        showMessage('Add the .deps.json of "' + name + '" (exact dependency versions), or tick "Include this tool\'s own packages".', 'error');
-        return;
-    }
     if (!vulnConsent()) return;
 
     vulnBusy = true;
     syncVulnToolbar();
-    setStatus('Scanning ' + name + ' against OSV.dev…');
+    setStatus('Resolving dependencies of ' + name + ' and checking them against OSV.dev…');
 
     const form = new FormData();
     form.append('includeApplication', includeApp ? 'true' : 'false');
     if (vulnDepsFile) form.append('depsFile', vulnDepsFile);
+    form.append('assemblyName', (rawAssemblyData.assemblyName || name).replace(/\.(dll|exe)$/i, ''));
+    if (rawAssemblyData.targetFramework) form.append('targetFramework', rawAssemblyData.targetFramework);
     if (rawAssemblyData.references && rawAssemblyData.references.length)
         form.append('references', JSON.stringify(rawAssemblyData.references));
 
@@ -140,7 +139,7 @@ async function runVulnScan() {
         if (!response.ok) throw new Error((await response.text()) || ('Server returned ' + response.status));
         const report = await response.json();
         report.scannedFor = name;
-        report.scannedSources = [vulnDepsFile ? vulnDepsFile.name : null, includeApp ? 'this tool\'s own packages' : null].filter(Boolean);
+        report.scannedSources = ['the assembly\'s own references (dependency levels 1-' + (report.maxLevelResolved || 1) + ')', vulnDepsFile ? vulnDepsFile.name : null, includeApp ? 'this tool\'s own packages' : null].filter(Boolean);
         applyStoredStatuses(report);
         if (loadedAssemblies.has(name)) vulnReports.set(name, report);      // the assembly may have been removed meanwhile
         const s = report.summary;
@@ -282,12 +281,12 @@ function buildVulnReportDocument(doc, report) {
 
     body.appendChild(E('h2', null, 'Scanned components (' + report.components.length + ')'));
     const ct = E('table');
-    const ch = E('tr'); ['Package', 'Version', 'Source', 'Ships code', 'Result', 'Findings'].forEach(h => ch.appendChild(E('th', null, h)));
+    const ch = E('tr'); ['Level', 'Package', 'Version', 'Version from', 'Status', 'Findings', 'Reached via'].forEach(h => ch.appendChild(E('th', null, h)));
     const cth = E('thead'); cth.appendChild(ch); ct.appendChild(cth);
     const cb = E('tbody');
     report.components.forEach(c => {
         const tr = E('tr');
-        [c.name, c.version, c.source, c.shipsAssembly === true ? 'yes' : c.shipsAssembly === false ? 'no (framework)' : 'unknown', c.result === 'ok' ? 'checked' : c.result, String(c.findings)].forEach(v => tr.appendChild(E('td', null, v)));
+        [c.level == null ? '-' : 'L' + c.level, c.name, c.version || '-', versionSourceText(c), c.status || (c.result === 'ok' ? 'checked' : c.result), String(c.findings), c.via || ''].forEach(v => tr.appendChild(E('td', null, v)));
         cb.appendChild(tr);
     });
     ct.appendChild(cb); body.appendChild(ct);
@@ -315,6 +314,16 @@ function exportVulnPdf() {
 }
 
 // ---------- rendering ----------
+
+// Where a dependency's version came from, in words.
+function versionSourceText(c) {
+    switch (c.versionSource) {
+        case 'exact': return 'manifest (exact)';
+        case 'nuspec-minimum': return 'package metadata (lowest accepted)';
+        case 'assembly-estimate': return 'estimated from assembly ' + (c.assemblyVersion || 'version');
+        default: return c.resolution === 'framework' ? 'runtime-supplied' : 'not identified';
+    }
+}
 
 function sevClass(s) { return 'sev-' + s.toLowerCase(); }
 
@@ -384,7 +393,7 @@ function renderVulnIntro(container) {
     box.appendChild(el('h3', null, 'Vulnerabilities Scan'));
     const enabled = !vulnInfo || vulnInfo.enabled !== false;
     box.appendChild(el('p', null, enabled
-        ? 'Checks the dependencies of ' + currentAssemblyName + ' against the OSV.dev database (GitHub Security Advisories, NVD and others). Add the .deps.json that was built with it so exact package versions are used. Every finding shows its CVE, CVSS score, affected component, impact and a recommended fix.'
+        ? 'Reads the assemblies ' + currentAssemblyName + ' references, finds the NuGet packages behind them and their dependencies (up to level 4), and checks them against the OSV.dev database (GitHub Security Advisories, NVD and others). No package.json or .deps.json is needed. Every finding shows its dependency level, CVE, CVSS score, affected component, impact and a recommended fix.'
         : 'Vulnerability scanning is switched off on this server (Vulnerability:Enabled = false).'));
     const ul = el('ul');
     [
@@ -392,10 +401,12 @@ function renderVulnIntro(container) {
         'The scan is read-only: nothing is installed, upgraded or modified. Fix commands are shown for you to run yourself.',
         'Findings are verified against each advisory\'s affected-version ranges and marked confirmed or potential.',
         'If the database cannot be reached, the report says so instead of showing "no vulnerabilities".',
-        'Assembly references alone carry only an assembly version (e.g. 8.0.0.0), so for your own application supply its .deps.json for an exact scan.'
+        'Level 0 is the loaded assembly, level 1 its direct references, levels 2-4 the dependencies of those packages. Each package is listed once, at its shortest path.',
+        'An assembly reference carries only an assembly version (e.g. 12.0.0.0), so the package version is estimated (lowest matching version) and findings are marked potential. Add the .deps.json for exact versions.',
+        'Dependencies that cannot be resolved (private assemblies, NuGet unreachable) are listed with the reason, never silently skipped.'
     ].forEach(t => ul.appendChild(el('li', null, t)));
     box.appendChild(ul);
-    box.appendChild(el('p', 'view-hint', 'Add the .deps.json of ' + currentAssemblyName + ' (or tick "Include this tool\'s own packages") and press "Run scan".'));
+    box.appendChild(el('p', 'view-hint', 'Press "Run scan" to scan ' + currentAssemblyName + '. A .deps.json is optional and only makes versions exact.'));
     container.appendChild(box);
 }
 
@@ -492,7 +503,7 @@ function renderVulnsKeepFocus() {
 function buildFindingsTable(items) {
     const table = el('table', 'vuln-table');
     const head = el('tr');
-    ['Severity', 'ID', 'Component', 'Fix', 'Status', 'Confidence'].forEach(h => head.appendChild(el('th', null, h)));
+    ['Severity', 'ID', 'Component', 'Level', 'Fix', 'Status', 'Confidence'].forEach(h => head.appendChild(el('th', null, h)));
     const thead = el('thead'); thead.appendChild(head); table.appendChild(thead);
 
     const tbody = el('tbody');
@@ -505,6 +516,9 @@ function buildFindingsTable(items) {
         c2.appendChild(el('div', 'vr-sum', f.summary)); tr.appendChild(c2);
 
         const c3 = el('td'); c3.appendChild(el('div', 'vr-id', f.component)); c3.appendChild(el('div', 'vr-sub', f.installedVersion)); tr.appendChild(c3);
+        const lvl = el('td', null, f.level == null ? '-' : 'L' + f.level);
+        if (f.dependencyPath) lvl.title = f.dependencyPath;
+        tr.appendChild(lvl);
         tr.appendChild(el('td', null, f.recommendedVersion ? '≥ ' + f.recommendedVersion : 'none listed'));
 
         const st = vulnStatusOf(f);
@@ -549,7 +563,8 @@ function renderFindingDetail(container, f) {
     const facts = el('div', 'vd-facts');
     const fact = (k, v) => { facts.appendChild(el('span', 'vf-k', k)); facts.appendChild(el('span', 'vf-v', v)); };
     fact('Component', `${f.component} ${f.installedVersion} (${f.ecosystem})`);
-    fact('Found in', f.componentSource === 'application' ? 'this application' : f.componentSource === 'bundled-script' ? 'bundled script' : 'supplied .deps.json');
+    fact('Found in', f.componentSource === 'application' ? 'this application' : f.componentSource === 'bundled-script' ? 'bundled script' : f.componentSource === 'assembly-references' ? 'the loaded assembly\'s dependencies' : 'supplied .deps.json');
+    if (f.level != null) fact('Dependency level', 'Level ' + f.level + (f.level === 1 ? ' (referenced directly)' : ' (transitive)') + (f.dependencyPath ? ' - ' + f.dependencyPath : ''));
     if (f.aliases.length > 1) fact('Also known as', f.aliases.filter(a => a !== f.id).join(', '));
     if (f.cwes.length) fact('Weakness', f.cwes.join(', '));
     fact('Severity basis', f.severitySource);
@@ -613,25 +628,29 @@ function link(url, text) {
 function renderVulnExtras(container) {
     const r = vulnReport;
     const det = el('details', 'vuln-extra');
-    det.appendChild(el('summary', null, `Scanned components (${r.components.length}) - what was and was not checked`));
+    det.appendChild(el('summary', null, `Dependencies (${r.components.length}) - level, version source and what was or was not checked`));
     const table = el('table', 'vuln-table small');
-    const head = el('tr'); ['Package', 'Version', 'Source', 'Ships code', 'Result', 'Findings'].forEach(h => head.appendChild(el('th', null, h)));
+    const head = el('tr'); ['Level', 'Package', 'Version', 'Version from', 'Status', 'Findings'].forEach(h => head.appendChild(el('th', null, h)));
     const thead = el('thead'); thead.appendChild(head); table.appendChild(thead);
     const tbody = el('tbody');
     r.components.forEach(c => {
         const tr = el('tr');
-        tr.appendChild(el('td', null, c.name)); tr.appendChild(el('td', null, c.version));
-        tr.appendChild(el('td', null, c.source === 'application' ? 'application' : c.source === 'bundled-script' ? 'bundled script' : 'deps.json'));
-        tr.appendChild(el('td', null, c.shipsAssembly === true ? 'yes' : c.shipsAssembly === false ? 'no (framework)' : 'unknown'));
-        tr.appendChild(el('td', null, c.result === 'ok' ? 'checked' : c.result)); tr.appendChild(el('td', null, String(c.findings)));
+        const lv = el('td', null, c.level == null ? '-' : 'L' + c.level);
+        if (c.via) lv.title = c.via + (c.alsoRequiredBy ? ' (also required by ' + c.alsoRequiredBy + ' other package' + (c.alsoRequiredBy === 1 ? '' : 's') + ')' : '');
+        tr.appendChild(lv);
+        tr.appendChild(el('td', null, c.name)); tr.appendChild(el('td', null, c.version || '-'));
+        tr.appendChild(el('td', null, versionSourceText(c)));
+        const st = el('td', null, c.status || (c.result === 'ok' ? 'checked' : c.result));
+        st.className = 'dep-status ' + (c.findings > 0 ? 'bad' : (c.resolution === 'unresolved' || c.resolution === 'lookup-unavailable' || c.result === 'failed') ? 'warn' : 'ok');
+        tr.appendChild(st); tr.appendChild(el('td', null, String(c.findings)));
         tbody.appendChild(tr);
     });
     table.appendChild(tbody); det.appendChild(table); container.appendChild(det);
 
     if (r.referencedAssemblies && r.referencedAssemblies.length) {
         const d2 = el('details', 'vuln-extra');
-        d2.appendChild(el('summary', null, `Assemblies referenced by ${r.scannedFor || 'the loaded assembly'} (${r.referencedAssemblies.length}) - listed, not matched to packages`));
-        d2.appendChild(el('div', 'view-hint', 'References only record an assembly version (e.g. 8.0.0.0), which does not identify the NuGet package version, so they cannot be checked reliably. Add the application\'s .deps.json to scan its exact packages.'));
+        d2.appendChild(el('summary', null, `Level 1: assemblies referenced by ${r.scannedFor || 'the loaded assembly'} (${r.referencedAssemblies.length}) - as recorded in the assembly`));
+        d2.appendChild(el('div', 'view-hint', 'A reference records only an assembly version (e.g. 12.0.0.0). The package version is estimated from it unless a .deps.json is supplied - see "Version from" above.'));
         const t2 = el('table', 'vuln-table small');
         const h2 = el('tr'); ['Assembly', 'Assembly version'].forEach(h => h2.appendChild(el('th', null, h)));
         const th2 = el('thead'); th2.appendChild(h2); t2.appendChild(th2);

@@ -1,0 +1,42 @@
+
+=== System.Linq.dll  (530 KB, 75 types, 833 methods, 453 call edges, JSON 0.39 MB) ===
+stage                                cold ms   median ms      min ms
+load PE image                           4.29        0.01        0.01
+read metadata tables                    6.76        0.06        0.05
+lambda name scan (IL)                  11.36        1.08        1.07
+type + method discovery                14.67        4.99        4.98
+call analysis (IL scan)                85.88       70.33       66.77
+graph construction                     44.87        0.14        0.11
+cycle detection                         2.36        0.22        0.22
+assembly references                     1.65        0.02        0.01
+JSON serialization                     61.60        5.74        5.30
+TOTAL (analyze + serialize)           240.36       82.31       82.13
+
+=== System.Private.Xml.dll  (7,810 KB, 1336 types, 15122 methods, 39626 call edges, JSON 14.90 MB) ===
+stage                                cold ms   median ms      min ms
+load PE image                           0.03        0.03        0.03
+read metadata tables                    0.37        0.51        0.48
+lambda name scan (IL)                  21.42       10.39        9.42
+type + method discovery               120.54       45.49       34.28
+call analysis (IL scan)            11,178.22   12,576.50   12,450.70
+graph construction                      8.45       10.95        8.22
+cycle detection                        12.66        8.24        7.74
+assembly references                     0.05        0.08        0.04
+JSON serialization                    150.21       29.03       28.85
+TOTAL (analyze + serialize)        11,492.30   12,671.72   12,589.80
+
+=== System.Private.CoreLib.dll  (12,866 KB, 2383 types, 30455 methods, 47748 call edges, JSON 21.12 MB) ===
+stage                                cold ms   median ms      min ms
+load PE image                           0.02        0.03        0.03
+read metadata tables                    0.55        1.16        0.89
+lambda name scan (IL)                  14.92       19.90       13.29
+type + method discovery               166.25      165.67      158.28
+call analysis (IL scan)               679.41      694.53      498.19
+graph construction                     12.43       11.65       10.09
+cycle detection                        59.13       12.18       10.89
+assembly references                     0.11        0.01        0.01
+JSON serialization                     63.82       48.64       43.17
+TOTAL (analyze + serialize)           997.28      957.41      745.19
+
+(small sample VulnerableDemo.dll: total median 0.20 ms, cold 339 ms - all JIT)
+Machine: Windows 11, .NET 8 runtime, Release build, tools/PerfPoc, median of 3 warm runs after 1 cold run.

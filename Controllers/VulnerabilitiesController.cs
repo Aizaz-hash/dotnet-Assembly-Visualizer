@@ -23,7 +23,9 @@ namespace DotNetVisualizer.Web.Controllers
             enabled = _scanner.Enabled,
             database = "OSV.dev",
             host = "api.osv.dev",
-            sends = "package names and versions only (never your code or assemblies)"
+            dependencyHost = "api.nuget.org",
+            maxDependencyLevel = DependencyResolver.MaxSupportedLevel,
+            sends = "package names and versions only (never your code or assemblies) - to OSV.dev and, to find a package's dependencies, to NuGet.org"
         });
 
         /// <summary>
@@ -32,7 +34,8 @@ namespace DotNetVisualizer.Web.Controllers
         /// </summary>
         [HttpPost("scan")]
         [RequestSizeLimit(12 * 1024 * 1024)]
-        public async Task<IActionResult> Scan(IFormFile? depsFile, [FromForm] bool includeApplication = true, [FromForm] string? references = null, CancellationToken ct = default)
+        public async Task<IActionResult> Scan(IFormFile? depsFile, [FromForm] bool includeApplication = true, [FromForm] string? references = null,
+            [FromForm] string? targetFramework = null, [FromForm] string? assemblyName = null, [FromForm] bool resolveDependencies = true, [FromForm] int maxLevel = 4, CancellationToken ct = default)
         {
             var extra = new List<ScanComponent>();
             string? extraName = null;
@@ -71,7 +74,11 @@ namespace DotNetVisualizer.Web.Controllers
                 IncludeApplication = includeApplication,
                 ExtraComponents = extra,
                 References = refs,
-                ExtraSourceName = extraName
+                ExtraSourceName = extraName,
+                ResolveDependencies = resolveDependencies,
+                MaxLevel = Math.Clamp(maxLevel, 1, DependencyResolver.MaxSupportedLevel),
+                RootName = string.IsNullOrWhiteSpace(assemblyName) ? "assembly" : assemblyName.Trim(),
+                TargetFramework = string.IsNullOrWhiteSpace(targetFramework) ? null : targetFramework.Trim()
             }, ct);
             return Ok(report);
         }

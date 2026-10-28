@@ -63,6 +63,37 @@ namespace DotNetVisualizer.Web.Services.Vulnerabilities
             }
             return list.OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase).ToList();
         }
+
+        /// <summary>The assembly's own name (level 0 in the dependency graph).</summary>
+        public static string ReadAssemblyName(MetadataReader reader) =>
+            reader.IsAssembly ? reader.GetString(reader.GetAssemblyDefinition().Name) : "";
+
+        /// <summary>Reads [TargetFramework(".NETStandard,Version=v2.0")] straight from the metadata, or null when absent.</summary>
+        public static string? ReadTargetFramework(MetadataReader reader)
+        {
+            if (!reader.IsAssembly) return null;
+            foreach (var handle in reader.GetAssemblyDefinition().GetCustomAttributes())
+            {
+                var attr = reader.GetCustomAttribute(handle);
+                string? typeName = null, typeNs = null;
+                if (attr.Constructor.Kind == HandleKind.MemberReference)
+                {
+                    var parent = reader.GetMemberReference((MemberReferenceHandle)attr.Constructor).Parent;
+                    if (parent.Kind == HandleKind.TypeReference)
+                    {
+                        var tr = reader.GetTypeReference((TypeReferenceHandle)parent);
+                        typeName = reader.GetString(tr.Name); typeNs = reader.GetString(tr.Namespace);
+                    }
+                }
+                if (typeName != "TargetFrameworkAttribute" || typeNs != "System.Runtime.Versioning") continue;
+
+                // blob: 0x0001 prolog, then the first fixed argument = a SerString (compressed length + UTF-8)
+                var blob = reader.GetBlobReader(attr.Value);
+                if (blob.Length < 3 || blob.ReadUInt16() != 1) return null;
+                return blob.ReadSerializedString();
+            }
+            return null;
+        }
     }
 
     /// <summary>Reads the version of a bundled JavaScript library from its banner comment.</summary>

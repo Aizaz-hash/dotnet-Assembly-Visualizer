@@ -218,6 +218,8 @@ function buildIndexes() {
 //  Tree widget (used by the explorer and the inheritance view)
 // ============================================================================
 
+let pendingDblClick = null;    // see the row click handler in makeTreeNode
+
 function makeTreeNode(opt) {
     const node = el('div', 't-node');
     const row = el('div', 't-row' + (opt.external ? ' external' : ''));
@@ -283,8 +285,20 @@ function makeTreeNode(opt) {
     };
 
     arrow.onclick = (e) => { e.stopPropagation(); handle.toggle(); };
-    row.onclick = () => { if (opt.onSelect) opt.onSelect(handle); };
-    row.ondblclick = () => handle.toggle();
+    // A double-click arrives as two clicks (detail 1 then 2). The first one selects as before; the second must not
+    // select again, and it expands/collapses the node as it stood BEFORE the first click, even if selecting rebuilt
+    // the tree (the rebuilt row may already be auto-expanded, so toggling its current state would undo the expand).
+    const nodeKey = opt.key || ('label:' + opt.label);
+    row.onclick = (e) => {
+        const act = UiLogic.rowClickAction(e.detail, pendingDblClick, nodeKey, open, !!opt.children);
+        pendingDblClick = act.pending;
+        if (act.toggleTo) {
+            const target = (opt.key && explorerNodes.get(opt.key)) || handle;
+            if (act.toggleTo === 'collapse') target.collapse(); else target.expand();
+        }
+        if (act.select && opt.onSelect) opt.onSelect(handle);
+    };
+    row.onmousedown = (e) => { if (e.detail > 1) e.preventDefault(); };     // no text selection on double-click
     if (opt.onContextMenu) row.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); opt.onContextMenu(e, handle); };
     if (opt.key) explorerNodes.set(opt.key, handle);
     if (opt.expanded) handle.expand();
@@ -567,8 +581,67 @@ function methodsFolderOpt(typeId) {
     return { icon: 'ico-folder', label: 'Methods', sub: String(methods.length), children: () => methods.map(methodLeafOpt) };
 }
 
+// ---------- depth model (shared with the Method View through graph-utils.js) ----------
+
+const DEPTH_OPTION_CAP = 15;        // most numbered depth choices a dropdown offers (an "All" choice covers the rest)
+let inhDepthPref = 3;               // what the user picked; kept while it stays available
+let callDepthPref = 2;
+
+const baseIds = (id) => (basesOf.get(id) || []).map(r => r.id);
+const derivedIds = (id) => (derivedOf.get(id) || []).map(r => r.id);
+
+// Types that start the "whole assembly" hierarchy: derive-from nothing in this assembly, but have subtypes here.
+function inheritanceRoots() {
+    const roots = [];
+    typeNodes.forEach((t, id) => {
+        if (!nsOf.has(id)) return;
+        const hasBase = (basesOf.get(id) || []).some(b => typeNodes.has(b.id));
+        if (!hasBase && (derivedOf.get(id) || []).length) roots.push(id);
+    });
+    roots.sort((a, b) => typeNodes.get(a).name.localeCompare(typeNodes.get(b).name));
+    return roots;
+}
+
+// Real number of levels available for what is currently shown (from the actual graph, not a fixed list).
+function inheritanceReach() {
+    if (!hasAssembly) return 1;
+    if (state.inhMode === 'all') return GraphUtils.reachableDepth(inheritanceRoots(), (id) => derivedIds(id).filter(c => typeNodes.has(c)), 1000);
+    if (!state.type) return 1;
+    return Math.max(GraphUtils.reachableDepth([state.type], baseIds, 1000), GraphUtils.reachableDepth([state.type], derivedIds, 1000));
+}
+
+function fillDepthSelect(select, reach, pref) {
+    const shown = Math.min(Math.max(1, reach), DEPTH_OPTION_CAP);
+    select.innerHTML = '';
+    GraphUtils.depthChoices(shown).forEach(d => select.appendChild(new Option(String(d), String(d))));
+    if (reach > shown) select.appendChild(new Option('all', 'all'));
+    const want = pref === 'all' ? (reach > shown ? 'all' : String(shown)) : String(Math.min(pref, shown));
+    select.value = want;
+}
+
+function refreshInhDepthOptions() {
+    fillDepthSelect(byId('inhDepth'), inheritanceReach(), inhDepthPref);
+}
+
 function inhDepthValue() {
-    return parseInt(byId('inhDepth').value, 10) || 1;
+    const v = byId('inhDepth').value;
+    return v === 'all' ? 1000 : (parseInt(v, 10) || 1);
+}
+
+function callReach() {
+    if (!hasAssembly || !state.method) return 1;
+    const down = byId('optCallees').checked ? GraphUtils.reachableDepth([state.method], (id) => calleesOf.get(id), 1000) : 0;
+    const up = byId('optCallers').checked ? GraphUtils.reachableDepth([state.method], (id) => callersOf.get(id), 1000) : 0;
+    return Math.max(down, up, 1);
+}
+
+function refreshCallDepthOptions() {
+    fillDepthSelect(byId('callDepth'), callReach(), callDepthPref);
+}
+
+function callDepthValue() {
+    const v = byId('callDepth').value;
+    return v === 'all' ? 1000 : (parseInt(v, 10) || 1);
 }
 
 function inheritanceOpt(ref, direction, ancestors, level = 1) {
@@ -618,41 +691,20 @@ function renderInheritanceGraph() {
     if (!hasAssembly) { canvasMessage(canvas, 'Upload a .NET assembly to begin: click "Open" or drop a .dll file anywhere on this page.'); return; }
 
     const depth = inhDepthValue();
-    const levels = new Map();   // typeId -> level (negative = base types above, positive = derived types below)
+    // typeId -> depth (negative = base types above, positive = derived types below). Depth 0 is the start of the traversal.
+    let levels = new Map();
     let truncated = false;
-    const add = (id, lvl) => {
-        if (levels.has(id)) return false;
-        if (levels.size >= INH_MAX_NODES) { truncated = true; return false; }
-        levels.set(id, lvl);
-        return true;
-    };
 
     if (state.inhMode === 'all') {
-        const roots = [];
-        typeNodes.forEach((t, id) => {
-            if (!nsOf.has(id)) return;
-            const hasBase = (basesOf.get(id) || []).some(b => typeNodes.has(b.id));
-            if (!hasBase && (derivedOf.get(id) || []).length) roots.push(id);
-        });
-        roots.sort((a, b) => typeNodes.get(a).name.localeCompare(typeNodes.get(b).name));
-        let frontier = [];
-        roots.forEach(r => { if (add(r, 0)) frontier.push(r); });
-        for (let d = 1; frontier.length && d <= depth; d++) {
-            const next = [];
-            frontier.forEach(id => (derivedOf.get(id) || []).forEach(c => { if (typeNodes.has(c.id) && add(c.id, d)) next.push(c.id); }));
-            frontier = next;
-        }
+        const r = GraphUtils.bfsLevels(inheritanceRoots(), (id) => derivedIds(id).filter(c => typeNodes.has(c)), depth, { maxNodes: INH_MAX_NODES });
+        levels = r.levels; truncated = r.truncated;
         if (levels.size === 0) { canvasMessage(canvas, 'No type in this assembly derives from or implements another type of the same assembly.'); return; }
     } else {
         if (!state.type) { canvasMessage(canvas, 'Select a type in the explorer to draw its inheritance graph.'); return; }
         levels.set(state.type, 0);
-        let up = [state.type], down = [state.type];
-        for (let d = 1; d <= depth && (up.length || down.length); d++) {
-            const nu = [], nd = [];
-            up.forEach(id => (basesOf.get(id) || []).forEach(b => { if (add(b.id, -d)) nu.push(b.id); }));
-            down.forEach(id => (derivedOf.get(id) || []).forEach(c => { if (add(c.id, d)) nd.push(c.id); }));
-            up = nu; down = nd;
-        }
+        const down = GraphUtils.bfsLevels([state.type], derivedIds, depth, { levels, sign: 1, maxNodes: INH_MAX_NODES });
+        const up = GraphUtils.bfsLevels([state.type], baseIds, depth, { levels, sign: -1, maxNodes: INH_MAX_NODES });
+        truncated = down.truncated || up.truncated;
     }
 
     const nodes = [], edges = [];
@@ -676,7 +728,7 @@ function renderInheritanceGraph() {
 
     let reached = 0;
     levels.forEach(l => { reached = Math.max(reached, Math.abs(l)); });
-    byId('inhHint').textContent = `${nodes.length} types · ${edges.length} relations · depth ${depth}` +
+    byId('inhHint').textContent = `${nodes.length} types · ${edges.length} relations · depth ${depth >= 1000 ? "all" : depth}` +
         (truncated ? ` · limited to ${INH_MAX_NODES} types - use "Selected type" for the full picture`
             : (reached < depth ? ` · nothing deeper than ${reached} level${reached === 1 ? '' : 's'}` : ' · double-click a type to centre on it'));
 
@@ -711,6 +763,7 @@ function renderMembersPanel() {
 }
 
 function renderInheritance() {
+    refreshInhDepthOptions();
     if (inhNetwork) { inhNetwork.destroy(); inhNetwork = null; }
     const graph = state.inhFormat !== 'tree';
     byId('inhGraphRow').style.display = graph ? 'flex' : 'none';
@@ -807,26 +860,11 @@ function nodeStyle(id, selected) {
 }
 
 function buildCallGraph(center, depth, wantCallers, wantCallees) {
+    // Same traversal as the Inheritance view: depth 0 = the selected method, a method appears once at its shortest distance.
     const levels = new Map([[center, 0]]);
     let truncated = false;
-
-    const bfs = (adj, dir) => {
-        let frontier = [center];
-        for (let d = 1; d <= depth && frontier.length; d++) {
-            const next = [];
-            for (const id of frontier) {
-                for (const n of (adj.get(id) || [])) {
-                    if (levels.has(n)) continue;           // merged: a method appears once, however many paths reach it
-                    if (levels.size >= MAX_CALL_NODES) { truncated = true; continue; }
-                    levels.set(n, dir * d);
-                    next.push(n);
-                }
-            }
-            frontier = next;
-        }
-    };
-    if (wantCallees) bfs(calleesOf, +1);
-    if (wantCallers) bfs(callersOf, -1);
+    if (wantCallees) truncated = GraphUtils.bfsLevels([center], (id) => calleesOf.get(id), depth, { levels, sign: 1, maxNodes: MAX_CALL_NODES }).truncated || truncated;
+    if (wantCallers) truncated = GraphUtils.bfsLevels([center], (id) => callersOf.get(id), depth, { levels, sign: -1, maxNodes: MAX_CALL_NODES }).truncated || truncated;
 
     const nodes = [], edges = [];
     levels.forEach((lvl, id) => {
@@ -901,15 +939,21 @@ function renderCalls() {
         return;
     }
 
-    const depth = parseInt(byId('callDepth').value, 10);
+    refreshCallDepthOptions();
+    const depth = callDepthValue();
     const g = buildCallGraph(state.method, depth, byId('optCallers').checked, byId('optCallees').checked);
     const callees = (calleesOf.get(state.method) || []).length, callers = (callersOf.get(state.method) || []).length;
-    byId('callStats').textContent = `${g.nodes.length} methods · ${g.edges.length} calls · ${callers} direct caller${callers === 1 ? '' : 's'}, ${callees} direct callee${callees === 1 ? '' : 's'}` + ` · depth ${depth}` +
+    byId('callStats').textContent = `${g.nodes.length} methods · ${g.edges.length} calls · ${callers} direct caller${callers === 1 ? '' : 's'}, ${callees} direct callee${callees === 1 ? '' : 's'}` + ` · depth ${depth >= 1000 ? "all" : depth}` +
         (g.truncated ? ` · limited to ${MAX_CALL_NODES} nodes - lower the depth`
             : (g.reached < depth ? ` · nothing deeper than ${g.reached} level${g.reached === 1 ? '' : 's'}` : ''));
 
+    // Positions come from the shared layered layout: spacing follows node sizes, nodes per level and edges between
+    // levels (see graph-utils.js), instead of one fixed gap that over-spreads small graphs and crowds large ones.
+    g.nodes.forEach(n => { n.widthConstraint = { maximum: 300 }; });
+    const laid = GraphUtils.layoutLayered(g.nodes, g.edges, { direction: 'LR', charWidth: 7.2, maxNodeWidth: 320, lineHeight: 18, nodePadding: 10 });
+    g.nodes.forEach(n => { const p = laid.positions.get(n.id); n.x = p.x; n.y = p.y; });
     const options = {
-        layout: { hierarchical: { enabled: true, direction: 'LR', sortMethod: 'directed', levelSeparation: 230, nodeSpacing: 36, treeSpacing: 60, blockShifting: true, edgeMinimization: true, parentCentralization: true } },
+        layout: { hierarchical: { enabled: false } },
         physics: false,
         interaction: { hover: true, tooltipDelay: 200, navigationButtons: false },
         edges: { selectionWidth: 2 }
@@ -1218,9 +1262,57 @@ function activateAssembly(name) {
     setStatus(`${name}: ${rawAssemblyData.classes.length} types, ${rawAssemblyData.methodGraph.nodes.length} methods, ${cycles.length} circular chain${cycles.length === 1 ? '' : 's'}`);
 }
 
-async function readErrorMessage(response) {
-    let text = '';
-    try { text = await response.text(); } catch { /* ignore */ }
+// ---------- global loading overlay (upload -> parse -> draw) ----------
+// Progress is only shown as a percentage where it is real (bytes uploaded). Parsing happens on the server in one
+// step with no progress signal, so that part is an indeterminate bar plus an elapsed-time counter.
+const appLoader = (() => {
+    let timer = null, startedAt = 0;
+    const tick = () => { byId('appLoaderElapsed').textContent = `${((performance.now() - startedAt) / 1000).toFixed(1)} s`; };
+    return {
+        show(title, stage) {
+            startedAt = performance.now();
+            byId('appLoaderTitle').textContent = title;
+            this.stage(stage, null);
+            byId('appLoader').hidden = false;
+            tick();
+            clearInterval(timer);
+            timer = setInterval(tick, 100);
+        },
+        // fraction: 0..1 for real progress, null for indeterminate
+        stage(text, fraction) {
+            byId('appLoaderStage').textContent = text || '';
+            const bar = byId('appLoaderBar');
+            bar.classList.toggle('indeterminate', fraction == null);
+            byId('appLoaderFill').style.width = fraction == null ? '' : `${Math.round(fraction * 100)}%`;
+        },
+        hide() {
+            clearInterval(timer); timer = null;
+            byId('appLoader').hidden = true;
+        },
+        get visible() { return !byId('appLoader').hidden; }
+    };
+})();
+
+// Lets the browser paint between stages. rAF never fires in a background tab, so a timer backs it up (otherwise a load would stall until the tab is shown).
+const nextFrame = () => new Promise(r => { let done = false; const go = () => { if (!done) { done = true; r(); } }; requestAnimationFrame(() => setTimeout(go, 0)); setTimeout(go, 60); });
+
+// POST with upload progress. Resolves to { ok, status, text }; rejects with a TypeError on a network failure.
+function postFile(url, formData, onUploadProgress) {
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', url);
+        xhr.responseType = 'text';
+        xhr.upload.onprogress = (e) => { if (e.lengthComputable) onUploadProgress(e.loaded / e.total); };
+        xhr.upload.onload = () => onUploadProgress(1);
+        xhr.onload = () => resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, text: xhr.responseText });
+        xhr.onerror = () => reject(new TypeError('network error'));
+        xhr.ontimeout = () => reject(new TypeError('timeout'));
+        xhr.onabort = () => reject(new TypeError('aborted'));
+        xhr.send(formData);
+    });
+}
+
+function errorTextFromBody(status, text) {
     if (text) {
         try {
             const body = JSON.parse(text);
@@ -1232,9 +1324,10 @@ async function readErrorMessage(response) {
         } catch { /* plain text body */ }
         return text;
     }
-    if (response.status === 413) return `File too large (limit ${maxUploadMb ?? '?'} MB).`;
-    return `Server returned ${response.status} ${response.statusText}.`;
+    if (status === 413) return `File too large (limit ${maxUploadMb ?? '?'} MB).`;
+    return `The server answered with status ${status}.`;
 }
+
 
 async function loadFile(file, opts = {}) {
     if (!file) return false;
@@ -1246,13 +1339,28 @@ async function loadFile(file, opts = {}) {
 
     setStatus(`Analysing ${file.name}…`);
     document.body.style.cursor = 'progress';
+    appLoader.show(`Loading ${file.name}`, 'Uploading…');
     const formData = new FormData();
     formData.append('file', file);
+    const perf = { file: file.name, sizeKB: Math.round(file.size / 1024) };
+    const t0 = performance.now();
 
     try {
-        const response = await fetch('/api/analysis/analyze', { method: 'POST', body: formData });
-        if (!response.ok) throw new Error(await readErrorMessage(response));
-        const data = await response.json();
+        await nextFrame();
+        const res = await postFile('/api/analysis/analyze', formData, (f) => {
+            if (f >= 1) { const s = UiLogic.loaderStage('parse'); appLoader.stage(s.text, s.fraction); }
+            else { const s = UiLogic.loaderStage('upload', f); appLoader.stage(s.text, s.fraction); }
+        });
+        perf.uploadAndServerMs = performance.now() - t0;
+        if (!res.ok) throw new Error(errorTextFromBody(res.status, res.text));
+
+        appLoader.stage('Reading the result…', null);
+        await nextFrame();
+        let t = performance.now();
+        const data = JSON.parse(res.text);
+        perf.jsonParseMs = performance.now() - t;
+        perf.responseMB = res.text.length / 1048576;
+        if (!data || !data.methodGraph || !data.inheritance) throw new Error('The server returned an unexpected response.');
 
         loadedAssemblies.set(file.name, data);     // an existing entry keeps its position in the list
         loadedFiles.set(file.name, file);
@@ -1264,7 +1372,16 @@ async function loadFile(file, opts = {}) {
             vulnCall('vulnForgetAssembly', dropped);
         }
 
+        appLoader.stage('Building the explorer and first view…', null);
+        await nextFrame();
+        t = performance.now();
         activateAssembly(file.name);
+        perf.activateMs = performance.now() - t;
+        perf.totalMs = performance.now() - t0;
+        perf.server = data.timings;
+        window.__avPerf = perf;
+        console.info('[perf] load', perf);
+
         const verb = opts.reload ? 'Reloaded' : 'Parsed';
         showMessage(`${verb} ${data.classes.length} types, ${data.methodGraph.nodes.length} methods, ${cycles.length} circular chains.` +
             (dropped ? ` The oldest assembly ("${dropped}") was removed from the list (limit ${MAX_LOADED_ASSEMBLIES}).` : ''), 'success');
@@ -1279,6 +1396,7 @@ async function loadFile(file, opts = {}) {
         setStatus('Ready');
         return false;
     } finally {
+        appLoader.hide();
         document.body.style.cursor = '';
     }
 }
@@ -1301,7 +1419,7 @@ byId('inhModeSelected').onclick = () => navigate({ inhMode: 'selected' });
 byId('inhModeAll').onclick = () => navigate({ inhMode: 'all' });
 byId('inhFmtGraph').onclick = () => navigate({ inhFormat: 'graph' });
 byId('inhFmtTree').onclick = () => navigate({ inhFormat: 'tree' });
-byId('inhDepth').addEventListener('change', () => { if (state.view === 'inheritance') renderInheritance(); });
+byId('inhDepth').addEventListener('change', () => { inhDepthPref = byId('inhDepth').value === 'all' ? 'all' : parseInt(byId('inhDepth').value, 10); if (state.view === 'inheritance') renderInheritance(); });
 byId('btnFitInh').onclick = fitCallGraph;
 byId('btnExportInh').onclick = exportGraphPng;
 
@@ -1312,7 +1430,8 @@ window.addEventListener('keydown', (e) => {
     if (e.altKey && e.key === 'ArrowRight') { e.preventDefault(); goHistory(+1); }
 });
 
-['callDepth', 'optCallers', 'optCallees'].forEach(id => byId(id).addEventListener('change', () => { if (state.view === 'calls') renderCalls(); }));
+byId('callDepth').addEventListener('change', () => { callDepthPref = byId('callDepth').value === 'all' ? 'all' : parseInt(byId('callDepth').value, 10); if (state.view === 'calls') renderCalls(); });
+['optCallers', 'optCallees'].forEach(id => byId(id).addEventListener('change', () => { if (state.view === 'calls') renderCalls(); }));
 byId('btnFit').onclick = fitCallGraph;
 byId('btnExport').onclick = exportGraphPng;
 
