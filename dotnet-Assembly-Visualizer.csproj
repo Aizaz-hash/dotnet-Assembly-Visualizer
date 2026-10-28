@@ -13,6 +13,10 @@
     <EmbeddedResource Remove="tests/**" />
     <None Remove="tests/**" />
     <Compile Remove="samples/**" />
+    <Compile Remove="tools/**" />
+    <Content Remove="tools/**" />
+    <EmbeddedResource Remove="tools/**" />
+    <None Remove="tools/**" />
     <Content Remove="samples/**" />
     <EmbeddedResource Remove="samples/**" />
     <None Remove="samples/**" />

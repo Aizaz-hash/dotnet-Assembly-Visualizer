@@ -26,12 +26,23 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
 
     public object Analyze(IFormFile file)
     {
+        using var upload = file.OpenReadStream();
+        return Analyze(upload);
+    }
+
+    public object Analyze(Stream upload)
+    {
+        var timer = new PipelineTimer();
         var inheritanceNodes = new List<object>();
         var inheritanceEdges = new List<object>();
         var classList = new List<string>();
 
         var methodNodes = new List<object>();
+        // parent class -> ids of its method nodes in registration order (replaces a linear scan over every node)
+        var methodIdsByClass = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         var methodEdges = new List<object>();
+        var callPairs = new List<(string From, string To)>();
+        var resolvedCallTargets = new Dictionary<int, (string Id, string ParentClass, bool IsInternal)>();
 
         var registeredMethodIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var tokenToUniqueMethodIdMap = new Dictionary<EntityHandle, string>();
@@ -39,14 +50,18 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
         // Keep track of methods that actually have executable bodies to scan in pass 2
         var methodsToScan = new List<(string CallerMethodId, string CallerClass, int Rva)>();
 
-        using var stream = file.OpenReadStream();
-        using var peReader = new PEReader(stream);
+        using var peReader = new PEReader(upload);
 
         if (!peReader.HasMetadata)
             throw new InvalidDataException("The uploaded file does not contain valid .NET assembly metadata.");
 
+        timer.Mark("load PE image");
+
         MetadataReader mdReader = peReader.GetMetadataReader();
+        timer.Mark("read metadata tables");
+
         var lambdaBindingNames = GetLambdaBindingNames(peReader, mdReader);
+        timer.Mark("lambda name scan (IL)");
 
         // FIRST PASS: Map structures, classes, methods and metadata tokens.
         foreach (TypeDefinitionHandle typeHandle in mdReader.TypeDefinitions)
@@ -162,6 +177,10 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
 
                         if (isNewMethodNode)
                         {
+                            if (!methodIdsByClass.TryGetValue(fullName, out var idsOfClass))
+                                methodIdsByClass[fullName] = idsOfClass = new List<string>();
+                            idsOfClass.Add(methodUniqueId);
+
                             methodNodes.Add(new
                             {
                                 id = methodUniqueId,
@@ -191,6 +210,8 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
                 // Ignore malformed type metadata.
             }
         }
+
+        timer.Mark("type + method discovery");
 
         // PREPARE LOOKUPS
         var classSet = new HashSet<string>(classList, StringComparer.OrdinalIgnoreCase);
@@ -223,9 +244,14 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
 
                     EntityHandle calledEntityHandle = MetadataTokens.EntityHandle(metadataToken);
 
-                    string calleeMethodId = string.Empty;
-                    string calleeParentClass = string.Empty;
-                    bool isInternalTarget = false;
+                    // The same callee is referenced from many call sites; resolve each metadata token only once.
+                    bool alreadyResolved = resolvedCallTargets.TryGetValue(metadataToken, out var resolved);
+                    string calleeMethodId = alreadyResolved ? resolved.Id : string.Empty;
+                    string calleeParentClass = alreadyResolved ? resolved.ParentClass : string.Empty;
+                    bool isInternalTarget = alreadyResolved && resolved.IsInternal;
+
+                    if (!alreadyResolved)
+                    {
 
                     // Direct MethodDefinition
                     if (calledEntityHandle.Kind == HandleKind.MethodDefinition)
@@ -264,7 +290,7 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
 
                                 // If we can find the exact method in the
                                 // analyzed assembly, use its canonical ID.
-                                string? canonicalMethodId = FindCanonicalMethodId(methodNodes, calleeParentClass, targetSignature);
+                                string? canonicalMethodId = FindCanonicalMethodId(methodIdsByClass, calleeParentClass, targetSignature);
 
                                 if (!string.IsNullOrEmpty(canonicalMethodId))
                                     calleeMethodId = canonicalMethodId;
@@ -315,7 +341,7 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
 
                                     isInternalTarget = classSet.Contains(calleeParentClass);
 
-                                    string? canonicalMethodId = FindCanonicalMethodId(methodNodes, calleeParentClass, targetSignature);
+                                    string? canonicalMethodId = FindCanonicalMethodId(methodIdsByClass, calleeParentClass, targetSignature);
 
                                     if (!string.IsNullOrEmpty(canonicalMethodId))
                                     {
@@ -326,6 +352,9 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
                         }
                     }
 
+                    resolvedCallTargets[metadataToken] = (calleeMethodId, calleeParentClass, isInternalTarget);
+                    }
+
                     // Register valid internal call
                     if (!string.IsNullOrEmpty(calleeMethodId) && !calleeMethodId.Equals(item.CallerMethodId, StringComparison.OrdinalIgnoreCase) && isInternalTarget)
                     {
@@ -333,6 +362,7 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
 
                         if (edgeKeySet.Add(edgeKey))
                         {
+                            callPairs.Add((item.CallerMethodId, calleeMethodId));
                             methodEdges.Add(new
                             {
                                 from = item.CallerMethodId,
@@ -351,25 +381,26 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
             }
         }
 
+        timer.Mark("call analysis (IL scan)");
+
         // BUILD METHOD ADJACENCY LIST
         var methodAdjacencyList = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (dynamic edge in methodEdges)
+        foreach (var (fromNode, toNode) in callPairs)
         {
-            if (edge.relation == "Calls")
-            {
-                string fromNode = edge.from;
-                string toNode = edge.to;
+            if (!methodAdjacencyList.TryGetValue(fromNode, out var callees))
+                methodAdjacencyList[fromNode] = callees = new List<string>();
 
-                if (!methodAdjacencyList.ContainsKey(fromNode))
-                    methodAdjacencyList[fromNode] = new List<string>();
-
-                methodAdjacencyList[fromNode].Add(toNode);
-            }
+            callees.Add(toNode);
         }
 
         // DETECT CIRCULAR DEPENDENCIES
+        timer.Mark("graph construction");
         List<List<string>> detectedDeadlocks = _detector.DetectCycles(methodAdjacencyList);
+        timer.Mark("cycle detection");
+
+        var references = AssemblyReferenceReader.Read(mdReader);
+        timer.Mark("assembly references");
 
         // RETURN ANALYSIS RESULT
         return new
@@ -391,7 +422,11 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
             deadlocks = detectedDeadlocks,
 
             // Assembly references (name + assembly version); shown by the vulnerability view as an inventory.
-            references = AssemblyReferenceReader.Read(mdReader)
+            references,
+            assemblyName = AssemblyReferenceReader.ReadAssemblyName(mdReader),
+            targetFramework = AssemblyReferenceReader.ReadTargetFramework(mdReader),
+
+            timings = timer.ToResult()
         };
     }
 
@@ -480,29 +515,7 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
         return $"{methodName}_{duplicateIndex}{parameters}";
     }
 
-    private static string? FindCanonicalMethodId(List<object> methodNodes, string parentClass, string methodSignature)
-    {
-        foreach (object node in methodNodes)
-        {
-            Type nodeType = node.GetType();
-
-            var parentClassProperty = nodeType.GetProperty("parentClass");
-
-            var idProperty = nodeType.GetProperty("id");
-
-            if (parentClassProperty == null || idProperty == null)
-                continue;
-
-            string? nodeParentClass = parentClassProperty.GetValue(node)?.ToString();
-
-            string? nodeId = idProperty.GetValue(node)?.ToString();
-
-            if (string.Equals(nodeParentClass, parentClass, StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(nodeId) && nodeId.EndsWith("." + methodSignature, StringComparison.OrdinalIgnoreCase))
-                return nodeId;
-        }
-
-        return null;
-    }
+private static string? FindCanonicalMethodId(Dictionary<string, List<string>> methodIdsByClass, string parentClass, string methodSignature)    {        if (!methodIdsByClass.TryGetValue(parentClass, out var ids))            return null;        string suffix = "." + methodSignature;        foreach (string id in ids)        {            if (id.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))                return id;        }        return null;    }
 
     // METADATA HELPERS
     private static string GetStringFromEntityHandle(MetadataReader reader, EntityHandle handle)
