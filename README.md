@@ -117,21 +117,55 @@ Then open **http://localhost:8080**. (To run the `v2` line, `git checkout v2` fi
 
 ## Using the UI
 
+The views are arranged as a workflow: **what is in the assembly → how its parts relate → what is risky about it.** Start at the left of the tab bar and move right; a newly opened assembly starts at **Metrics**.
+
+**Selecting things (ILSpy-style).** Pick a **class** in the explorer and the **Inheritance** view opens; expand the class to see its methods; pick a **method** and **Method Calls** opens. The class and method you chose stay visible in the **Selected** bar under the tabs in every view, each part is a link back to its view, and a method that is part of a circular call chain carries a red **⚠ circular dependency** link to that cycle (also shown as a note in Method Calls and a ⚠ in the explorer). Back / Forward (Alt+Left / Alt+Right) retrace your steps.
+
 | Area | What it does |
 |---|---|
-| **Toolbar** | *Open* an assembly, package or zip, *Folder*, Back / Forward (Alt+Left / Alt+Right). |
+| **Toolbar** | *Open* an assembly, package or zip, *Folder*, Back / Forward. |
 | **Explorer** | Lists the loaded assemblies (right-click: Reload, Remove); browse namespaces, types and methods; search for types and methods; methods in a circular chain carry a red ⚠. |
-| **Inheritance** | Graph (or tree) of base types, interfaces and derived types for the selected type, or for the whole assembly; adjustable depth. |
-| **Method Calls** | Callers and callees of the selected method; adjustable depth; merged nodes and edges. |
-| **C# Source** | The decompiled C# of the selected type or method (ICSharpCode.Decompiler, the engine behind ILSpy), with syntax highlighting; also reachable with the **C#** button in Method Calls. |
-| **Compare** | Choose two versions of an assembly: lists the public API changes and marks the ones that can break callers (removed or changed members, narrower visibility, sealed types, added abstract members...), with a suggested version bump and Markdown / JSON export. |
-| **Architecture** | Dependencies between namespaces (from calls and inheritance), cycles between namespaces and between types with a concrete path for each, clickable. |
-| **Metrics** | Cyclomatic complexity, IL size, callers and callees per method: complexity hotspots, most called, most dependent, largest types, and private/internal methods nothing references (leads, not proof). |
-| **Risky APIs** | Calls to APIs that deserve a security review: unsafe deserializers (BinaryFormatter...), Process.Start, Assembly.Load, weak crypto (MD5, SHA-1, DES...), DllImport and disabled TLS checks - with why, what to check and links to the calling methods. |
-| **Vulnerabilities Scan** | Scan the loaded assembly's dependencies (levels 1-4, no manifest needed) against OSV.dev; summary by severity, filters, details, remediation, status tracking, PDF and JSON export. |
-| **Circular Dependencies** | Every distinct circular call chain, grouped by class; filter to a single method; click to jump to its call graph. |
 
-Graph generation is optimised for unobfuscated assemblies or basic (first-level) obfuscation. Deeply packed or control-flow-flattened binaries are not supported.
+### 1 · Assembly overview
+
+| View | What it shows |
+|---|---|
+| **Metrics** | Size and shape of the assembly: method count, cyclomatic complexity (hotspots, histogram), IL size, most-called and most-dependent methods, largest types, and private/internal methods that nothing in the assembly references. *The unreferenced list is a lead, not proof* (reflection or another assembly can call them). |
+| **Architecture** | How namespaces depend on each other (built from calls and inheritance), and where namespaces or types depend on each other in a circle - each with a concrete path, clickable. Field and parameter types are not part of the analysis. |
+
+### 2 · Structure & relationships
+
+| View | What it shows |
+|---|---|
+| **Inheritance** | Graph (or tree) of base types, interfaces and derived types of the selected class, or of the whole assembly; the depth choices come from the real hierarchy. |
+| **Method Calls** | Callers and callees of the selected method; adjustable depth; each method appears once at its shortest distance; constructors are included. |
+| **Circular Dependencies** | Every distinct circular call chain, grouped by class; click a method to jump to its call graph. Direct recursion is not reported as a cycle. |
+| **C# Source** | The decompiled C# of the selected class or method (ICSharpCode.Decompiler, the engine behind ILSpy), with syntax highlighting; also reachable with the **C#** button in Method Calls. |
+
+### 3 · Security & risk
+
+| View | What it shows |
+|---|---|
+| **API Compatibility** | Choose two versions of an assembly: the public API changes, with the ones that can break callers marked (removed or changed members, narrower visibility, sealed types, added abstract members...), a suggested version bump, and Markdown / JSON export. |
+| **Risky APIs** | Calls to APIs that deserve a security review (unsafe deserializers, Process.Start, Assembly.Load, weak crypto, DllImport, disabled TLS checks) with why each is risky, what to check, and links to the calling methods. **Heuristic leads - not vulnerabilities.** |
+| **Vulnerabilities** | Known advisories for the packages the assembly depends on (levels 1-4, no manifest needed), checked against OSV.dev; summary by severity, filters, remediation, status tracking, PDF / JSON / SBOM / SARIF export. |
+
+### How much to trust each result
+
+| Kind | Where | Meaning |
+|---|---|---|
+| **Structure** | Metrics, Architecture, Inheritance, Method Calls, Circular Dependencies | Facts read from the assembly's metadata and IL, within the limits below. A cycle is a design smell, not a vulnerability. |
+| **Heuristic** | Risky APIs, unreferenced methods | A pattern that deserves a look. The tool never calls these vulnerabilities. |
+| **Confirmed** | Vulnerabilities | The exact package version is known and lies inside an advisory's affected range. |
+| **Potential** | Vulnerabilities | The version was estimated (no manifest) or could not be verified against the advisory's ranges. |
+| **Informational** | Vulnerabilities | A package the .NET runtime supplies: whether the vulnerable code runs depends on the runtime's patch level, which a scan cannot see. Shown for awareness; never counted by the command line's `--fail-on`. |
+
+### Limitations
+
+* **Obfuscation.** Structure and call-graph analysis is most accurate for unobfuscated assemblies. What was verified (see [`samples/obfuscation`](samples/obfuscation)): renamed members are listed under their obfuscated names, inheritance and calls survive renaming, and calls inside control-flow-flattened methods are still found (their order is lost and their complexity is very high). What cannot be resolved: packed or encrypted method bodies that are decrypted at run time, deliberately malformed metadata, and code generated at run time. When part of a file cannot be read the load says so, and the results are incomplete.
+* **Calls that are not visible in the IL.** A call made through reflection (a method name in a string) is not an edge. A call through an interface or a delegate points at the interface / delegate, not at every implementation, so cycles that run through interface dispatch are not found.
+* **Dependencies.** A scan without a manifest estimates package versions from assembly references and marks the findings *potential*; add a `.deps.json`, `project.assets.json` or `packages.lock.json` for exact versions.
+* **Reference assemblies** (API only) contain no code; the load says so.
 
 ---
 

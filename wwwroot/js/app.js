@@ -35,7 +35,7 @@ let cyclesOfMethod = new Map();    // methodId -> [cycle index]
 let cyclicEdges = new Set();       // "from\u0001to"
 
 // Navigation state
-let state = { view: 'inheritance', type: null, method: null, cycleMethod: null, cycleIdx: 0, inhMode: 'selected', inhFormat: 'graph' };
+let state = { view: 'metrics', type: null, method: null, cycleMethod: null, cycleIdx: 0, inhMode: 'selected', inhFormat: 'graph' };
 let history = [];
 let historyIdx = -1;
 
@@ -442,6 +442,7 @@ function applyState() {
 
     revealInExplorer(state.method ? 'm:' + state.method : (state.type ? 't:' + state.type : null));
     renderTitle();
+    renderContextBar();
 
     if (state.view === 'inheritance') renderInheritance();
     else if (state.view === 'calls') renderCalls();
@@ -464,6 +465,49 @@ function cycleLink(methodId) {
     return a;
 }
 
+// The selection stays visible in every view and each part is a link: the class opens Inheritance, the method opens Method Calls,
+// the warning opens the circular chain the method belongs to.
+function renderContextBar() {
+    const bar = byId('contextBar');
+    bar.innerHTML = '';
+    if (!hasAssembly) { bar.style.display = 'none'; return; }
+    bar.style.display = 'flex';
+
+    const method = state.method ? methodById.get(state.method) : null;
+    const typeId = state.type || (method ? method.parentClass : null);
+    bar.appendChild(el('span', 'cb-label', 'Selected'));
+    if (!typeId && !method) {
+        bar.appendChild(el('span', 'cb-hint', 'nothing yet - pick a class in the explorer to see its inheritance, or a method to see its calls'));
+        return;
+    }
+
+    const t = typeNodes.get(typeId);
+    const typeLink = el('a', 'cb-link', t ? t.name : shortName(typeId));
+    typeLink.title = typeId + ' - show its inheritance';
+    typeLink.onclick = () => { if (t) navigate({ view: 'inheritance', type: typeId, method: null }); };
+    bar.appendChild(typeLink);
+    const ns = nsOf.get(typeId);
+    if (ns) bar.appendChild(el('span', 'cb-hint', 'in ' + ns));
+
+    if (method) {
+        bar.appendChild(el('span', 'cb-sep', '›'));
+        const mLink = el('a', 'cb-link', method.name);
+        mLink.title = method.id + ' - show its callers and callees';
+        mLink.onclick = () => navigate({ view: 'calls', type: method.parentClass, method: method.id });
+        bar.appendChild(mLink);
+        const info = AnalysisModel.cycleInfo({ cyclesOfMethod }, method.id);
+        if (info) {
+            const warn = el('span', 'cb-cycle', '⚠ circular dependency' + (info.count > 1 ? ' (' + info.count + ')' : ''));
+            warn.title = 'This method is part of a circular call chain - click to see it';
+            warn.onclick = () => navigate({ view: 'cycles', cycleMethod: method.id, cycleIdx: 0 });
+            bar.appendChild(warn);
+        }
+    }
+    const clear = el('span', 'cb-clear', 'clear selection');
+    clear.onclick = () => navigate({ type: null, method: null });
+    bar.appendChild(clear);
+}
+
 function renderTitle() {
     const t = byId('viewTitle');
     t.innerHTML = '';
@@ -473,8 +517,8 @@ function renderTitle() {
         return;
     }
     if (state.view === 'compare') {
-        t.appendChild(el('span', 'vt-name', 'Compare versions'));
-        t.appendChild(el('span', 'vt-sub', 'What changed in the public API between two versions of an assembly, and what can break callers'));
+        t.appendChild(el('span', 'vt-name', 'API Compatibility'));
+        t.appendChild(el('span', 'vt-sub', 'Compare two versions of an assembly: what changed in the public API and what can break callers'));
         return;
     }
     if (state.view === 'architecture') {
@@ -493,7 +537,7 @@ function renderTitle() {
         return;
     }
     if (state.view === 'vulns') {
-        t.appendChild(el('span', 'vt-name', 'Vulnerabilities Scan'));
+        t.appendChild(el('span', 'vt-name', 'Vulnerabilities'));
         t.appendChild(el('span', 'vt-sub', 'Known vulnerabilities (CVE) in the dependencies of the loaded assembly - Critical and High first'));
         return;
     }
@@ -1162,7 +1206,8 @@ function clearAssembly() {
     currentAssemblyName = '';
     rawAssemblyData = { classes: [], inheritance: { nodes: [], edges: [] }, methodGraph: { nodes: [], edges: [] }, deadlocks: [] };
     buildIndexes();
-    state = { view: 'inheritance', type: null, method: null, cycleMethod: null, cycleIdx: 0, inhMode: state.inhMode, inhFormat: state.inhFormat };
+    // a newly opened assembly starts at the overview; picking a class or method then opens Inheritance / Method Calls
+    state = { view: 'metrics', type: null, method: null, cycleMethod: null, cycleIdx: 0, inhMode: state.inhMode, inhFormat: state.inhFormat };
     history = [{ ...state }];
     historyIdx = 0;
     byId('currentDllName').textContent = 'No assembly loaded';
@@ -1224,7 +1269,8 @@ function activateAssembly(name) {
     const badge = byId('cycleCount');
     setTabBadge(badge, cycles.length, cycles.length + ' circular call chain' + (cycles.length === 1 ? '' : 's'));
 
-    state = { view: 'inheritance', type: null, method: null, cycleMethod: null, cycleIdx: 0, inhMode: state.inhMode, inhFormat: state.inhFormat };
+    // a newly opened assembly starts at the overview; picking a class or method then opens Inheritance / Method Calls
+    state = { view: 'metrics', type: null, method: null, cycleMethod: null, cycleIdx: 0, inhMode: state.inhMode, inhFormat: state.inhFormat };
     history = [{ ...state }];
     historyIdx = 0;
     buildExplorer();
@@ -1569,5 +1615,20 @@ fetch('/api/analysis/limits').then(r => r.ok ? r.json() : null).then(info => {
     byId('uploadHint').textContent = `.dll / .exe, max ${maxUploadMb} MB`;
 }).catch(() => { /* hint is optional */ });
 
-buildExplorer();
-applyState();
+// The first render needs every view's script (metrics.js, risky.js ... load after this file), so it waits until all of them have run.
+// Rendering earlier threw "renderMetrics is not defined", which also stopped the rest of this file from running.
+function startUp() {
+    buildExplorer();
+    applyState();
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startUp); else startUp();
+
+// The obfuscation notice stays until it is dismissed; the choice is remembered in this browser (and works without storage).
+(function () {
+    const notice = byId('obfuscationNotice');
+    try { if (localStorage.getItem('av.hideObfuscationNotice') === '1') notice.hidden = true; } catch { /* storage unavailable: keep it visible */ }
+    byId('btnHideObfuscation').onclick = () => {
+        notice.hidden = true;
+        try { localStorage.setItem('av.hideObfuscationNotice', '1'); } catch { /* not remembered */ }
+    };
+})();

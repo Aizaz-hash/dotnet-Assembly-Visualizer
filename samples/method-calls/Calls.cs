@@ -15,6 +15,10 @@ namespace Samples.MethodCalls
     //   Service..ctor -> Service.Initialise                                             a constructor is a node when it calls something
     //   Mapper.Map<T> is a generic method                                               one node, edges from both callers
     //   Math.Factorial calls itself                                                     direct recursion is NOT a circular dependency
+    // KNOWN LIMITATION (documented, not hidden): a call through an interface or a delegate points at the interface / delegate, not at
+    // every implementation, and the analysis only keeps edges to methods of this assembly's classes:
+    //   Dispatcher.Go(IWorker) calls worker.Work()          NO edge (not to IWorker.Work and not to Worker.Work)
+    //   Dispatcher.ViaDelegate(Action) calls action()       NO edge
     // Result type: informational structure (nothing here is a finding).
     // ---------------------------------------------------------------------------------------------------------------------
 
@@ -75,6 +79,16 @@ namespace Samples.MethodCalls
     public static class Maths
     {
         public static int Factorial(int n) => n <= 1 ? 1 : n * Factorial(n - 1);          // direct recursion
+    }
+
+    public interface IWorker { void Work(); }
+
+    public class Worker : IWorker { public void Work() { Helper.Log("work"); } }
+
+    public class Dispatcher
+    {
+        public void Go(IWorker worker) { worker.Work(); }
+        public void ViaDelegate(Action action) { action(); }
     }
 
     public class Queries

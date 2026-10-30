@@ -624,3 +624,26 @@ body { font-size: 14px; }
 .cs-kw { color: #569cd6; } .cs-lit { color: #569cd6; } .cs-string { color: #ce9178; } .cs-comment { color: #6a9955; } .cs-number { color: #b5cea8; } .cs-pre { color: #9b9b9b; }
 
 .t-nonascii { border-bottom: 1px dotted #868e96; }
+
+/* grouped navigation: Assembly overview | Structure & relationships | Security & risk */
+.tab-strip { align-items: flex-end; gap: 0; flex-wrap: wrap; padding: 4px 4px 0 4px; }      /* wraps on a narrow window, so no tab is ever hidden off-screen */
+.tab-group { display: flex; flex-direction: column; padding: 0 10px 0 8px; border-left: 1px solid #495057; flex: 0 0 auto; }
+.tab-group:first-child { border-left: none; padding-left: 4px; }
+.tab-group-label { font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: #868e96; padding: 1px 6px 3px; white-space: nowrap; cursor: default; }
+.tab-row { display: flex; gap: 2px; }
+.tab { white-space: nowrap; }
+.tab:focus-visible { outline: 2px solid #74c0fc; outline-offset: -2px; }
+
+.context-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 4px 14px; background: #eef1f4; border-bottom: 1px solid #dee2e6; font-size: 12.5px; min-height: 26px; color: #495057; }
+.context-bar .cb-label { color: #868e96; text-transform: uppercase; font-size: 10.5px; letter-spacing: .05em; }
+.context-bar .cb-link { color: #0b5ed7; cursor: pointer; text-decoration: none; font-family: Consolas, monospace; }
+.context-bar .cb-link:hover { text-decoration: underline; }
+.context-bar .cb-sep { color: #adb5bd; }
+.context-bar .cb-cycle { background: #ffe3e3; color: #a61e1e; border-radius: 10px; padding: 0 8px; cursor: pointer; }
+.context-bar .cb-hint { color: #868e96; }
+.context-bar .cb-clear { margin-left: auto; color: #868e96; cursor: pointer; }
+.context-bar .cb-clear:hover { color: #212529; }
+
+#obfuscationNotice { display: flex; align-items: center; gap: 6px; }
+#obfuscationNotice[hidden] { display: none; }
+#obfuscationNotice .notice-close { margin-left: auto; background: none; border: none; color: inherit; cursor: pointer; font-size: 13px; padding: 0 4px; }

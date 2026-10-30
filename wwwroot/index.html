@@ -35,7 +35,8 @@
 
     <div id="obfuscationNotice">
         <span>⚠</span>
-        Structure and call graph generation is only optimised for unobfuscated assemblies or basic (first-level) obfuscation. Deeply packed or control-flow flattened binaries are not supported.
+        <b>Obfuscation limitation:</b> structure and call-graph analysis is most accurate for unobfuscated assemblies. Renamed members are shown under their obfuscated names, and packed or encrypted method bodies, calls made through reflection and code generated at run time cannot be resolved, so results for such binaries may be incomplete.
+        <button id="btnHideObfuscation" class="notice-close" title="Hide this notice">✕</button>
     </div>
 
     <div id="msgWindow">
@@ -57,17 +58,36 @@
 
         <!-- Main pane -->
         <main id="mainPane">
-            <div class="tab-strip" id="tabStrip">
-                <button class="tab" id="tabInheritance" data-view="inheritance">Inheritance</button>
-                <button class="tab" id="tabCalls" data-view="calls">Method Calls</button>
-                <button class="tab" id="tabCycles" data-view="cycles">Circular Dependencies <span id="cycleCount" class="tab-badge">-</span></button>
-                <button class="tab" id="tabSource" data-view="source">C# Source</button>
-                <button class="tab" id="tabCompare" data-view="compare">Compare</button>
-                <button class="tab" id="tabArchitecture" data-view="architecture">Architecture</button>
-                <button class="tab" id="tabMetrics" data-view="metrics">Metrics</button>
-                <button class="tab" id="tabRisky" data-view="risky">Risky APIs <span id="riskyBadge" class="tab-badge">-</span></button>
-                <button class="tab" id="tabVulns" data-view="vulns">Vulnerabilities Scan <span id="vulnBadge" class="tab-badge">-</span></button>
+            <!-- The views follow one workflow: what is in the assembly -> how its parts relate -> what is risky about it. -->
+            <div class="tab-strip" id="tabStrip" role="tablist">
+                <div class="tab-group" id="groupOverview">
+                    <div class="tab-group-label" title="Start here: the size of the assembly and how its namespaces depend on each other">Assembly overview</div>
+                    <div class="tab-row">
+                        <button class="tab" id="tabMetrics" data-view="metrics" title="Size, complexity, most-called and unreferenced methods">Metrics</button>
+                        <button class="tab" id="tabArchitecture" data-view="architecture" title="Namespace dependencies and cycles between namespaces and types">Architecture</button>
+                    </div>
+                </div>
+                <div class="tab-group" id="groupStructure">
+                    <div class="tab-group-label" title="Pick a class to see what it derives from; pick a method to see who calls it and what it calls">Structure &amp; relationships</div>
+                    <div class="tab-row">
+                        <button class="tab" id="tabInheritance" data-view="inheritance" title="Base classes, derived classes and interfaces of the selected class">Inheritance</button>
+                        <button class="tab" id="tabCalls" data-view="calls" title="Callers and callees of the selected method">Method Calls</button>
+                        <button class="tab" id="tabCycles" data-view="cycles" title="Groups of methods that call each other in a circle">Circular Dependencies <span id="cycleCount" class="tab-badge">-</span></button>
+                        <button class="tab" id="tabSource" data-view="source" title="Decompiled C# of the selected class or method">C# Source</button>
+                    </div>
+                </div>
+                <div class="tab-group" id="groupSecurity">
+                    <div class="tab-group-label" title="Heuristic leads (Risky APIs) are kept apart from advisories for known vulnerable packages (Vulnerabilities)">Security &amp; risk</div>
+                    <div class="tab-row">
+                        <button class="tab" id="tabCompare" data-view="compare" title="Compare two versions of an assembly: what changed in the public API and what can break callers">API Compatibility</button>
+                        <button class="tab" id="tabRisky" data-view="risky" title="Calls to APIs that deserve a security review - leads, not vulnerabilities">Risky APIs <span id="riskyBadge" class="tab-badge">-</span></button>
+                        <button class="tab" id="tabVulns" data-view="vulns" title="Known vulnerabilities in the packages the assembly depends on">Vulnerabilities <span id="vulnBadge" class="tab-badge">-</span></button>
+                    </div>
+                </div>
             </div>
+
+            <!-- what is selected in the explorer stays visible (and clickable) in every view -->
+            <div id="contextBar" class="context-bar" aria-live="polite"></div>
 
             <div id="viewTitle" class="view-title"></div>
 

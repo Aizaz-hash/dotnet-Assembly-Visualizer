@@ -44,7 +44,7 @@ function renderMetrics() {
     root.appendChild(el('p', 'risky-intro', 'Measured from the code of ' + currentAssemblyName + ' (nothing runs). Complexity is cyclomatic complexity: one path plus every branch, switch case and catch clause - above 10 is hard to test, above 20 is a candidate to split.'));
 
     const counts = el('div', 'risky-counts');
-    [['Methods', m.methods.toLocaleString()], ['Average complexity', m.averageComplexity], ['Highest complexity', m.maxComplexity],
+    [['Methods with code', m.methods.toLocaleString()], ['Average complexity', m.averageComplexity], ['Highest complexity', m.maxComplexity],
      ['IL size', m.totalIlBytes < 10240 ? (m.totalIlBytes / 1024).toFixed(1) + ' KB' : Math.round(m.totalIlBytes / 1024).toLocaleString() + ' KB'], ['Unreferenced', dead.length + (dead.length >= 1000 ? '+' : '')]]
         .forEach(([label, value]) => {
             const c = el('div', 'risky-count'); c.appendChild(el('div', 'rcn-num', String(value))); c.appendChild(el('div', 'rcn-label', label)); counts.appendChild(c);
