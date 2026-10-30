@@ -491,7 +491,7 @@ function updateNavButtons() {
 }
 
 function applyState() {
-    ['inheritance', 'calls', 'cycles', 'risky', 'vulns'].forEach(v => {
+    ['inheritance', 'calls', 'cycles', 'metrics', 'risky', 'vulns'].forEach(v => {
         byId('view' + v.charAt(0).toUpperCase() + v.slice(1)).classList.toggle('active', state.view === v);
         byId('tab' + v.charAt(0).toUpperCase() + v.slice(1)).classList.toggle('active', state.view === v);
     });
@@ -507,6 +507,7 @@ function applyState() {
     else if (state.view === 'calls') renderCalls();
     else if (state.view === 'vulns') renderVulns();
     else if (state.view === 'risky') renderRisky();
+    else if (state.view === 'metrics') renderMetrics();
     else renderCycles();
     updateNavButtons();
 }
@@ -523,6 +524,11 @@ function cycleLink(methodId) {
 function renderTitle() {
     const t = byId('viewTitle');
     t.innerHTML = '';
+    if (state.view === 'metrics') {
+        t.appendChild(el('span', 'vt-name', 'Code Metrics'));
+        t.appendChild(el('span', 'vt-sub', 'Complexity, size, callers and unreferenced methods of the loaded assembly'));
+        return;
+    }
     if (state.view === 'risky') {
         t.appendChild(el('span', 'vt-name', 'Risky APIs'));
         t.appendChild(el('span', 'vt-sub', 'Calls to APIs that deserve a security review (deserialization, processes, code loading, weak crypto, native code, TLS checks)'));

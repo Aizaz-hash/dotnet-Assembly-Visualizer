@@ -582,3 +582,9 @@ body { font-size: 14px; }
 .rc-why, .rc-advice { font-size: 13px; line-height: 1.45; color: #495057; margin-bottom: 4px; }
 .rc-callers { font-size: 12.5px; margin-top: 6px; } .rc-callers-label { color: #6c757d; }
 .rc-caller { margin-right: 10px; display: inline-block; }
+
+/* Metrics tab */
+#viewMetrics .scroll-body { padding: 14px 18px; }
+.cx-cell { font-weight: 600; } .cx-low { color: #1e7e34; } .cx-mid { color: #b8860b; } .cx-high { color: #b02a37; }
+.cx-hist { margin: 4px 0 6px; } .cx-hist-row { display: flex; align-items: center; gap: 10px; font-size: 12.5px; margin: 2px 0; }
+.cx-hist-label { width: 120px; color: #6c757d; } .cx-hist-bar { height: 12px; border-radius: 2px; display: inline-block; background: currentColor; } .cx-hist-count { color: #495057; }

@@ -123,6 +123,7 @@ Then open **http://localhost:8080**. (To run the `v2` line, `git checkout v2` fi
 | **Explorer** | Lists the loaded assemblies (right-click: Reload, Remove); browse namespaces, types and methods; search for types and methods; methods in a circular chain carry a red ⚠. |
 | **Inheritance** | Graph (or tree) of base types, interfaces and derived types for the selected type, or for the whole assembly; adjustable depth. |
 | **Method Calls** | Callers and callees of the selected method; adjustable depth; merged nodes and edges. |
+| **Metrics** | Cyclomatic complexity, IL size, callers and callees per method: complexity hotspots, most called, most dependent, largest types, and private/internal methods nothing references (leads, not proof). |
 | **Risky APIs** | Calls to APIs that deserve a security review: unsafe deserializers (BinaryFormatter...), Process.Start, Assembly.Load, weak crypto (MD5, SHA-1, DES...), DllImport and disabled TLS checks - with why, what to check and links to the calling methods. |
 | **Vulnerabilities Scan** | Scan the loaded assembly's dependencies (levels 1-4, no manifest needed) against OSV.dev; summary by severity, filters, details, remediation, status tracking, PDF and JSON export. |
 | **Circular Dependencies** | Every distinct circular call chain, grouped by class; filter to a single method; click to jump to its call graph. |
