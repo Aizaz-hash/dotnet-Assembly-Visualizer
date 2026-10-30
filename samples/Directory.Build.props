@@ -1,0 +1,20 @@
+<Project>
+
+  <!--
+    Shared settings for every sample assembly. The samples are small class libraries that exist to be OPENED IN THE VISUALIZER
+    (and to be analysed by the integration tests). They are not part of the application or its Docker image.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <Deterministic>true</Deterministic>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NuGetAudit>false</NuGetAudit>
+    <!-- the samples use obsolete / unsafe APIs on purpose, and have deliberately unused members -->
+    <NoWarn>$(NoWarn);SYSLIB0011;SYSLIB0021;SYSLIB0022;SYSLIB0045;SYSLIB0014;CS0169;CS0414;CS0618;CS0649;CS8981;IDE0051;IDE0060;CA1416;CA5350;CA5351;CA5359;CA5364</NoWarn>
+  </PropertyGroup>
+
+</Project>

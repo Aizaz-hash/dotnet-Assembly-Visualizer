@@ -128,7 +128,8 @@ namespace DotNetVisualizer.Web.Services.Cli
             if (!quiet) Print(report, file, manifestUsed, output);
 
             int threshold = failOn == "none" ? -1 : Array.IndexOf(SeverityOrder, char.ToUpperInvariant(failOn[0]) + failOn.Substring(1));
-            int blocking = threshold < 0 ? 0 : report.Findings.Count(f => Array.IndexOf(SeverityOrder, f.Severity) <= threshold);
+            // informational findings (runtime-supplied packages) are shown but never fail the build: their exposure depends on the runtime's patch level
+            int blocking = threshold < 0 ? 0 : report.Findings.Count(f => f.Confidence != "informational" && Array.IndexOf(SeverityOrder, f.Severity) <= threshold);
 
             if (blocking > 0)
             {
@@ -151,7 +152,7 @@ namespace DotNetVisualizer.Web.Services.Cli
             o.WriteLine($"Findings: {r.Summary.Critical} critical, {r.Summary.High} high, {r.Summary.Medium} medium, {r.Summary.Low} low, {r.Summary.Unknown} unknown.");
             foreach (var f in r.Findings.Where(f => f.Severity is "Critical" or "High" or "Medium"))
                 o.WriteLine($"  [{f.Severity,-8}] {f.Id}  {f.Component} {f.InstalledVersion}" + (f.Level != null ? $"  (level {f.Level})" : "") +
-                            (f.RecommendedVersion != null ? $"  -> upgrade to {f.RecommendedVersion}" : "") + (f.Confidence == "potential" ? "  [potential]" : ""));
+                            (f.RecommendedVersion != null ? $"  -> upgrade to {f.RecommendedVersion}" : "") + (f.Confidence == "potential" ? "  [potential]" : f.Confidence == "informational" ? "  [informational - not counted]" : ""));
             foreach (var n in r.Notes) o.WriteLine("  note: " + n);
         }
 

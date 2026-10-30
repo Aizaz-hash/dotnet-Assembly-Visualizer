@@ -8,7 +8,7 @@ using System.Text.Json;
 using DotNetVisualizer.Web.Services;
 using Xunit;
 
-namespace DotNetVisualizer.Web.Tests
+namespace DotNetVisualizer.Web.Tests.Unit
 {
     // Analysed, never executed.
     public class RiskyUser
@@ -40,7 +40,7 @@ namespace DotNetVisualizer.Web.Tests
         private static IEnumerable<JsonElement> Hits(string ruleId) => Risks.EnumerateArray().Where(r => r.GetProperty("ruleId").GetString() == ruleId);
 
         private static bool CalledFrom(string ruleId, string method) =>
-            Hits(ruleId).Any(h => h.GetProperty("callers").EnumerateArray().Any(c => c.GetString()!.StartsWith("DotNetVisualizer.Web.Tests.RiskyUser." + method + "(")));
+            Hits(ruleId).Any(h => h.GetProperty("callers").EnumerateArray().Any(c => c.GetString()!.StartsWith("DotNetVisualizer.Web.Tests.Unit.RiskyUser." + method + "(")));
 
         [Theory]
         [InlineData("deserialize-binaryformatter", "UsesBinaryFormatter", "High")]

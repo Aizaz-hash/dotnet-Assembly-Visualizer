@@ -760,7 +760,13 @@ private static string? FindCanonicalMethodId(Dictionary<string, List<string>> me
             }
 
             if (handle.Kind == HandleKind.TypeSpecification)
-                return "GenericTypeSpecification";
+            {
+                // A generic instantiation (Repository<User>, IComparable<Square>): name the generic type itself, so the edge
+                // points at a real type instead of a placeholder. The type arguments are not part of the identity.
+                string decoded = reader.GetTypeSpecification((TypeSpecificationHandle)handle).DecodeSignature(new MethodSignatureTypeProvider(reader), null!);
+                int open = decoded.IndexOf('<');
+                return open > 0 ? decoded.Substring(0, open) : decoded;
+            }
         }
         catch
         {

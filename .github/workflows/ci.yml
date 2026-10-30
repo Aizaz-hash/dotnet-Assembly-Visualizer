@@ -22,8 +22,9 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-      # unit tests (CVSS, version ranges, scanner logic with a fake database) and API tests; no network access needed
-      - run: dotnet test tests/DotNetVisualizer.Web.Tests -c Release
+      # builds the sample assemblies (samples/) first, then runs both kinds of tests; Unit uses fakes, Integration analyses the real samples
+      - run: dotnet test tests/DotNetVisualizer.Web.Tests -c Release --filter "FullyQualifiedName~Tests.Unit"
+      - run: dotnet test tests/DotNetVisualizer.Web.Tests -c Release --filter "FullyQualifiedName~Tests.Integration"
       # pure UI logic (depth model, graph layout, double-click handling, loader stages)
       - uses: actions/setup-node@v4
         with:

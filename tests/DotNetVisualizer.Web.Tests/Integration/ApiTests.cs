@@ -10,7 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Xunit;
 
-namespace DotNetVisualizer.Web.Tests
+namespace DotNetVisualizer.Web.Tests.Integration
 {
     /// <summary>Starts the real app in memory with a fake vulnerability database (no network).</summary>
     public class ApiTests : IClassFixture<ApiTests.AppFactory>

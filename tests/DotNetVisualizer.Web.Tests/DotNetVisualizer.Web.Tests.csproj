@@ -1,5 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <!--
+    Layout:
+      Unit\         one component at a time, with fakes for the network (OSV, NuGet)        namespace ...Tests.Unit
+      Integration\  real workflows: the real analyzer on the real sample assemblies,        namespace ...Tests.Integration
+                    the real HTTP API in memory, the scanner + resolver + exporters together
+      Support\      fakes and fixtures shared by both
+    Run one kind with the dotnet test filter option: FullyQualifiedName~Tests.Unit or FullyQualifiedName~Tests.Integration
+    The sample assemblies (..\..\samples) are built by this project and copied to <output>\samples (see SamplePaths).
+  -->
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
@@ -17,6 +26,33 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\dotnet-Assembly-Visualizer.csproj" />
+
+    <!-- build the samples with the tests (their DLLs are only data for the tests, never referenced as code) -->
+    <ProjectReference Include="..\..\samples\inheritance\Inheritance.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\samples\method-calls\MethodCalls.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\samples\circular-dependencies\CircularDependencies.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\samples\risky-apis\RiskyApis.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\samples\vulnerabilities\VulnerableDemo.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\samples\obfuscation\ObfuscationLike.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\samples\metrics\MetricsDemo.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\samples\api-compat\v1\ApiCompat.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\samples\api-compat\v2\ApiCompat.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
+
+  <Target Name="CopySampleAssemblies" AfterTargets="Build">
+    <ItemGroup>
+      <Sample Include="..\..\samples\inheritance\bin\$(Configuration)\net8.0\Inheritance.dll" />
+      <Sample Include="..\..\samples\method-calls\bin\$(Configuration)\net8.0\MethodCalls.dll" />
+      <Sample Include="..\..\samples\circular-dependencies\bin\$(Configuration)\net8.0\CircularDependencies.dll" />
+      <Sample Include="..\..\samples\risky-apis\bin\$(Configuration)\net8.0\RiskyApis.dll" />
+      <Sample Include="..\..\samples\vulnerabilities\bin\$(Configuration)\net8.0\VulnerableDemo.dll" />
+      <Sample Include="..\..\samples\vulnerabilities\bin\$(Configuration)\net8.0\VulnerableDemo.deps.json" />
+      <Sample Include="..\..\samples\obfuscation\bin\$(Configuration)\net8.0\ObfuscationLike.dll" />
+      <Sample Include="..\..\samples\metrics\bin\$(Configuration)\net8.0\MetricsDemo.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(Sample)" DestinationFolder="$(OutDir)samples" />
+    <Copy SourceFiles="..\..\samples\api-compat\v1\bin\$(Configuration)\net8.0\ApiCompat.dll" DestinationFolder="$(OutDir)samples\api-compat\v1" />
+    <Copy SourceFiles="..\..\samples\api-compat\v2\bin\$(Configuration)\net8.0\ApiCompat.dll" DestinationFolder="$(OutDir)samples\api-compat\v2" />
+  </Target>
 
 </Project>
