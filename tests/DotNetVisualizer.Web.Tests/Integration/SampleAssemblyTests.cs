@@ -114,6 +114,16 @@ namespace DotNetVisualizer.Web.Tests.Integration
         }
 
         [Fact]
+        public void Known_limitation_calls_through_an_interface_or_a_delegate_are_not_edges()
+        {
+            // documented in the README and in samples/method-calls: this test pins the limit so a change in behaviour is noticed and documented
+            var r = SamplePaths.Analyze(SamplePaths.MethodCalls);
+            Assert.DoesNotContain(Calls(r), e => e.From.StartsWith("Samples.MethodCalls.Dispatcher.Go("));
+            Assert.DoesNotContain(Calls(r), e => e.From.StartsWith("Samples.MethodCalls.Dispatcher.ViaDelegate("));
+            Assert.Contains(Calls(r), e => e.From.StartsWith("Samples.MethodCalls.Worker.Work(") && e.To.StartsWith("Samples.MethodCalls.Helper.Log("));   // the implementation itself is analysed normally
+        }
+
+        [Fact]
         public void A_constructor_is_a_node_when_it_calls_something_or_is_called_and_otherwise_not()
         {
             var r = SamplePaths.Analyze(SamplePaths.MethodCalls);
