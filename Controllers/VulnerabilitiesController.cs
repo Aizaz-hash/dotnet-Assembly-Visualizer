@@ -28,6 +28,25 @@ namespace DotNetVisualizer.Web.Controllers
             sends = "package names and versions only (never your code or assemblies) - to OSV.dev and, to find a package's dependencies, to NuGet.org"
         });
 
+        /// <summary>Converts a scan report (as returned by /scan) into a CycloneDX SBOM or SARIF file. Nothing is stored.</summary>
+        [HttpPost("export/{format}")]
+        [RequestSizeLimit(20 * 1024 * 1024)]
+        public IActionResult Export(string format, [FromBody] ScanReport report, [FromQuery] string? assembly = null)
+        {
+            if (report == null) return BadRequest("No report was sent.");
+            string name = string.IsNullOrWhiteSpace(assembly) ? "assembly" : assembly.Trim();
+            switch (format.ToLowerInvariant())
+            {
+                case "cyclonedx":
+                case "sbom":
+                    return Content(ReportExporters.Serialize(ReportExporters.CycloneDx(report, name)), "application/vnd.cyclonedx+json");
+                case "sarif":
+                    return Content(ReportExporters.Serialize(ReportExporters.Sarif(report, name)), "application/sarif+json");
+                default:
+                    return NotFound("Unknown format. Use cyclonedx or sarif.");
+            }
+        }
+
         /// <summary>
         /// Scans the application's own packages and, optionally, a user-supplied *.deps.json (exact versions).
         /// This is a read-only lookup: nothing is executed, installed or modified.
