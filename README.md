@@ -209,10 +209,9 @@ Interfaces/      IAssemblyAnalyzer, ICircularDependencyDetector
 Services/Vulnerabilities/   OSV + NuGet clients, dependency resolver (levels 1-4), CVSS calculator, version ranges, scanner
 util/            shared helpers
 wwwroot/         index.html, css/, js/, lib/ (bundled vis-network)
-test-classes/    sample classes used to test the analyzer
-tests/           unit and API tests (xUnit) and tests/js (node --test: depth model, graph layout, UI logic)
+tests/           automated tests: Unit/ (one component, fakes for the network), Integration/ (the real analyzer, scanner and API on the sample assemblies), Support/, and js/ (node --test)
 tools/PerfPoc/   per-stage timing benchmark for the analyzer (see docs/performance/PERFORMANCE_REPORT.md)
-samples/         VulnerableDemo - a deliberately vulnerable test assembly
+samples/         sample assemblies to open and explore - one folder per scenario, documented in samples/README.md (they are inputs, not tests)
 scripts/win/     Windows service installer
 docs/images/     screenshots used in this README
 .github/         CI and release workflows
@@ -223,11 +222,17 @@ docs/images/     screenshots used in this README
 ## Testing
 
 ```bash
-dotnet test tests/DotNetVisualizer.Web.Tests -c Release
-node --test tests/js/*.test.js
+dotnet test tests/DotNetVisualizer.Web.Tests -c Release                                   # everything (builds the sample assemblies first)
+dotnet test tests/DotNetVisualizer.Web.Tests -c Release --filter "FullyQualifiedName~Tests.Unit"          # unit tests only
+dotnet test tests/DotNetVisualizer.Web.Tests -c Release --filter "FullyQualifiedName~Tests.Integration"   # integration tests only
+node --test tests/js/*.test.js                                                             # browser-side logic
 ```
 
-The suite covers the CVSS calculator (reference scores), version-range matching, the scanner (confirmed vs potential, incomplete scans, duplicates, withdrawn advisories) with a fake database, the OSV client, the dependency resolver (levels 1-4, cycles, duplicates, missing package/version metadata, outages, a vulnerability at every level) with a fake NuGet, the analyzer's stage timings and the HTTP API. The `node --test` suite covers the shared depth model, the Method View layout, double-click handling and the loader stages. Neither needs network access; CI runs it on every pull request.
+* **Unit tests** check one component at a time (CVSS and version ranges, the scanner and resolver with a fake OSV / NuGet, the exporters, the command line, the decompiler service, the API differ, the metrics and risky-API rules).
+* **Integration tests** run the real analyzer, scanner, API differ and command line on the real [sample assemblies](samples/README.md): every "EXPECTED" statement in a sample's source header is asserted. Only OSV.dev and NuGet are replaced by fakes.
+* **JavaScript tests** cover the depth model, the layout, the architecture analysis, the click and loader logic, and (from real analyzer output for three samples, `tests/js/fixtures`) the model behind the Method View -> Circular Dependency link. `scripts/update-js-fixtures` regenerates the fixtures and an integration test fails if they are stale.
+
+The tests call no external service (OSV.dev and NuGet are faked), but building the sample assemblies restores their NuGet packages once, so the first build needs internet access. CI runs everything on every pull request.
 
 ---
 

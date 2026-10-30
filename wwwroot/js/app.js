@@ -49,7 +49,7 @@ let explorerNodes = new Map();     // key -> tree handle
 let selectedExplorerKey = null;
 let layoutTimeout = null;
 
-const SEP = '\u0001';
+const SEP = AnalysisModel.SEP;
 
 // ---------- small helpers ----------
 
@@ -79,11 +79,7 @@ function truncate(text, max) {
     return text.length > max ? text.substring(0, max - 1) + '…' : text;
 }
 
-function shortName(fullName) {
-    if (!fullName) return '';
-    const i = fullName.lastIndexOf('.');
-    return i < 0 ? fullName : fullName.substring(i + 1);
-}
+const shortName = AnalysisModel.shortName;
 
 // "ns.Class.Method(System.String s)" -> { className: "ns.Class", methodName: "Method(System.String s)" }
 function splitMethodId(id) {
@@ -142,76 +138,14 @@ function rotateTo(body, methodId) {
     return i <= 0 ? body.slice() : body.slice(i).concat(body.slice(0, i));
 }
 
-function canonicalKey(body) {
-    let best = null;
-    for (let i = 0; i < body.length; i++) {
-        const k = body.slice(i).concat(body.slice(0, i)).join(SEP);
-        if (best === null || k < best) best = k;
-    }
-    return best;
-}
+const canonicalKey = AnalysisModel.canonicalKey;
 
+// All lookup tables come from the pure model (analysis-model.js), which is unit-tested; the globals below are what the views read.
 function buildIndexes() {
-    const d = rawAssemblyData;
-    typeNodes = new Map(); basesOf = new Map(); derivedOf = new Map(); nsOf = new Map(); typesByNs = new Map();
-    methodById = new Map(); methodsByClass = new Map(); calleesOf = new Map(); callersOf = new Map();
-    edgeCounts = new Map(); cycles = []; cyclesOfMethod = new Map(); cyclicEdges = new Set();
-
-    d.inheritance.nodes.forEach(n => typeNodes.set(n.id, n));
-    d.classes.forEach(fullName => {
-        if (!typeNodes.has(fullName)) typeNodes.set(fullName, { id: fullName, name: shortName(fullName), type: 'Class' });
-        const parts = fullName.split('.');
-        parts.pop();
-        const ns = parts.join('.').trim();
-        nsOf.set(fullName, ns);
-        if (!typesByNs.has(ns)) typesByNs.set(ns, []);
-        typesByNs.get(ns).push(fullName);
-    });
-    typesByNs.forEach(list => list.sort((a, b) => typeNodes.get(a).name.localeCompare(typeNodes.get(b).name)));
-
-    d.inheritance.edges.forEach(e => {
-        if (e.to === 'GenericTypeSpecification') return;   // analyzer placeholder for generic instantiations (e.g. IEnumerable<T>), not a real type
-        if (!basesOf.has(e.from)) basesOf.set(e.from, []);
-        if (!derivedOf.has(e.to)) derivedOf.set(e.to, []);
-        if (!basesOf.get(e.from).some(x => x.id === e.to)) basesOf.get(e.from).push({ id: e.to, relation: e.relation });
-        if (!derivedOf.get(e.to).some(x => x.id === e.from)) derivedOf.get(e.to).push({ id: e.from, relation: e.relation });
-    });
-
-    d.methodGraph.nodes.forEach(n => {
-        methodById.set(n.id, n);
-        if (!methodsByClass.has(n.parentClass)) methodsByClass.set(n.parentClass, []);
-        methodsByClass.get(n.parentClass).push(n);
-    });
-    methodsByClass.forEach(list => list.sort((a, b) => a.name.localeCompare(b.name)));
-
-    // Merge duplicate call edges into one edge with a count.
-    d.methodGraph.edges.forEach(e => {
-        const key = e.from + SEP + e.to;
-        edgeCounts.set(key, (edgeCounts.get(key) || 0) + 1);
-        if (edgeCounts.get(key) === 1) {
-            if (!calleesOf.has(e.from)) calleesOf.set(e.from, []);
-            if (!callersOf.has(e.to)) callersOf.set(e.to, []);
-            calleesOf.get(e.from).push(e.to);
-            callersOf.get(e.to).push(e.from);
-        }
-    });
-
-    // Circular chains: drop duplicates of the same cycle that merely start at a different method.
-    const seen = new Set();
-    (d.deadlocks || []).forEach(raw => {
-        if (!raw || raw.length === 0) return;
-        const body = raw.length > 1 && raw[0] === raw[raw.length - 1] ? raw.slice(0, -1) : raw.slice();
-        const key = canonicalKey(body);
-        if (seen.has(key)) return;
-        seen.add(key);
-        const idx = cycles.length;
-        cycles.push({ body });
-        body.forEach((m, i) => {
-            if (!cyclesOfMethod.has(m)) cyclesOfMethod.set(m, []);
-            cyclesOfMethod.get(m).push(idx);
-            cyclicEdges.add(m + SEP + body[(i + 1) % body.length]);
-        });
-    });
+    const m = AnalysisModel.build(rawAssemblyData);
+    typeNodes = m.typeNodes; basesOf = m.basesOf; derivedOf = m.derivedOf; nsOf = m.nsOf; typesByNs = m.typesByNs;
+    methodById = m.methodById; methodsByClass = m.methodsByClass; calleesOf = m.calleesOf; callersOf = m.callersOf;
+    edgeCounts = m.edgeCounts; cycles = m.cycles; cyclesOfMethod = m.cyclesOfMethod; cyclicEdges = m.cyclicEdges;
 }
 
 // ============================================================================

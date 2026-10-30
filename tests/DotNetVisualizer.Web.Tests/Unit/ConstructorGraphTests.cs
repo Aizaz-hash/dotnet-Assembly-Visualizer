@@ -2,7 +2,7 @@ using System.Text.Json;
 using DotNetVisualizer.Web.Services;
 using Xunit;
 
-namespace DotNetVisualizer.Web.Tests
+namespace DotNetVisualizer.Web.Tests.Unit
 {
     // Types analysed by the tests below (they are never executed): constructors that call each other,
     // constructor chaining through base(...), a factory that only does `new`, and a class with only the implicit constructor.
@@ -29,7 +29,7 @@ namespace DotNetVisualizer.Web.Tests
         private static string Ctor(string type) =>
             Result.GetProperty("methodGraph").GetProperty("nodes").EnumerateArray()
                   .Select(n => n.GetProperty("id").GetString()!)
-                  .Single(id => id.StartsWith($"DotNetVisualizer.Web.Tests.{type}..ctor("));
+                  .Single(id => id.StartsWith($"DotNetVisualizer.Web.Tests.Unit.{type}..ctor("));
 
         private static bool HasEdge(string from, string to) =>
             Result.GetProperty("methodGraph").GetProperty("edges").EnumerateArray()
@@ -39,7 +39,7 @@ namespace DotNetVisualizer.Web.Tests
         public void A_new_expression_creates_an_edge_to_the_constructor()
         {
             var make = Result.GetProperty("methodGraph").GetProperty("nodes").EnumerateArray()
-                .Select(n => n.GetProperty("id").GetString()!).Single(id => id.StartsWith("DotNetVisualizer.Web.Tests.CtorFactory.Make("));
+                .Select(n => n.GetProperty("id").GetString()!).Single(id => id.StartsWith("DotNetVisualizer.Web.Tests.Unit.CtorFactory.Make("));
             Assert.True(HasEdge(make, Ctor("CtorDerived")));
         }
 
@@ -64,14 +64,14 @@ namespace DotNetVisualizer.Web.Tests
             var node = Result.GetProperty("methodGraph").GetProperty("nodes").EnumerateArray()
                 .Single(n => n.GetProperty("id").GetString() == Ctor("CtorBase"));
             Assert.Equal("CtorBase(int x)", node.GetProperty("name").GetString());
-            Assert.Equal("DotNetVisualizer.Web.Tests.CtorBase", node.GetProperty("parentClass").GetString());
+            Assert.Equal("DotNetVisualizer.Web.Tests.Unit.CtorBase", node.GetProperty("parentClass").GetString());
         }
 
         [Fact]
         public void A_class_with_only_an_implicit_constructor_gets_no_empty_node()
         {
             var ids = Result.GetProperty("methodGraph").GetProperty("nodes").EnumerateArray().Select(n => n.GetProperty("id").GetString()!);
-            Assert.DoesNotContain(ids, id => id.StartsWith("DotNetVisualizer.Web.Tests.CtorImplicitOnly."));
+            Assert.DoesNotContain(ids, id => id.StartsWith("DotNetVisualizer.Web.Tests.Unit.CtorImplicitOnly."));
         }
 
         [Fact]

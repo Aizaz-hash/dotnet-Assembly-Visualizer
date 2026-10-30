@@ -113,6 +113,8 @@ namespace DotNetVisualizer.Web.Services.Vulnerabilities
         public static JsonNode Sarif(ScanReport report, string assemblyFile)
         {
             static string Level(string severity) => severity switch { "Critical" or "High" => "error", "Medium" => "warning", _ => "note" };
+            // an informational finding must not break a pipeline or look like a confirmed error in code scanning
+            static string ResultLevel(VulnerabilityFinding f) => f.Confidence == "informational" ? "note" : Level(f.Severity);
 
             var rules = new JsonArray();
             foreach (var f in report.Findings.GroupBy(f => f.Id).Select(g => g.First()))
@@ -139,8 +141,8 @@ namespace DotNetVisualizer.Web.Services.Vulnerabilities
                 results.Add(new JsonObject
                 {
                     ["ruleId"] = f.Id,
-                    ["level"] = Level(f.Severity),
-                    ["message"] = new JsonObject { ["text"] = $"{f.Severity}: {f.Component} {f.InstalledVersion} - {f.Summary}{where}.{fix}" + (f.Confidence == "potential" ? " (potential: " + f.ConfidenceNote + ")" : "") },
+                    ["level"] = ResultLevel(f),
+                    ["message"] = new JsonObject { ["text"] = $"{f.Severity}: {f.Component} {f.InstalledVersion} - {f.Summary}{where}.{fix}" + (f.Confidence != "confirmed" ? " (" + f.Confidence + ": " + f.ConfidenceNote + ")" : "") },
                     ["locations"] = new JsonArray(new JsonObject
                     {
                         ["physicalLocation"] = new JsonObject { ["artifactLocation"] = new JsonObject { ["uri"] = assemblyFile.Replace('\\', '/') } },

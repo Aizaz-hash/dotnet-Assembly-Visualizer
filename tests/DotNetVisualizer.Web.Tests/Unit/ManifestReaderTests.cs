@@ -2,7 +2,7 @@ using System.Text;
 using DotNetVisualizer.Web.Services.Vulnerabilities;
 using Xunit;
 
-namespace DotNetVisualizer.Web.Tests
+namespace DotNetVisualizer.Web.Tests.Unit
 {
     public class DependencyManifestReaderTests
     {

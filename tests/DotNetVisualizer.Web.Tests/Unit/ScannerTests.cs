@@ -4,7 +4,7 @@ using DotNetVisualizer.Web.Models;
 using DotNetVisualizer.Web.Services.Vulnerabilities;
 using Xunit;
 
-namespace DotNetVisualizer.Web.Tests
+namespace DotNetVisualizer.Web.Tests.Unit
 {
     public class DepsJsonReaderTests
     {
@@ -418,7 +418,7 @@ namespace DotNetVisualizer.Web.Tests
         }
 
         [Fact]
-        public async Task Findings_for_framework_supplied_packages_are_only_potential()
+        public async Task Findings_for_framework_supplied_packages_are_only_informational()
         {
             var osv = new FakeOsvClient();
             osv.Matches["System.Net.Http@4.1.0"] = new() { "GHSA-2cwj-8chv-9pp9" };
@@ -428,9 +428,10 @@ namespace DotNetVisualizer.Web.Tests
             var report = await scanner.ScanAsync(new ScanRequest { IncludeApplication = false, ExtraComponents = Read(Deps).Where(c => c.Name == "System.Net.Http").ToList() }, default);
 
             var f = Assert.Single(report.Findings);
-            Assert.Equal("potential", f.Confidence);
+            Assert.Equal("informational", f.Confidence);
             Assert.Contains("shared framework", f.ConfidenceNote);
             Assert.Equal("Critical", f.Severity);                         // severity is unchanged, only the confidence drops
+            Assert.Contains(report.Notes, n => n.Contains("informational") && n.Contains("--fail-on"));
             Assert.False(report.Components.Single().ShipsAssembly);
         }
 

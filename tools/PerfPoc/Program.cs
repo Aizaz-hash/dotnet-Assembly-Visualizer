@@ -1,14 +1,18 @@
 // Performance POC: runs the real analyzer over one or more assemblies and prints per-stage timings.
-// usage: dotnet run -c Release --project tools/PerfPoc -- [--runs N] <dll> [<dll> ...]
+// usage: dotnet run -c Release --project tools/PerfPoc -- [--runs N] [--json <folder>] <dll> [<dll> ...]
+//   --json <folder>  also writes the analyzer's result for each assembly (without the timings) to <folder>/<AssemblyName>.analysis.json.
+//                    This is how the JavaScript test fixtures in tests/js/fixtures are produced (see scripts/update-js-fixtures.*).
 using System.Diagnostics;
 using System.Text.Json;
 using DotNetVisualizer.Web.Services;
 
 int runs = 5;
+string? jsonFolder = null;
 var files = new List<string>();
 for (int i = 0; i < args.Length; i++)
 {
     if (args[i] == "--runs") runs = int.Parse(args[++i]);
+    else if (args[i] == "--json") jsonFolder = args[++i];
     else files.Add(args[i]);
 }
 
@@ -16,6 +20,15 @@ var analyzer = new AssemblyAnalyzerService(new CircularDependencyDetectorService
 
 foreach (var path in files)
 {
+    if (jsonFolder != null)
+    {
+        Directory.CreateDirectory(jsonFolder);
+        var node = System.Text.Json.Nodes.JsonNode.Parse(JsonSerializer.Serialize((object)analyzer.Analyze(new MemoryStream(File.ReadAllBytes(path))), new JsonSerializerOptions(JsonSerializerDefaults.Web)))!.AsObject();
+        node.Remove("timings");
+        File.WriteAllText(Path.Combine(jsonFolder, Path.GetFileNameWithoutExtension(path) + ".analysis.json"), node.ToJsonString());
+        Console.WriteLine("wrote " + Path.GetFileNameWithoutExtension(path) + ".analysis.json");
+        if (runs == 0) continue;
+    }
     var bytes = File.ReadAllBytes(path);
     var samples = new List<Dictionary<string, double>>();
     var order = new List<string>();

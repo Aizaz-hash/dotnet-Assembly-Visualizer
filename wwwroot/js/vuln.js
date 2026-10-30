@@ -206,7 +206,7 @@ tr { page-break-inside: avoid; }
 .finding h3 { margin: 0 0 1.5mm; font-size: 11.5pt; } .finding .sum { margin-bottom: 2mm; }
 .finding dl { display: grid; grid-template-columns: 30mm 1fr; gap: 0.8mm 3mm; margin: 0 0 2mm; font-size: 9pt; } .finding dt { color: #6c757d; } .finding dd { margin: 0; word-break: break-word; }
 .finding h4 { margin: 2mm 0 0.5mm; font-size: 9.5pt; } .finding ul { margin: 0.5mm 0 0; padding-left: 5mm; font-size: 9pt; }
-.conf { border-radius: 2mm; padding: 1.5mm 2.5mm; font-size: 9pt; margin: 1.5mm 0; } .conf.confirmed { background: #d4edda; color: #155724; } .conf.potential { background: #fff3cd; color: #856404; }
+.conf { border-radius: 2mm; padding: 1.5mm 2.5mm; font-size: 9pt; margin: 1.5mm 0; } .conf.confirmed { background: #d4edda; color: #155724; } .conf.potential { background: #fff3cd; color: #856404; } .conf.informational { background: #e7f1ff; color: #084298; }
 code { font-family: Consolas, monospace; background: #f1f3f5; padding: 0 1mm; }
 .foot { margin-top: 6mm; font-size: 8.5pt; color: #6c757d; border-top: 1px solid #dee2e6; padding-top: 2mm; }
 `;
@@ -278,7 +278,7 @@ function buildVulnReportDocument(doc, report) {
             row('Fixed versions', f.fixedVersions.length ? f.fixedVersions.join(', ') : 'none listed');
             row('Status', vulnStatusOf(f) + (f.statusDate ? ' (since ' + new Date(f.statusDate).toLocaleDateString() + ')' : ''));
             box.appendChild(dl);
-            const conf = E('div', 'conf ' + f.confidence); conf.appendChild(E('b', null, (f.confidence === 'confirmed' ? 'Confirmed: ' : 'Potential: '))); conf.appendChild(doc.createTextNode(f.confidenceNote)); box.appendChild(conf);
+            const conf = E('div', 'conf ' + f.confidence); conf.appendChild(E('b', null, confidenceLabel(f.confidence) + ': ')); conf.appendChild(doc.createTextNode(f.confidenceNote)); box.appendChild(conf);
             const list = (title, items) => { box.appendChild(E('h4', null, title)); const ul = E('ul'); items.forEach(i => ul.appendChild(E('li', null, i))); box.appendChild(ul); };
             list('Potential impact (derived from the CVSS vector)', f.impact);
             list('Recommended remediation (nothing was changed automatically)', f.remediation);
@@ -351,6 +351,8 @@ function versionSourceText(c) {
         default: return c.resolution === 'framework' ? 'runtime-supplied' : 'not identified';
     }
 }
+
+function confidenceLabel(c) { return c === 'confirmed' ? 'Confirmed' : c === 'informational' ? 'Informational' : 'Potential'; }
 
 function sevClass(s) { return 'sev-' + s.toLowerCase(); }
 
@@ -426,7 +428,7 @@ function renderVulnIntro(container) {
     [
         'Only package names and versions are sent to ' + ((vulnInfo && vulnInfo.host) || 'api.osv.dev') + ' - never your code or assemblies.',
         'The scan is read-only: nothing is installed, upgraded or modified. Fix commands are shown for you to run yourself.',
-        'Findings are verified against each advisory\'s affected-version ranges and marked confirmed or potential.',
+        'Findings are verified against each advisory\'s affected-version ranges: Confirmed (exact version in the affected range), Potential (version estimated or not verifiable) or Informational (a package the .NET runtime supplies - exposure depends on the runtime\'s patch level).',
         'If the database cannot be reached, the report says so instead of showing "no vulnerabilities".',
         'Level 0 is the loaded assembly, level 1 its direct references, levels 2-4 the dependencies of those packages. Each package is listed once, at its shortest path.',
         'An assembly reference carries only an assembly version (e.g. 12.0.0.0), so the package version is estimated (lowest matching version) and findings are marked potential. Add the .deps.json for exact versions.',
@@ -507,7 +509,7 @@ function renderVulnFilters(container) {
     const comps = Array.from(new Set(vulnReport.findings.map(f => f.component))).sort((a, b) => a.localeCompare(b));
     select('Component', 'component', [['', 'All'], ...comps.map(c => [c, c])]);
     select('Status', 'status', [['', 'All'], ...VULN_STATUSES.map(s => [s, s])]);
-    select('Confidence', 'confidence', [['', 'All'], ['confirmed', 'Confirmed'], ['potential', 'Potential']]);
+    select('Confidence', 'confidence', [['', 'All'], ['confirmed', 'Confirmed'], ['potential', 'Potential'], ['informational', 'Informational']]);
 
     const search = el('input');
     search.type = 'search'; search.placeholder = 'Search CVE, package, text…'; search.value = vulnFilters.text;
@@ -606,7 +608,7 @@ function renderFindingDetail(container, f) {
     container.appendChild(facts);
 
     const conf = el('div', 'vd-conf ' + f.confidence);
-    conf.appendChild(el('b', null, f.confidence === 'confirmed' ? 'Confirmed: ' : 'Potential: '));
+    conf.appendChild(el('b', null, confidenceLabel(f.confidence) + ': '));
     conf.appendChild(document.createTextNode(f.confidenceNote));
     container.appendChild(conf);
 

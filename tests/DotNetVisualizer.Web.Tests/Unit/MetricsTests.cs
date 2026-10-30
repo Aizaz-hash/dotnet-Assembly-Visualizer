@@ -3,7 +3,7 @@ using System.Text.Json;
 using DotNetVisualizer.Web.Services;
 using Xunit;
 
-namespace DotNetVisualizer.Web.Tests
+namespace DotNetVisualizer.Web.Tests.Unit
 {
     // Analysed, never executed.
     public class MetricsSubject
@@ -57,7 +57,7 @@ namespace DotNetVisualizer.Web.Tests
             return doc.RootElement.Clone();
         }
 
-        private static string Id(string method) => "DotNetVisualizer.Web.Tests.MetricsSubject." + method + "()";
+        private static string Id(string method) => "DotNetVisualizer.Web.Tests.Unit.MetricsSubject." + method + "()";
         private static JsonElement Metrics => Result.GetProperty("metrics");
         private static IEnumerable<string> Dead() => Result.GetProperty("deadCode").EnumerateArray().Select(d => d.GetProperty("id").GetString()!);
 
@@ -67,7 +67,7 @@ namespace DotNetVisualizer.Web.Tests
         [Fact]
         public void Complexity_counts_branches_switch_cases_and_catch_clauses()
         {
-            var branchy = Hotspot("DotNetVisualizer.Web.Tests.MetricsSubject.Branchy(");
+            var branchy = Hotspot("DotNetVisualizer.Web.Tests.Unit.MetricsSubject.Branchy(");
             Assert.NotNull(branchy);
             // 2 ifs + loop condition + 4 switch cases + 1 catch + 1 = at least 9 independent paths
             Assert.True(branchy!.Value.GetProperty("complexity").GetInt32() >= 9, "got " + branchy.Value.GetProperty("complexity").GetInt32());
@@ -93,7 +93,7 @@ namespace DotNetVisualizer.Web.Tests
         [Fact]
         public void Callers_and_callees_are_counted_per_method()
         {
-            var fan = Metrics.GetProperty("mostCalled").EnumerateArray().First(m => m.GetProperty("id").GetString()!.StartsWith("DotNetVisualizer.Web.Tests.MetricsSubject.Fan1("));
+            var fan = Metrics.GetProperty("mostCalled").EnumerateArray().First(m => m.GetProperty("id").GetString()!.StartsWith("DotNetVisualizer.Web.Tests.Unit.MetricsSubject.Fan1("));
             Assert.Equal(3, fan.GetProperty("callers").GetInt32());
             var calling = Metrics.GetProperty("mostCalling").EnumerateArray().Select(m => m.GetProperty("id").GetString()!);
             Assert.DoesNotContain(calling, id => id.Contains("MetricsSubject.Simple("));            // calls nothing
@@ -124,9 +124,9 @@ namespace DotNetVisualizer.Web.Tests
         public void Methods_used_only_by_a_static_constructor_or_static_field_initializer_are_not_dead()
         {
             var dead = Dead().ToList();
-            Assert.DoesNotContain(dead, id => id == "DotNetVisualizer.Web.Tests.StaticInitSubject.Helper()");
-            Assert.DoesNotContain(dead, id => id == "DotNetVisualizer.Web.Tests.StaticInitSubject.OnlyFromStaticInit()");
-            Assert.Contains(dead, id => id == "DotNetVisualizer.Web.Tests.StaticInitSubject.NeverUsed()");   // the control: really unused
+            Assert.DoesNotContain(dead, id => id == "DotNetVisualizer.Web.Tests.Unit.StaticInitSubject.Helper()");
+            Assert.DoesNotContain(dead, id => id == "DotNetVisualizer.Web.Tests.Unit.StaticInitSubject.OnlyFromStaticInit()");
+            Assert.Contains(dead, id => id == "DotNetVisualizer.Web.Tests.Unit.StaticInitSubject.NeverUsed()");   // the control: really unused
         }
 
         [Fact]
