@@ -44,7 +44,16 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
         var callPairs = new List<(string From, string To)>();
         // Constructors are only listed when something calls them or they call something: a compiler-generated default
         // constructor that just calls object() would otherwise add a meaningless node to every class.
-        var pendingConstructors = new List<(string Id, object Node)>();
+        var pendingConstructors = new List<(string Id, object Node, string Name, string Class)>();
+        var methodDisplay = new Dictionary<string, (string Name, string Class)>(StringComparer.OrdinalIgnoreCase);   // id -> label and owning class, for the metrics
+        // Calls to APIs that deserve a security look (see RiskyApiRules): rule + api -> how often and from where.
+        var riskHits = new Dictionary<(RiskyApiRule Rule, string Api), RiskHit>();
+        var riskByToken = new Dictionary<int, (RiskyApiRule Rule, string Api)?>();
+        // Code metrics: cyclomatic complexity and IL size per method, and what dead-code detection needs.
+        var methodMetrics = new Dictionary<string, (int Complexity, int IlSize)>(StringComparer.OrdinalIgnoreCase);
+        var methodMeta = new Dictionary<string, (MethodDefinitionHandle Handle, MethodAttributes Attributes, bool HasAttributes, string Name, string ParentClass)>(StringComparer.OrdinalIgnoreCase);
+        var delegateTargets = new HashSet<int>();            // methods whose address is taken (ldftn / ldvirtftn): lambdas, method groups, events
+        var staticInitBodies = new List<int>();              // static constructors are not graph nodes, but what they call / point to still counts as used
         var resolvedCallTargets = new Dictionary<int, (string Id, string ParentClass, bool IsInternal)>();
 
         var registeredMethodIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -92,7 +101,8 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
                     {
                         id = fullName,
                         name = GetDisplayTypeName(mdReader, typeDef),
-                        type = isInterface ? "Interface" : "Class"
+                        type = isInterface ? "Interface" : "Class",
+                        token = MetadataTokens.GetToken(typeHandle)          // lets the C# view ask for this type's source
                     });
                 }
 
@@ -155,6 +165,9 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
 
                         bool isLambdaBody = !string.IsNullOrEmpty(lambdaDisplayName) && (methodName.Contains("b__") || methodName.Equals("MoveNext"));
 
+                        if (methodName.Equals(".cctor") && !isLambdaGeneratedType && methodDef.RelativeVirtualAddress > 0)
+                            staticInitBodies.Add(methodDef.RelativeVirtualAddress);
+
                         // Instance constructors take part in the call graph (new Foo(...) is a newobj, base(...) a call to .ctor).
                         // Static constructors and constructors of compiler-generated lambda types are still left out.
                         bool isConstructor = methodName.Equals(".ctor") && !isLambdaGeneratedType;
@@ -182,11 +195,21 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
                         // Map metadata method token -> unique visualizer ID
                         tokenToUniqueMethodIdMap[methodHandle] = methodUniqueId;
 
+                        if (!isLambdaBody && !isTopLevelMain && !isLambdaGeneratedType)
+                            methodMeta[methodUniqueId] = (methodHandle, methodDef.Attributes, methodDef.GetCustomAttributes().Count > 0, methodName, fullName);
+
+                        if ((methodDef.Attributes & MethodAttributes.PinvokeImpl) != 0)
+                        {
+                            var import = methodDef.GetImport();
+                            if (!import.Module.IsNil)
+                                RecordRisk(riskHits, (RiskyApiRules.NativeCall, mdReader.GetString(mdReader.GetModuleReference(import.Module).Name) + "!" + mdReader.GetString(import.Name)), methodUniqueId);
+                        }
+
                         if (isNewMethodNode && isConstructor)
                         {
                             // shown as "Foo(int a)" like ILSpy; the id keeps ".ctor" so it matches member references
                             string ctorLabel = GetDisplayTypeName(mdReader, typeDef) + methodSignature.Substring(methodSignature.IndexOf('('));
-                            pendingConstructors.Add((methodUniqueId, new { id = methodUniqueId, name = ctorLabel, parentClass = fullName }));
+                            pendingConstructors.Add((methodUniqueId, new { id = methodUniqueId, name = ctorLabel, parentClass = fullName, token = MetadataTokens.GetToken(methodHandle) }, ctorLabel, fullName));
                         }
                         else if (isNewMethodNode)
                         {
@@ -194,11 +217,13 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
                                 methodIdsByClass[fullName] = idsOfClass = new List<string>();
                             idsOfClass.Add(methodUniqueId);
 
+                            methodDisplay[methodUniqueId] = (methodSignature, fullName);
                             methodNodes.Add(new
                             {
                                 id = methodUniqueId,
                                 name = methodSignature,
-                                parentClass = fullName
+                                parentClass = fullName,
+                                token = MetadataTokens.GetToken(methodHandle)
                             });
                         }
 
@@ -243,9 +268,15 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
                 MethodBodyBlock body = peReader.GetMethodBody(item.Rva);
 
                 BlobReader ilReader = body.GetILReader();
+                int ilSize = ilReader.Length;
+                int complexity = 1 + body.ExceptionRegions.Count(r => r.Kind == ExceptionRegionKind.Catch || r.Kind == ExceptionRegionKind.Filter);
 
                 while (TryReadInstruction(ref ilReader, out OpCode opCode, out int metadataToken))
                 {
+                    if (opCode.OperandType == OperandType.InlineSwitch) complexity += -metadataToken;
+                    else if (opCode.FlowControl == FlowControl.Cond_Branch) complexity++;
+                    else if ((opCode.Value == OpCodes.Ldftn.Value || opCode.Value == OpCodes.Ldvirtftn.Value) && metadataToken > 0) delegateTargets.Add(metadataToken);
+
                     // We only care about actual method calls.
                     if (opCode.Value != OpCodes.Call.Value && opCode.Value != OpCodes.Callvirt.Value && opCode.Value != OpCodes.Newobj.Value)
                     {
@@ -256,6 +287,10 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
                         continue;
 
                     EntityHandle calledEntityHandle = MetadataTokens.EntityHandle(metadataToken);
+
+                    if (!riskByToken.TryGetValue(metadataToken, out var risk))
+                        riskByToken[metadataToken] = risk = FindRisk(mdReader, calledEntityHandle);
+                    if (risk != null) RecordRisk(riskHits, risk.Value, item.CallerMethodId);
 
                     // The same callee is referenced from many call sites; resolve each metadata token only once.
                     bool alreadyResolved = resolvedCallTargets.TryGetValue(metadataToken, out var resolved);
@@ -387,6 +422,8 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
                         }
                     }
                 }
+
+                methodMetrics[item.CallerMethodId] = (complexity, ilSize);
             }
             catch
             {
@@ -394,10 +431,12 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
             }
         }
 
+        CollectStaticInitReferences(peReader, staticInitBodies, delegateTargets);
+
         var connected = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var (from, to) in callPairs) { connected.Add(from); connected.Add(to); }
-        foreach (var (id, node) in pendingConstructors)
-            if (connected.Contains(id)) methodNodes.Add(node);
+        foreach (var (id, node, ctorName, ctorClass) in pendingConstructors)
+            if (connected.Contains(id)) { methodNodes.Add(node); methodDisplay[id] = (ctorName, ctorClass); }
 
         timer.Mark("call analysis (IL scan)");
 
@@ -444,8 +483,169 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
             assemblyName = AssemblyReferenceReader.ReadAssemblyName(mdReader),
             targetFramework = AssemblyReferenceReader.ReadTargetFramework(mdReader),
 
+            metrics = BuildMetrics(methodDisplay, methodMetrics, callPairs),
+
+            deadCode = FindDeadCode(methodMeta, methodMetrics, callPairs, delegateTargets, peReader),
+
+            riskyApis = riskHits
+                .OrderBy(h => Array.IndexOf(new[] { "High", "Medium", "Low" }, h.Key.Rule.Severity))
+                .ThenBy(h => h.Key.Rule.Category, StringComparer.Ordinal)
+                .ThenByDescending(h => h.Value.Count)
+                .Select(h => new
+                {
+                    ruleId = h.Key.Rule.Id,
+                    category = h.Key.Rule.Category,
+                    severity = h.Key.Rule.Severity,
+                    title = h.Key.Rule.Title,
+                    api = h.Key.Api,
+                    why = h.Key.Rule.Why,
+                    advice = h.Key.Rule.Advice,
+                    count = h.Value.Count,
+                    callers = h.Value.Callers
+                })
+                .ToList(),
+
             timings = timer.ToResult()
         };
+    }
+
+    private static object BuildMetrics(Dictionary<string, (string Name, string Class)> names, Dictionary<string, (int Complexity, int IlSize)> metrics, List<(string From, string To)> calls)
+    {
+        var fanOut = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var fanIn = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (from, to) in calls)
+        {
+            fanOut[from] = fanOut.GetValueOrDefault(from) + 1;
+            fanIn[to] = fanIn.GetValueOrDefault(to) + 1;
+        }
+
+        object Row(string id) => new
+        {
+            id,
+            name = names.TryGetValue(id, out var n) ? n.Name : id,
+            parentClass = names.TryGetValue(id, out n) ? n.Class : "",
+            complexity = metrics.TryGetValue(id, out var m) ? m.Complexity : 0,
+            ilSize = metrics.TryGetValue(id, out m) ? m.IlSize : 0,
+            callers = fanIn.GetValueOrDefault(id),
+            callees = fanOut.GetValueOrDefault(id)
+        };
+
+        var withBody = metrics.Where(kv => names.ContainsKey(kv.Key)).ToList();
+        var buckets = new (string Label, int Min, int Max)[] { ("1-5", 1, 5), ("6-10", 6, 10), ("11-20", 11, 20), ("21-50", 21, 50), ("over 50", 51, int.MaxValue) };
+
+        return new
+        {
+            methods = withBody.Count,
+            totalIlBytes = withBody.Sum(kv => (long)kv.Value.IlSize),
+            averageComplexity = withBody.Count == 0 ? 0 : Math.Round(withBody.Average(kv => (double)kv.Value.Complexity), 2),
+            maxComplexity = withBody.Count == 0 ? 0 : withBody.Max(kv => kv.Value.Complexity),
+            histogram = buckets.Select(b => new { label = b.Label, count = withBody.Count(kv => kv.Value.Complexity >= b.Min && kv.Value.Complexity <= b.Max) }).ToList(),
+            hotspots = withBody.OrderByDescending(kv => kv.Value.Complexity).ThenByDescending(kv => kv.Value.IlSize).Take(100).Select(kv => Row(kv.Key)).ToList(),
+            mostCalled = fanIn.Where(kv => names.ContainsKey(kv.Key)).OrderByDescending(kv => kv.Value).Take(50).Select(kv => Row(kv.Key)).ToList(),
+            mostCalling = fanOut.Where(kv => names.ContainsKey(kv.Key)).OrderByDescending(kv => kv.Value).Take(50).Select(kv => Row(kv.Key)).ToList(),
+            types = withBody.GroupBy(kv => names[kv.Key].Class)
+                .Select(g => new { name = g.Key, methods = g.Count(), complexity = g.Sum(kv => kv.Value.Complexity), ilSize = g.Sum(kv => (long)kv.Value.IlSize) })
+                .OrderByDescending(t => t.complexity).Take(50).ToList()
+        };
+    }
+
+    /// <summary>Everything a static constructor (static field initializers, delegate tables, lazy singletons) calls or points at is referenced.</summary>
+    private static void CollectStaticInitReferences(PEReader pe, List<int> rvas, HashSet<int> referenced)
+    {
+        foreach (int rva in rvas)
+        {
+            try
+            {
+                var il = pe.GetMethodBody(rva).GetILReader();
+                while (TryReadInstruction(ref il, out OpCode op, out int token))
+                {
+                    if (token <= 0) continue;
+                    if (op.Value == OpCodes.Call.Value || op.Value == OpCodes.Callvirt.Value || op.Value == OpCodes.Newobj.Value ||
+                        op.Value == OpCodes.Ldftn.Value || op.Value == OpCodes.Ldvirtftn.Value)
+                        referenced.Add(token);
+                }
+            }
+            catch { /* unreadable body: nothing to add */ }
+        }
+    }
+
+    private const int MaxDeadCode = 1000;
+
+    /// <summary>
+    /// Private / internal methods that nothing in this assembly calls or takes the address of. Conservative on purpose: virtual
+    /// methods (overrides, interface implementations), constructors, entry points and methods with attributes are never listed,
+    /// and a method that is only called by reflection, serialization or another assembly (InternalsVisibleTo) can still be
+    /// reported - hence "unreferenced", not "unused".
+    /// </summary>
+    private static List<object> FindDeadCode(
+        Dictionary<string, (MethodDefinitionHandle Handle, MethodAttributes Attributes, bool HasAttributes, string Name, string ParentClass)> meta,
+        Dictionary<string, (int Complexity, int IlSize)> metrics,
+        List<(string From, string To)> calls, HashSet<int> delegateTargets, PEReader pe)
+    {
+        var called = new HashSet<string>(calls.Select(c => c.To), StringComparer.OrdinalIgnoreCase);
+        int entryToken = 0;
+        try { entryToken = pe.PEHeaders.CorHeader?.EntryPointTokenOrRelativeVirtualAddress ?? 0; } catch { /* no entry point */ }
+
+        var result = new List<object>();
+        foreach (var (id, m) in meta.OrderBy(kv => kv.Value.ParentClass, StringComparer.Ordinal).ThenBy(kv => kv.Key, StringComparer.Ordinal))
+        {
+            var access = m.Attributes & MethodAttributes.MemberAccessMask;
+            if (access != MethodAttributes.Private && access != MethodAttributes.Assembly && access != MethodAttributes.FamANDAssem) continue;
+            if ((m.Attributes & (MethodAttributes.Virtual | MethodAttributes.Abstract | MethodAttributes.PinvokeImpl)) != 0) continue;
+            if (m.HasAttributes) continue;
+            if (m.Name.StartsWith(".") || m.Name.StartsWith("<")) continue;                       // constructors, compiler generated
+            int token = MetadataTokens.GetToken(m.Handle);
+            if (token == entryToken) continue;
+            if (called.Contains(id) || delegateTargets.Contains(token)) continue;
+            if (!metrics.ContainsKey(id)) continue;                                              // no body to run
+
+            result.Add(new
+            {
+                id, name = id.StartsWith(m.ParentClass + ".", StringComparison.Ordinal) ? id.Substring(m.ParentClass.Length + 1) : id, parentClass = m.ParentClass,
+                access = access == MethodAttributes.Private ? "private" : "internal",
+                ilSize = metrics[id].IlSize, complexity = metrics[id].Complexity
+            });
+            if (result.Count >= MaxDeadCode) break;
+        }
+        return result;
+    }
+
+    private sealed class RiskHit
+    {
+        public int Count;
+        public List<string> Callers { get; } = new();
+    }
+
+    private const int MaxRiskCallers = 25;
+
+    private static void RecordRisk(Dictionary<(RiskyApiRule Rule, string Api), RiskHit> hits, (RiskyApiRule Rule, string Api) risk, string callerMethodId)
+    {
+        if (!hits.TryGetValue(risk, out var hit)) hits[risk] = hit = new RiskHit();
+        hit.Count++;
+        if (hit.Callers.Count < MaxRiskCallers && !hit.Callers.Contains(callerMethodId)) hit.Callers.Add(callerMethodId);
+    }
+
+    /// <summary>Is this call target one of the APIs in <see cref="RiskyApiRules"/>? Only references to other assemblies can match.</summary>
+    private static (RiskyApiRule Rule, string Api)? FindRisk(MetadataReader reader, EntityHandle target)
+    {
+        try
+        {
+            if (target.Kind == HandleKind.MethodSpecification)
+                target = reader.GetMethodSpecification((MethodSpecificationHandle)target).Method;
+
+            if (target.Kind != HandleKind.MemberReference) return null;
+            var member = reader.GetMemberReference((MemberReferenceHandle)target);
+            if (member.Parent.Kind != HandleKind.TypeReference) return null;
+
+            string type = GetStringFromEntityHandle(reader, member.Parent);
+            string method = reader.GetString(member.Name);
+            var rule = RiskyApiRules.Match(type, method);
+            return rule == null ? null : (rule, method == ".ctor" ? "new " + type : type + "." + method);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     // METHOD SIGNATURE HELPERS
@@ -821,6 +1021,7 @@ private static string? FindCanonicalMethodId(Dictionary<string, List<string>> me
                 return false;
 
             reader.Offset += targetBytes;
+            metadataToken = -targetCount;                       // not a token: the number of switch cases (used for complexity)
 
             return true;
         }

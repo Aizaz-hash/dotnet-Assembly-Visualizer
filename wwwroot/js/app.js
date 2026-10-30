@@ -491,7 +491,7 @@ function updateNavButtons() {
 }
 
 function applyState() {
-    ['inheritance', 'calls', 'cycles', 'vulns'].forEach(v => {
+    ['inheritance', 'calls', 'cycles', 'architecture', 'source', 'compare', 'metrics', 'risky', 'vulns'].forEach(v => {
         byId('view' + v.charAt(0).toUpperCase() + v.slice(1)).classList.toggle('active', state.view === v);
         byId('tab' + v.charAt(0).toUpperCase() + v.slice(1)).classList.toggle('active', state.view === v);
     });
@@ -506,6 +506,11 @@ function applyState() {
     if (state.view === 'inheritance') renderInheritance();
     else if (state.view === 'calls') renderCalls();
     else if (state.view === 'vulns') renderVulns();
+    else if (state.view === 'risky') renderRisky();
+    else if (state.view === 'metrics') renderMetrics();
+    else if (state.view === 'architecture') renderArchitecture();
+    else if (state.view === 'compare') renderCompare();
+    else if (state.view === 'source') renderSource();
     else renderCycles();
     updateNavButtons();
 }
@@ -522,6 +527,31 @@ function cycleLink(methodId) {
 function renderTitle() {
     const t = byId('viewTitle');
     t.innerHTML = '';
+    if (state.view === 'source') {
+        t.appendChild(el('span', 'vt-name', 'C# Source'));
+        t.appendChild(el('span', 'vt-sub', 'Decompiled C# of the selected type or method'));
+        return;
+    }
+    if (state.view === 'compare') {
+        t.appendChild(el('span', 'vt-name', 'Compare versions'));
+        t.appendChild(el('span', 'vt-sub', 'What changed in the public API between two versions of an assembly, and what can break callers'));
+        return;
+    }
+    if (state.view === 'architecture') {
+        t.appendChild(el('span', 'vt-name', 'Architecture'));
+        t.appendChild(el('span', 'vt-sub', 'How the namespaces of the loaded assembly depend on each other, and where they depend on each other in a circle'));
+        return;
+    }
+    if (state.view === 'metrics') {
+        t.appendChild(el('span', 'vt-name', 'Code Metrics'));
+        t.appendChild(el('span', 'vt-sub', 'Complexity, size, callers and unreferenced methods of the loaded assembly'));
+        return;
+    }
+    if (state.view === 'risky') {
+        t.appendChild(el('span', 'vt-name', 'Risky APIs'));
+        t.appendChild(el('span', 'vt-sub', 'Calls to APIs that deserve a security review (deserialization, processes, code loading, weak crypto, native code, TLS checks)'));
+        return;
+    }
     if (state.view === 'vulns') {
         t.appendChild(el('span', 'vt-name', 'Vulnerabilities Scan'));
         t.appendChild(el('span', 'vt-sub', 'Known vulnerabilities (CVE) in the dependencies of the loaded assembly - Critical and High first'));
@@ -1203,6 +1233,7 @@ function clearAssembly() {
     setTabBadge(badge, 0, 'No circular call chains');
     buildExplorer();
     vulnCall('vulnOnAssemblyChanged');
+    vulnCall('riskyOnAssemblyChanged');
     applyState();
     setStatus('Ready');
 }
@@ -1258,6 +1289,7 @@ function activateAssembly(name) {
     historyIdx = 0;
     buildExplorer();
     vulnCall('vulnOnAssemblyChanged');
+    vulnCall('riskyOnAssemblyChanged');
     applyState();
     setStatus(`${name}: ${rawAssemblyData.classes.length} types, ${rawAssemblyData.methodGraph.nodes.length} methods, ${cycles.length} circular chain${cycles.length === 1 ? '' : 's'}`);
 }
@@ -1496,7 +1528,7 @@ byId('btnOpenFolder').onclick = () => byId('dirFile').click();
 
 document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
     const view = tab.dataset.view;
-    if (!hasAssembly && view !== 'vulns') return;
+    if (!hasAssembly && view !== 'vulns' && view !== 'compare') return;
     navigate({ view, ...(view === 'cycles' ? { cycleMethod: null, cycleIdx: 0 } : {}) });
 }));
 byId('inhModeSelected').onclick = () => navigate({ inhMode: 'selected' });
