@@ -647,3 +647,7 @@ body { font-size: 14px; }
 #obfuscationNotice { display: flex; align-items: center; gap: 6px; }
 #obfuscationNotice[hidden] { display: none; }
 #obfuscationNotice .notice-close { margin-left: auto; background: none; border: none; color: inherit; cursor: pointer; font-size: 13px; padding: 0 4px; }
+
+.asm-info { margin: 0 0 12px; max-width: 760px; } .asm-info summary { cursor: pointer; font-weight: 600; margin-bottom: 6px; }
+.asm-grid { display: grid; grid-template-columns: max-content 1fr; gap: 3px 16px; font-size: 13px; }
+.asm-k { color: #868e96; } .asm-v { color: #212529; word-break: break-word; }

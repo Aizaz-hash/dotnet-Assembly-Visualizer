@@ -146,5 +146,11 @@
         return parts.length ? parts.join('; ') + '.' : '';
     }
 
-    return { SEP, shortName, canonicalKey, build, cycleInfo, viewForSelection, describeCycle, describeDiagnostics };
+    /** One sentence when the analysis found signs of obfuscation, else ''. The detail and the evidence are shown in the Metrics view. */
+    function describeObfuscation(o) {
+        if (!o || !o.likely) return '';
+        return 'this assembly shows signs of obfuscation (' + (o.evidence || []).join('; ') + '). Names are shown as they are in the file, and the call graph may be incomplete - see Metrics > Obfuscation indicators.';
+    }
+
+    return { SEP, shortName, canonicalKey, build, cycleInfo, viewForSelection, describeCycle, describeDiagnostics, describeObfuscation };
 });

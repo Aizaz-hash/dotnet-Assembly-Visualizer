@@ -490,6 +490,10 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
             assemblyName = AssemblyReferenceReader.ReadAssemblyName(mdReader),
             targetFramework = AssemblyReferenceReader.ReadTargetFramework(mdReader),
 
+            // what the assembly is, and whether it looks obfuscated (indicators with their evidence, never a verdict)
+            assembly = AssemblyInsights.ReadInfo(peReader, mdReader, upload.CanSeek ? upload.Length : 0, AssemblyReferenceReader.ReadTargetFramework(mdReader), references.Count),
+            obfuscation = AssemblyInsights.DetectObfuscation(mdReader),
+
             metrics = BuildMetrics(methodDisplay, methodMetrics, callPairs),
 
             deadCode = FindDeadCode(methodMeta, methodMetrics, callPairs, delegateTargets, peReader),
