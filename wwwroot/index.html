@@ -61,11 +61,6 @@
                 <button class="tab" id="tabInheritance" data-view="inheritance">Inheritance</button>
                 <button class="tab" id="tabCalls" data-view="calls">Method Calls</button>
                 <button class="tab" id="tabCycles" data-view="cycles">Circular Dependencies <span id="cycleCount" class="tab-badge">-</span></button>
-                <button class="tab" id="tabSource" data-view="source">C# Source</button>
-                <button class="tab" id="tabCompare" data-view="compare">Compare</button>
-                <button class="tab" id="tabArchitecture" data-view="architecture">Architecture</button>
-                <button class="tab" id="tabMetrics" data-view="metrics">Metrics</button>
-                <button class="tab" id="tabRisky" data-view="risky">Risky APIs <span id="riskyBadge" class="tab-badge">-</span></button>
                 <button class="tab" id="tabVulns" data-view="vulns">Vulnerabilities Scan <span id="vulnBadge" class="tab-badge">-</span></button>
             </div>
 
@@ -113,7 +108,6 @@
                     <span class="tb-spacer"></span>
                     <span class="legend-inline"><i class="lg lg-sel"></i>Selected <i class="lg lg-norm"></i>Method <i class="lg lg-ext"></i>External <i class="lg lg-cyc"></i>Circular</span>
                     <button id="btnFit" class="tb-btn small" title="Zoom to fit">Fit</button>
-                    <button id="btnSourceCalls" class="tb-btn small" title="Show the C# of this method">C#</button>
                     <button id="btnExport" class="tb-btn small" title="Download as PNG">PNG</button>
                 </div>
                 <div id="methodNote" class="method-note" style="display:none;"></div>
@@ -138,36 +132,6 @@
                 </div>
             </section>
 
-            <section id="viewSource" class="view">
-                <div id="sourceScroll" class="scroll-body"></div>
-            </section>
-
-            <section id="viewCompare" class="view">
-                <div id="compareScroll" class="scroll-body"></div>
-            </section>
-
-            <section id="viewArchitecture" class="view">
-                <div class="view-toolbar">
-                    <label><input type="checkbox" id="optArchCycles" /> Only namespaces in a cycle</label>
-                    <button id="btnArchBack" class="tb-btn small" style="display:none">◀ All namespaces</button>
-                    <span id="archHint" class="view-hint"></span>
-                    <span class="tb-spacer"></span>
-                    <button id="btnFitArch" class="tb-btn small" title="Zoom to fit">Fit</button>
-                </div>
-                <div class="arch-body">
-                    <div id="archCanvas" class="canvas-wrap"></div>
-                    <div id="archList" class="arch-list"></div>
-                </div>
-            </section>
-
-            <section id="viewMetrics" class="view">
-                <div id="metricsScroll" class="scroll-body"></div>
-            </section>
-
-            <section id="viewRisky" class="view">
-                <div id="riskyScroll" class="scroll-body"></div>
-            </section>
-
             <section id="viewVulns" class="view">
                 <div class="view-toolbar" id="vulnToolbar">
                     <button id="btnVulnScan" class="btn-primary" disabled>Run scan</button>
@@ -181,8 +145,6 @@
                     </span>
                     <span class="tb-spacer"></span>
                     <button id="btnVulnPdf" class="tb-btn small" disabled title="Create a PDF report (choose Save as PDF in the print dialog)">Export PDF</button>
-                    <button id="btnVulnSbom" class="tb-btn small" disabled title="Download the dependency list as a CycloneDX SBOM (JSON)">Export SBOM</button>
-                    <button id="btnVulnSarif" class="tb-btn small" disabled title="Download the findings as SARIF (for GitHub code scanning)">Export SARIF</button>
                     <button id="btnVulnExport" class="tb-btn small" disabled title="Download the report as JSON">Export JSON</button>
                 </div>
                 <div id="vulnScroll" class="scroll-body">
@@ -221,14 +183,7 @@
     <script src="js/graph-utils.js"></script>
     <script src="js/ui-logic.js"></script>
     <script src="js/package-input.js"></script>
-    <script src="js/csharp-highlight.js"></script>
-    <script src="js/architecture-utils.js"></script>
     <script src="js/app.js"></script>
     <script src="js/vuln.js"></script>
-    <script src="js/risky.js"></script>
-    <script src="js/metrics.js"></script>
-    <script src="js/architecture.js"></script>
-    <script src="js/compare.js"></script>
-    <script src="js/source.js"></script>
 </body>
 </html>

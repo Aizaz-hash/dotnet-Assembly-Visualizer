@@ -123,11 +123,6 @@ Then open **http://localhost:8080**. (To run the `v2` line, `git checkout v2` fi
 | **Explorer** | Lists the loaded assemblies (right-click: Reload, Remove); browse namespaces, types and methods; search for types and methods; methods in a circular chain carry a red ⚠. |
 | **Inheritance** | Graph (or tree) of base types, interfaces and derived types for the selected type, or for the whole assembly; adjustable depth. |
 | **Method Calls** | Callers and callees of the selected method; adjustable depth; merged nodes and edges. |
-| **C# Source** | The decompiled C# of the selected type or method (ICSharpCode.Decompiler, the engine behind ILSpy), with syntax highlighting; also reachable with the **C#** button in Method Calls. |
-| **Compare** | Choose two versions of an assembly: lists the public API changes and marks the ones that can break callers (removed or changed members, narrower visibility, sealed types, added abstract members...), with a suggested version bump and Markdown / JSON export. |
-| **Architecture** | Dependencies between namespaces (from calls and inheritance), cycles between namespaces and between types with a concrete path for each, clickable. |
-| **Metrics** | Cyclomatic complexity, IL size, callers and callees per method: complexity hotspots, most called, most dependent, largest types, and private/internal methods nothing references (leads, not proof). |
-| **Risky APIs** | Calls to APIs that deserve a security review: unsafe deserializers (BinaryFormatter...), Process.Start, Assembly.Load, weak crypto (MD5, SHA-1, DES...), DllImport and disabled TLS checks - with why, what to check and links to the calling methods. |
 | **Vulnerabilities Scan** | Scan the loaded assembly's dependencies (levels 1-4, no manifest needed) against OSV.dev; summary by severity, filters, details, remediation, status tracking, PDF and JSON export. |
 | **Circular Dependencies** | Every distinct circular call chain, grouped by class; filter to a single method; click to jump to its call graph. |
 
@@ -146,9 +141,7 @@ Graph generation is optimised for unobfuscated assemblies or basic (first-level)
 | `Vulnerability:NuGetBaseUrl` | `https://api.nuget.org/v3-flatcontainer/` | NuGet flat container used to find packages and their dependencies. |
 | `Vulnerability:TimeoutSeconds` | `20` | Timeout for each database request. |
 
-Third-party: the **C# Source** tab uses [ICSharpCode.Decompiler](https://github.com/icsharpcode/ILSpy) (MIT licence) and the graphs use vis-network.
-
-Endpoints: `POST /api/analysis/analyze` (analyse an uploaded assembly), `POST /api/analysis/diff` (public API changes between two versions), `POST /api/decompile` + `GET /api/decompile/{id}?token=` (C# source), `GET /api/analysis/limits`, `POST /api/vulnerabilities/scan`, `GET /api/vulnerabilities/status`, `GET /healthz`.
+Endpoints: `POST /api/analysis/analyze` (analyse an uploaded assembly), `GET /api/analysis/limits`, `POST /api/vulnerabilities/scan`, `GET /api/vulnerabilities/status`, `GET /healthz`.
 
 ---
 
@@ -158,45 +151,6 @@ Endpoints: `POST /api/analysis/analyze` (analyse an uploaded assembly), `POST /a
 - **Circular chains:** detected with a depth-first search over the call graph; the UI merges rotations of the same cycle so each chain is listed once.
 - **Backend:** ASP.NET Core with a modular structure (`Controllers`, `Services`, `Interfaces`); `IAssemblyAnalyzer` and `ICircularDependencyDetector` are registered through dependency injection.
 - **Frontend:** plain HTML, CSS and JavaScript with [vis-network](https://visjs.github.io/vis-network/) for graphs.
-
----
-
-## Command line and CI
-
-The same scan runs headless, for pipelines. It exits non-zero when a finding is at or above a severity, and it can write a SARIF file (GitHub code scanning) and a CycloneDX SBOM.
-
-```bash
-# from a build output (the .deps.json next to the assembly is used automatically)
-dotnet dotnet-Assembly-Visualizer.dll scan bin/Release/net8.0/MyApp.dll --fail-on high --sarif scan.sarif --sbom sbom.cdx.json
-
-# or with the container image
-docker run --rm -v "$PWD:/work" ghcr.io/aizaz-hash/dotnet-visualizer-web:latest scan /work/MyApp.dll --fail-on high --sarif /work/scan.sarif
-```
-
-| Option | Meaning |
-|---|---|
-| `--manifest <file>` | `.deps.json`, `project.assets.json` or `packages.lock.json` for exact versions and levels (default: `<assembly>.deps.json` next to the assembly) |
-| `--fail-on critical\|high\|medium\|low\|none` | exit code 1 when a finding is at or above it (default `high`) |
-| `--allow-incomplete` | do not fail (exit 3) when not everything could be checked, e.g. no network |
-| `--max-level 1-4` | how deep to follow package dependencies when there is no manifest |
-| `--sarif`, `--sbom`, `--json <file>` | write SARIF 2.1.0, a CycloneDX 1.5 SBOM, or the full report |
-
-Exit codes: `0` ok, `1` findings at/above `--fail-on`, `2` bad arguments or unreadable file, `3` scan incomplete (an unreachable database is never reported as a clean pass). Set `VULN_OSV_URL` / `VULN_NUGET_URL` to use a mirror.
-
-A GitHub Action wraps it (`action.yml` in this repository):
-
-```yaml
-- uses: Aizaz-hash/dotnet-Assembly-Visualizer@v2
-  with:
-    assembly: src/MyApp/bin/Release/net8.0/MyApp.dll
-    fail-on: high
-- uses: github/codeql-action/upload-sarif@v3
-  if: always()
-  with:
-    sarif_file: dependency-scan.sarif
-```
-
-In the web UI, **Export SBOM** and **Export SARIF** produce the same files from the scan on screen.
 
 ---
 
