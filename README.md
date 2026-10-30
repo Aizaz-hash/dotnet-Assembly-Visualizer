@@ -123,6 +123,7 @@ Then open **http://localhost:8080**. (To run the `v2` line, `git checkout v2` fi
 | **Explorer** | Lists the loaded assemblies (right-click: Reload, Remove); browse namespaces, types and methods; search for types and methods; methods in a circular chain carry a red ⚠. |
 | **Inheritance** | Graph (or tree) of base types, interfaces and derived types for the selected type, or for the whole assembly; adjustable depth. |
 | **Method Calls** | Callers and callees of the selected method; adjustable depth; merged nodes and edges. |
+| **C# Source** | The decompiled C# of the selected type or method (ICSharpCode.Decompiler, the engine behind ILSpy), with syntax highlighting; also reachable with the **C#** button in Method Calls. |
 | **Compare** | Choose two versions of an assembly: lists the public API changes and marks the ones that can break callers (removed or changed members, narrower visibility, sealed types, added abstract members...), with a suggested version bump and Markdown / JSON export. |
 | **Architecture** | Dependencies between namespaces (from calls and inheritance), cycles between namespaces and between types with a concrete path for each, clickable. |
 | **Metrics** | Cyclomatic complexity, IL size, callers and callees per method: complexity hotspots, most called, most dependent, largest types, and private/internal methods nothing references (leads, not proof). |
@@ -145,7 +146,9 @@ Graph generation is optimised for unobfuscated assemblies or basic (first-level)
 | `Vulnerability:NuGetBaseUrl` | `https://api.nuget.org/v3-flatcontainer/` | NuGet flat container used to find packages and their dependencies. |
 | `Vulnerability:TimeoutSeconds` | `20` | Timeout for each database request. |
 
-Endpoints: `POST /api/analysis/analyze` (analyse an uploaded assembly), `GET /api/analysis/limits`, `POST /api/vulnerabilities/scan`, `GET /api/vulnerabilities/status`, `GET /healthz`.
+Third-party: the **C# Source** tab uses [ICSharpCode.Decompiler](https://github.com/icsharpcode/ILSpy) (MIT licence) and the graphs use vis-network.
+
+Endpoints: `POST /api/analysis/analyze` (analyse an uploaded assembly), `POST /api/analysis/diff` (public API changes between two versions), `POST /api/decompile` + `GET /api/decompile/{id}?token=` (C# source), `GET /api/analysis/limits`, `POST /api/vulnerabilities/scan`, `GET /api/vulnerabilities/status`, `GET /healthz`.
 
 ---
 

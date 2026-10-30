@@ -101,7 +101,8 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
                     {
                         id = fullName,
                         name = GetDisplayTypeName(mdReader, typeDef),
-                        type = isInterface ? "Interface" : "Class"
+                        type = isInterface ? "Interface" : "Class",
+                        token = MetadataTokens.GetToken(typeHandle)          // lets the C# view ask for this type's source
                     });
                 }
 
@@ -208,7 +209,7 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
                         {
                             // shown as "Foo(int a)" like ILSpy; the id keeps ".ctor" so it matches member references
                             string ctorLabel = GetDisplayTypeName(mdReader, typeDef) + methodSignature.Substring(methodSignature.IndexOf('('));
-                            pendingConstructors.Add((methodUniqueId, new { id = methodUniqueId, name = ctorLabel, parentClass = fullName }, ctorLabel, fullName));
+                            pendingConstructors.Add((methodUniqueId, new { id = methodUniqueId, name = ctorLabel, parentClass = fullName, token = MetadataTokens.GetToken(methodHandle) }, ctorLabel, fullName));
                         }
                         else if (isNewMethodNode)
                         {
@@ -221,7 +222,8 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
                             {
                                 id = methodUniqueId,
                                 name = methodSignature,
-                                parentClass = fullName
+                                parentClass = fullName,
+                                token = MetadataTokens.GetToken(methodHandle)
                             });
                         }
 

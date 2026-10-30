@@ -2,6 +2,7 @@ using DotNetVisualizer.Web.Interfaces;
 using DotNetVisualizer.Web.Services;
 using DotNetVisualizer.Web.Services.Vulnerabilities;
 using DotNetVisualizer.Web.Services.Cli;
+using DotNetVisualizer.Web.Services.Decompilation;
 using Microsoft.AspNetCore.Http.Features;
 
 // Headless mode for CI: "scan <assembly> ..." runs the same scan as the web UI and exits with a status code (see CliScan.Usage).
@@ -36,6 +37,7 @@ builder.Services.Configure<FormOptions>(o => o.MultipartBodyLengthLimit = maxUpl
 
 builder.Services.AddSingleton<ICircularDependencyDetector, CircularDependencyDetectorService>();
 builder.Services.AddScoped<IAssemblyAnalyzer, AssemblyAnalyzerService>();
+builder.Services.AddSingleton<IDecompilerService, DecompilerService>();
 
 builder.Services.AddControllers();
 builder.Services.AddAntiforgery();
