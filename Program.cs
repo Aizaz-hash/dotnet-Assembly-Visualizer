@@ -1,7 +1,24 @@
 using DotNetVisualizer.Web.Interfaces;
 using DotNetVisualizer.Web.Services;
 using DotNetVisualizer.Web.Services.Vulnerabilities;
+using DotNetVisualizer.Web.Services.Cli;
 using Microsoft.AspNetCore.Http.Features;
+
+// Headless mode for CI: "scan <assembly> ..." runs the same scan as the web UI and exits with a status code (see CliScan.Usage).
+if (args.Length > 0 && args[0].Equals("scan", StringComparison.OrdinalIgnoreCase))
+{
+    static HttpClient Client(string envName, string fallback)
+    {
+        var url = Environment.GetEnvironmentVariable(envName);
+        if (string.IsNullOrWhiteSpace(url)) url = fallback;
+        var http = new HttpClient { BaseAddress = new Uri(url.EndsWith("/") ? url : url + "/"), Timeout = TimeSpan.FromSeconds(30) };
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("dotnet-Assembly-Visualizer-cli");
+        return http;
+    }
+    using var osvHttp = Client("VULN_OSV_URL", "https://api.osv.dev/");
+    using var nugetHttp = Client("VULN_NUGET_URL", "https://api.nuget.org/v3-flatcontainer/");
+    return await CliScan.RunAsync(args[1..], new OsvClient(osvHttp), new NuGetClient(nugetHttp), Console.Out, Console.Error);
+}
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -61,5 +78,6 @@ app.MapGet("/api/analysis/limits", () => Results.Ok(new { maxFileSizeMB = maxUpl
 app.MapControllers();
 
 app.Run();
+return 0;
 
 public partial class Program { }   // lets the integration tests start the app with WebApplicationFactory

@@ -155,6 +155,45 @@ Endpoints: `POST /api/analysis/analyze` (analyse an uploaded assembly), `GET /ap
 
 ---
 
+## Command line and CI
+
+The same scan runs headless, for pipelines. It exits non-zero when a finding is at or above a severity, and it can write a SARIF file (GitHub code scanning) and a CycloneDX SBOM.
+
+```bash
+# from a build output (the .deps.json next to the assembly is used automatically)
+dotnet dotnet-Assembly-Visualizer.dll scan bin/Release/net8.0/MyApp.dll --fail-on high --sarif scan.sarif --sbom sbom.cdx.json
+
+# or with the container image
+docker run --rm -v "$PWD:/work" ghcr.io/aizaz-hash/dotnet-visualizer-web:latest scan /work/MyApp.dll --fail-on high --sarif /work/scan.sarif
+```
+
+| Option | Meaning |
+|---|---|
+| `--manifest <file>` | `.deps.json`, `project.assets.json` or `packages.lock.json` for exact versions and levels (default: `<assembly>.deps.json` next to the assembly) |
+| `--fail-on critical\|high\|medium\|low\|none` | exit code 1 when a finding is at or above it (default `high`) |
+| `--allow-incomplete` | do not fail (exit 3) when not everything could be checked, e.g. no network |
+| `--max-level 1-4` | how deep to follow package dependencies when there is no manifest |
+| `--sarif`, `--sbom`, `--json <file>` | write SARIF 2.1.0, a CycloneDX 1.5 SBOM, or the full report |
+
+Exit codes: `0` ok, `1` findings at/above `--fail-on`, `2` bad arguments or unreadable file, `3` scan incomplete (an unreachable database is never reported as a clean pass). Set `VULN_OSV_URL` / `VULN_NUGET_URL` to use a mirror.
+
+A GitHub Action wraps it (`action.yml` in this repository):
+
+```yaml
+- uses: Aizaz-hash/dotnet-Assembly-Visualizer@v2
+  with:
+    assembly: src/MyApp/bin/Release/net8.0/MyApp.dll
+    fail-on: high
+- uses: github/codeql-action/upload-sarif@v3
+  if: always()
+  with:
+    sarif_file: dependency-scan.sarif
+```
+
+In the web UI, **Export SBOM** and **Export SARIF** produce the same files from the scan on screen.
+
+---
+
 ## Project structure
 
 ```
