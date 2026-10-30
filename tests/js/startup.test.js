@@ -10,7 +10,7 @@ const read = (...p) => fs.readFileSync(path.join(root, ...p), 'utf8').replace(/\
 
 const RENDERERS = {
     inheritance: 'renderInheritance', calls: 'renderCalls', cycles: 'renderCycles', architecture: 'renderArchitecture', source: 'renderSource',
-    compare: 'renderCompare', metrics: 'renderMetrics', risky: 'renderRisky', vulns: 'renderVulns'
+    compare: 'renderCompare', metrics: 'renderMetrics', risky: 'renderRisky', vulns: 'renderVulns', overview: 'renderOverview'
 };
 
 test('the first render waits for all scripts: app.js never calls a view renderer while it is still loading', () => {
@@ -35,22 +35,53 @@ test('every view in the tab bar has a section in the page and a renderer defined
     }
 });
 
-test('the tab bar follows the workflow: overview, then structure and relationships, then security and risk', () => {
+test('the tab bar follows the workflow: overview, analysis, security and risk, API compatibility, then the detailed views', () => {
     const html = read('index.html');
     const groups = [...html.matchAll(/<div class="tab-group" id="(\w+)">([\s\S]*?)<\/div>\s*<\/div>/g)]
         .map(m => ({ id: m[1], views: [...m[2].matchAll(/data-view="(\w+)"/g)].map(v => v[1]) }));
     assert.deepEqual(groups, [
-        { id: 'groupOverview', views: ['metrics', 'architecture'] },
-        { id: 'groupStructure', views: ['inheritance', 'calls', 'cycles', 'source'] },
-        { id: 'groupSecurity', views: ['compare', 'risky', 'vulns'] }
+        { id: 'groupSummary', views: ['overview'] },
+        { id: 'groupAnalysis', views: ['metrics', 'architecture'] },
+        { id: 'groupSecurity', views: ['risky', 'vulns'] },
+        { id: 'groupCompatibility', views: ['compare'] },
+        { id: 'groupDetail', views: ['inheritance', 'calls', 'cycles', 'source'] }
     ]);
+});
+
+test('the view registry and the page agree: same groups, same views, same order', () => {
+    const V = require('../../wwwroot/js/views.js');
+    const html = read('index.html');
+    const groups = [...html.matchAll(/<div class="tab-group" id="(\w+)">([\s\S]*?)<\/div>\s*<\/div>/g)]
+        .map(m => ({ id: m[1], views: [...m[2].matchAll(/data-view="(\w+)"/g)].map(v => v[1]) }));
+    assert.deepEqual(groups, V.GROUPS.map(g => ({ id: g.id, views: V.inGroup(g.id).map(v => v.id) })));
+    assert.equal(V.START_VIEW, 'overview');
+    assert.ok(V.VIEWS.every(v => V.GROUPS.some(g => g.id === v.group)), 'every view belongs to a known group');
+    assert.equal(new Set(V.ids()).size, V.ids().length, 'no view listed twice');
+});
+
+test('API Compatibility is its own category and no longer part of Security & risk', () => {
+    const V = require('../../wwwroot/js/views.js');
+    assert.equal(V.get('compare').group, 'groupCompatibility');
+    assert.deepEqual(V.inGroup('groupSecurity').map(v => v.id), ['risky', 'vulns']);
+});
+
+test('the Overview offers a Compare action that opens API Compatibility with the open DLL preselected', () => {
+    const ov = read('js', 'overview.js');
+    assert.match(ov, /Compare with another DLL/);
+    assert.match(ov, /compareState\.oldFile = file/);
+    assert.match(ov, /navigate\(\{ view: 'compare' \}\)/);
+});
+
+test('the identity facts are shown once: in the Overview, not repeated in Metrics', () => {
+    assert.ok(!/renderAssemblyInfo|renderObfuscation\(root, rawAssemblyData/.test(read('js', 'metrics.js')));
+    assert.match(read('js', 'overview.js'), /renderObfuscation\(root, rawAssemblyData\.obfuscation\)/);
 });
 
 test('a newly opened assembly starts at the overview and selecting a class or method keeps its own rule', () => {
     const app = read('js', 'app.js');
     const resets = app.split('\n').filter(l => /^\s+state = \{ view: '/.test(l));
     assert.equal(resets.length, 2);                     // closing everything, and opening an assembly
-    assert.ok(resets.every(l => l.includes("view: 'metrics'")), 'every place that resets the state starts at the overview');
+    assert.ok(resets.every(l => l.includes("view: 'overview'")), 'every place that resets the state starts at the overview');
     assert.match(app, /navigate\(\{ view: 'inheritance', type: ref\.id, method: null \}\)/);          // a class opens Inheritance
     assert.match(app, /navigate\(\{ view: 'calls', type: m\.parentClass, method: m\.id \}\)/);       // a method opens Method Calls
 });

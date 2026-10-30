@@ -118,7 +118,7 @@ Then open **http://localhost:8080**. (To run the `v2` line, `git checkout v2` fi
 
 ## Using the UI
 
-The views are arranged as a workflow: **what is in the assembly → how its parts relate → what is risky about it.** Start at the left of the tab bar and move right; a newly opened assembly starts at **Metrics**.
+The views are arranged as a workflow: **Overview → Analysis → Security & risk → API Compatibility → Detailed views.** Start at the left of the tab bar and move right; a newly opened assembly starts at **Overview**. The groups and views are listed in one place (`wwwroot/js/views.js`); see [docs/architecture/navigation.md](docs/architecture/navigation.md).
 
 **Selecting things (ILSpy-style).** Pick a **class** in the explorer and the **Inheritance** view opens; expand the class to see its methods; pick a **method** and **Method Calls** opens. The class and method you chose stay visible in the **Selected** bar under the tabs in every view, each part is a link back to its view, and a method that is part of a circular call chain carries a red **⚠ circular dependency** link to that cycle (also shown as a note in Method Calls and a ⚠ in the explorer). Back / Forward (Alt+Left / Alt+Right) retrace your steps.
 
@@ -127,14 +127,34 @@ The views are arranged as a workflow: **what is in the assembly → how its part
 | **Toolbar** | *Open* an assembly, package or zip, *Folder*, Back / Forward. |
 | **Explorer** | Lists the loaded assemblies (right-click: Reload, Remove); browse namespaces, types and methods; search for types and methods; methods in a circular chain carry a red ⚠. |
 
-### 1 · Assembly overview
+### 1 · Overview
 
 | View | What it shows |
 |---|---|
-| **Metrics** | **About this assembly** (version, kind, platform, target framework, strong name, debug build), **obfuscation indicators** (evidence, never a verdict), then size and shape: method count, cyclomatic complexity (hotspots, histogram), IL size, most-called and most-dependent methods, largest types, and private/internal methods that nothing in the assembly references. *The unreferenced list is a lead, not proof* (reflection or another assembly can call them). |
+| **Overview** | What this assembly is, on one concise page: name, version, full name, culture, kind, platform, target framework, strong-name status with the **public key token**, module id (MVID), debug or release build, entry point, references and file size; the **obfuscation indicators** (evidence, never a verdict); and "At a glance" cards (types, methods, complexity, unreferenced methods, circular chains, risky API uses, vulnerabilities) that each open the matching view. **Compare with another DLL…** opens API Compatibility with this assembly already chosen as the old version. |
+
+### 2 · Analysis
+
+| View | What it shows |
+|---|---|
+| **Metrics** | Size and shape: method count, cyclomatic complexity (hotspots, histogram), IL size, most-called and most-dependent methods, largest types, and private/internal methods that nothing in the assembly references. *The unreferenced list is a lead, not proof* (reflection or another assembly can call them). |
 | **Architecture** | How namespaces depend on each other (built from calls and inheritance), and where namespaces or types depend on each other in a circle - each with a concrete path, clickable. Field and parameter types are not part of the analysis. |
 
-### 2 · Structure & relationships
+### 3 · Security & risk
+
+| View | What it shows |
+|---|---|
+| **Risky APIs** | Calls to APIs that deserve a security review (unsafe deserializers, Process.Start, Assembly.Load, weak crypto, DllImport, disabled TLS checks, and - because static analysis is blind there - reflection and dynamic code generation) with why each is risky, what to check, and links to the calling methods. **Heuristic leads - not vulnerabilities.** |
+| **Vulnerabilities** | Known advisories for the packages the assembly depends on (levels 1-4, no manifest needed), checked against OSV.dev; summary by severity, filters, remediation, status tracking, PDF / JSON / SBOM / SARIF export. |
+
+
+### 4 · API Compatibility
+
+| View | What it shows |
+|---|---|
+| **API Compatibility** | Choose two versions of an assembly: the public API changes, with the ones that can break callers marked (removed or changed members, narrower visibility, sealed types, added abstract members...), a suggested version bump, and Markdown / JSON export. |
+
+### 5 · Detailed views
 
 | View | What it shows |
 |---|---|
@@ -143,19 +163,12 @@ The views are arranged as a workflow: **what is in the assembly → how its part
 | **Circular Dependencies** | Every distinct circular call chain, grouped by class; click a method to jump to its call graph. Direct recursion is not reported as a cycle. |
 | **C# Source** | The decompiled C# of the selected class or method (ICSharpCode.Decompiler, the engine behind ILSpy), with syntax highlighting; also reachable with the **C#** button in Method Calls. |
 
-### 3 · Security & risk
-
-| View | What it shows |
-|---|---|
-| **API Compatibility** | Choose two versions of an assembly: the public API changes, with the ones that can break callers marked (removed or changed members, narrower visibility, sealed types, added abstract members...), a suggested version bump, and Markdown / JSON export. |
-| **Risky APIs** | Calls to APIs that deserve a security review (unsafe deserializers, Process.Start, Assembly.Load, weak crypto, DllImport, disabled TLS checks, and - because static analysis is blind there - reflection and dynamic code generation) with why each is risky, what to check, and links to the calling methods. **Heuristic leads - not vulnerabilities.** |
-| **Vulnerabilities** | Known advisories for the packages the assembly depends on (levels 1-4, no manifest needed), checked against OSV.dev; summary by severity, filters, remediation, status tracking, PDF / JSON / SBOM / SARIF export. |
 
 ### How much to trust each result
 
 | Kind | Where | Meaning |
 |---|---|---|
-| **Structure** | Metrics, Architecture, Inheritance, Method Calls, Circular Dependencies | Facts read from the assembly's metadata and IL, within the limits below. A cycle is a design smell, not a vulnerability. |
+| **Structure** | Overview, Metrics, Architecture, Inheritance, Method Calls, Circular Dependencies | Facts read from the assembly's metadata and IL, within the limits below. A cycle is a design smell, not a vulnerability. |
 | **Heuristic** | Risky APIs, unreferenced methods | A pattern that deserves a look. The tool never calls these vulnerabilities. |
 | **Confirmed** | Vulnerabilities | The exact package version is known and lies inside an advisory's affected range. |
 | **Potential** | Vulnerabilities | The version was estimated (no manifest) or could not be verified against the advisory's ranges. |

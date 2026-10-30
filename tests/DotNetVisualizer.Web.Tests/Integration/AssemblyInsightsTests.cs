@@ -43,6 +43,28 @@ namespace DotNetVisualizer.Web.Tests.Integration
         }
 
         [Fact]
+        public void The_identity_has_a_full_name_and_a_module_id_and_an_unsigned_assembly_has_no_key_token()
+        {
+            var v2 = Info(SamplePaths.ApiCompatV2);
+            Assert.Equal("ApiCompat, Version=2.0.0.0, Culture=neutral, PublicKeyToken=null", v2.GetProperty("fullName").GetString());
+            Assert.Equal(JsonValueKind.Null, v2.GetProperty("publicKeyToken").ValueKind);
+            Assert.Equal(0, v2.GetProperty("publicKeyBits").GetInt32());
+            Assert.True(Guid.TryParse(v2.GetProperty("mvid").GetString(), out var mvid) && mvid != Guid.Empty);
+            Assert.NotEqual(v2.GetProperty("mvid").GetString(), Info(SamplePaths.ApiCompatV1).GetProperty("mvid").GetString());
+        }
+
+        [Fact]
+        public void A_strong_named_assembly_shows_the_public_key_token_everyone_knows_it_by()
+        {
+            // System.Linq is signed with the Microsoft key whose token is b03f5f7f11d50a3a
+            var info = Info(typeof(System.Linq.Enumerable).Assembly.Location);
+            Assert.True(info.GetProperty("strongNamed").GetBoolean());
+            Assert.Equal("b03f5f7f11d50a3a", info.GetProperty("publicKeyToken").GetString());
+            Assert.EndsWith("PublicKeyToken=b03f5f7f11d50a3a", info.GetProperty("fullName").GetString());
+            Assert.True(info.GetProperty("publicKeyBits").GetInt32() > 0);
+        }
+
+        [Fact]
         public void The_assembly_facts_come_from_the_file_header()
         {
             var v2 = Info(SamplePaths.ApiCompatV2);
