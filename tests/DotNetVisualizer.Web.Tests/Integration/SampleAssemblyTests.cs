@@ -64,6 +64,18 @@ namespace DotNetVisualizer.Web.Tests.Integration
             Assert.Equal(classes.Count, classes.Distinct().Count());
         }
 
+        [Fact]
+        public void A_nested_type_is_in_the_namespace_of_its_outermost_type_not_in_a_namespace_named_after_its_parents()
+        {
+            // regression: the browser used to cut the namespace off the full name, so Outer and Outer.Inner became fake namespaces
+            var nodes = SamplePaths.Analyze(SamplePaths.Inheritance).GetProperty("inheritance").GetProperty("nodes").EnumerateArray().ToList();
+            var deepest = nodes.Single(n => n.GetProperty("id").GetString() == "Samples.Inheritance.Outer.Inner.Deepest");
+            Assert.Equal("Samples.Inheritance", deepest.GetProperty("namespace").GetString());
+            Assert.True(deepest.GetProperty("nested").GetBoolean());
+            Assert.False(nodes.Single(n => n.GetProperty("id").GetString() == "Samples.Inheritance.Outer").GetProperty("nested").GetBoolean());
+            Assert.All(nodes, n => Assert.Equal("Samples.Inheritance", n.GetProperty("namespace").GetString()));
+        }
+
         // ------------------------------------------------------------------------------------------------ method calls
 
         [Fact]
@@ -290,6 +302,54 @@ namespace DotNetVisualizer.Web.Tests.Integration
             Assert.Equal("major", result.SuggestedBump);
             Assert.Equal((12, 3, 1, 16), (result.Breaking, result.Compatible, result.Info, result.Changes.Count));        // the numbers samples/README.md states
             Assert.Equal(("1.0.0.0", "2.0.0.0"), (result.OldVersion, result.NewVersion));
+        }
+
+        // ------------------------------------------------------------------------------------------------ diagnostics and unusual inputs
+
+        [Theory]
+        [InlineData("inheritance")] [InlineData("method-calls")] [InlineData("circular")] [InlineData("metrics")]
+        [InlineData("risky")] [InlineData("obfuscation")] [InlineData("vulnerable")]
+        public void A_healthy_sample_reports_complete_diagnostics_so_the_warning_never_cries_wolf(string which)
+        {
+            string path = which switch
+            {
+                "inheritance" => SamplePaths.Inheritance, "method-calls" => SamplePaths.MethodCalls, "circular" => SamplePaths.CircularDependencies,
+                "metrics" => SamplePaths.Metrics, "risky" => SamplePaths.RiskyApis, "obfuscation" => SamplePaths.Obfuscation, _ => SamplePaths.Vulnerable
+            };
+            var d = SamplePaths.Analyze(path).GetProperty("diagnostics");
+            Assert.True(d.GetProperty("complete").GetBoolean());
+            Assert.False(d.GetProperty("referenceAssembly").GetBoolean());
+            Assert.Equal(0, d.GetProperty("skippedTypes").GetInt32() + d.GetProperty("skippedMethods").GetInt32() + d.GetProperty("unreadableBodies").GetInt32());
+        }
+
+        [Fact]
+        public void A_reference_assembly_is_flagged_because_it_has_no_real_code()
+        {
+            // the SDK's reference pack: System.Runtime.dll there is API only
+            string? root = Path.GetFullPath(Path.Combine(System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory(), "..", "..", ".."));
+            var pack = Path.Combine(root, "packs", "Microsoft.NETCore.App.Ref");
+            if (!Directory.Exists(pack)) return;                                            // no SDK reference pack on this machine
+            var file = Directory.GetDirectories(pack).Select(v => Path.Combine(v, "ref", "net8.0", "System.Runtime.dll")).FirstOrDefault(File.Exists);
+            if (file == null) return;
+            Assert.True(SamplePaths.Analyze(file).GetProperty("diagnostics").GetProperty("referenceAssembly").GetBoolean());
+        }
+
+        [Fact]
+        public void A_native_library_is_rejected_with_a_message_that_says_what_it_is()
+        {
+            var kernel32 = Path.Combine(Environment.SystemDirectory, "kernel32.dll");
+            if (!OperatingSystem.IsWindows() || !File.Exists(kernel32)) return;             // a native PE to try exists on Windows only
+            var ex = Assert.Throws<InvalidDataException>(() => SamplePaths.Analyze(kernel32));
+            Assert.Contains("not a .NET assembly", ex.Message);
+            Assert.Contains("native", ex.Message);
+        }
+
+        [Fact]
+        public void Garbage_and_truncated_files_are_rejected_instead_of_producing_a_result()
+        {
+            var good = File.ReadAllBytes(SamplePaths.Inheritance);
+            foreach (var bytes in new[] { Array.Empty<byte>(), new byte[] { 0x4d }, good.Take(good.Length * 4 / 10).ToArray(), System.Text.Encoding.UTF8.GetBytes("not an assembly at all") })
+                Assert.ThrowsAny<Exception>(() => new AssemblyAnalyzerService(new CircularDependencyDetectorService()).Analyze(new MemoryStream(bytes)));
         }
 
         [Fact]

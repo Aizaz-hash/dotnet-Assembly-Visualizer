@@ -101,6 +101,18 @@ test('RoundedSquare has four class ancestors plus the interfaces above them (dep
     assert.deepEqual(ids('Samples.Inheritance.UserRepository'), ['Samples.Inheritance.Repository`1']);
 });
 
+test('nested types stay in the real namespace and are shown as Outer.Inner.Deepest (no invented namespaces)', () => {
+    assert.deepEqual([...inheritance.typesByNs.keys()], ['Samples.Inheritance']);
+    assert.equal(inheritance.nsOf.get('Samples.Inheritance.Outer.Inner.Deepest'), 'Samples.Inheritance');
+    assert.equal(inheritance.typeNodes.get('Samples.Inheritance.Outer.Inner.Deepest').name, 'Outer.Inner.Deepest');
+    assert.equal(inheritance.typeNodes.get('Samples.Inheritance.Shape').name, 'Shape');
+});
+
+test('older analyses without a namespace field still build (best effort from the name)', () => {
+    const m = Model.build({ classes: ['A.B.C'], inheritance: { nodes: [{ id: 'A.B.C', name: 'C', type: 'Class' }], edges: [] } });
+    assert.equal(m.nsOf.get('A.B.C'), 'A.B');
+});
+
 test('derived types are found from the base type', () => {
     const derived = (inheritance.derivedOf.get('Samples.Inheritance.Shape') || []).map(d => d.id).sort();
     assert.ok(derived.includes('Samples.Inheritance.Circle') && derived.includes('Samples.Inheritance.Polygon'));
@@ -127,4 +139,23 @@ test('duplicate call edges collapse into one edge with a count', () => {
     assert.deepEqual(m.calleesOf.get('a'), ['b', 'c']);
     assert.equal(m.edgeCounts.get('a' + Model.SEP + 'b'), 2);
     assert.deepEqual(m.callersOf.get('b'), ['a']);
+});
+
+// ------------------------------------------------------------------------------------------ diagnostics: nothing is silently dropped
+
+test('a clean analysis has nothing to say', () => {
+    assert.equal(Model.describeDiagnostics({ complete: true, skippedTypes: 0, skippedMethods: 0, skippedInterfaces: 0, unreadableBodies: 0, referenceAssembly: false }), '');
+    assert.equal(Model.describeDiagnostics(undefined), '');
+});
+
+test('skipped items are counted in plain words and the result is called incomplete', () => {
+    const text = Model.describeDiagnostics({ skippedTypes: 1, skippedMethods: 3, skippedInterfaces: 0, unreadableBodies: 2 });
+    assert.match(text, /1 type, 3 methods, the code of 2 methods/);
+    assert.match(text, /results are incomplete/);
+});
+
+test('a reference assembly is explained as having no real code', () => {
+    const text = Model.describeDiagnostics({ referenceAssembly: true });
+    assert.match(text, /reference assembly/);
+    assert.match(text, /no real code/);
 });

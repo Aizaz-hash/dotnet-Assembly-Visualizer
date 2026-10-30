@@ -41,9 +41,19 @@
         (inheritance.nodes || []).forEach(n => m.typeNodes.set(n.id, n));
         (d.classes || []).forEach(fullName => {
             if (!m.typeNodes.has(fullName)) m.typeNodes.set(fullName, { id: fullName, name: shortName(fullName), type: 'Class' });
-            const parts = fullName.split('.');
-            parts.pop();
-            const ns = parts.join('.').trim();
+            const node = m.typeNodes.get(fullName);
+            let ns;
+            if (typeof node.namespace === 'string') {
+                // the analyzer says which namespace the type is in; a nested type shows as Outer.Inner inside that namespace
+                ns = node.namespace.trim();
+                if (node.nested && ns && fullName.startsWith(ns + '.')) node.name = fullName.substring(ns.length + 1);
+                else if (node.nested && !ns) node.name = fullName;
+            } else {
+                // older analysis without the field: best effort from the name (wrong for nested types)
+                const parts = fullName.split('.');
+                parts.pop();
+                ns = parts.join('.').trim();
+            }
             m.nsOf.set(fullName, ns);
             if (!m.typesByNs.has(ns)) m.typesByNs.set(ns, []);
             m.typesByNs.get(ns).push(fullName);
@@ -118,5 +128,23 @@
         return { methods: c.body.slice(), closesWith: c.body[0], length: c.body.length, classes: [...new Set(c.body.map(id => (model.methodById.get(id) || {}).parentClass).filter(Boolean))] };
     }
 
-    return { SEP, shortName, canonicalKey, build, cycleInfo, viewForSelection, describeCycle };
+    /** Plain-language reading of the analysis diagnostics ('' when there is nothing to say). */
+    function describeDiagnostics(d) {
+        if (!d) return '';
+        const parts = [];
+        if (d.referenceAssembly) parts.push('this is a reference assembly (the API only, compiled without method bodies), so there is no real code to analyse - call graphs and metrics will be empty or meaningless');
+        const skipped = (d.skippedTypes || 0) + (d.skippedMethods || 0) + (d.skippedInterfaces || 0);
+        if (skipped || d.unreadableBodies) {
+            const n = (count, word) => count + ' ' + word + (count === 1 ? '' : 's');
+            const bits = [];
+            if (d.skippedTypes) bits.push(n(d.skippedTypes, 'type'));
+            if (d.skippedMethods) bits.push(n(d.skippedMethods, 'method'));
+            if (d.skippedInterfaces) bits.push(n(d.skippedInterfaces, 'interface relation'));
+            if (d.unreadableBodies) bits.push('the code of ' + n(d.unreadableBodies, 'method'));
+            parts.push('could not read ' + bits.join(', ') + ' (damaged, packed or protected metadata?), so the results are incomplete');
+        }
+        return parts.length ? parts.join('; ') + '.' : '';
+    }
+
+    return { SEP, shortName, canonicalKey, build, cycleInfo, viewForSelection, describeCycle, describeDiagnostics };
 });

@@ -178,6 +178,12 @@ function makeTreeNode(opt) {
     }
     if (opt.bold) label.style.fontWeight = '600';
     if (opt.title) row.title = opt.title;
+    if (/[^\x00-\x7F]/.test(opt.label || '')) {
+        // two classes that both look like "a" are not a bug in the tool: say which characters are not plain ASCII
+        const odd = [...new Set([...opt.label].filter(c => c.charCodeAt(0) > 127))].map(c => c + ' = U+' + c.codePointAt(0).toString(16).toUpperCase().padStart(4, '0'));
+        row.title = (opt.title ? opt.title + '\n' : '') + 'Contains non-ASCII characters: ' + odd.join(', ');
+        label.classList.add('t-nonascii');
+    }
     node.appendChild(row);
 
     let childBox = null, open = false;
@@ -1348,6 +1354,9 @@ async function loadFile(file, opts = {}) {
         window.__avPerf = perf;
         console.info('[perf] load', perf);
 
+        // what the analysis could not read is said out loud: a damaged or reference-only file must not look like a clean one
+        const problems = AnalysisModel.describeDiagnostics(data.diagnostics);
+        if (problems) showMessage('"' + file.name + '": ' + problems, 'error');
         const verb = opts.reload ? 'Reloaded' : 'Parsed';
         showMessage(`${verb} ${data.classes.length} types, ${data.methodGraph.nodes.length} methods, ${cycles.length} circular chains.` +
             (dropped ? ` The oldest assembly ("${dropped}") was removed from the list (limit ${MAX_LOADED_ASSEMBLIES}).` : ''), 'success');

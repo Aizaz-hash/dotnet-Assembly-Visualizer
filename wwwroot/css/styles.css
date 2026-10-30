@@ -622,3 +622,5 @@ body { font-size: 14px; }
 .src-label { font-family: Consolas, monospace; font-weight: 600; word-break: break-all; }
 .src-code { margin: 0 0 8px; padding: 12px 14px; background: #1e1e1e; color: #d4d4d4; border-radius: 4px; overflow: auto; font: 12.5px/1.45 Consolas, 'Courier New', monospace; tab-size: 4; max-height: calc(100vh - 260px); white-space: pre; }
 .cs-kw { color: #569cd6; } .cs-lit { color: #569cd6; } .cs-string { color: #ce9178; } .cs-comment { color: #6a9955; } .cs-number { color: #b5cea8; } .cs-pre { color: #9b9b9b; }
+
+.t-nonascii { border-bottom: 1px dotted #868e96; }

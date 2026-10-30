@@ -64,6 +64,31 @@ namespace DotNetVisualizer.Web.Services.Vulnerabilities
             return list.OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase).ToList();
         }
 
+        /// <summary>A reference assembly (what the compiler reads, [ReferenceAssembly]) has the API but no real code: there is no behaviour to analyse.</summary>
+        public static bool IsReferenceAssembly(MetadataReader reader)
+        {
+            if (!reader.IsAssembly) return false;
+            foreach (var handle in reader.GetAssemblyDefinition().GetCustomAttributes())
+            {
+                var attr = reader.GetCustomAttribute(handle);
+                string? attributeType = null;
+                if (attr.Constructor.Kind == HandleKind.MemberReference)
+                {
+                    // the attribute type lives in another assembly (normal case)
+                    var parent = reader.GetMemberReference((MemberReferenceHandle)attr.Constructor).Parent;
+                    if (parent.Kind == HandleKind.TypeReference) attributeType = reader.GetString(reader.GetTypeReference((TypeReferenceHandle)parent).Name);
+                }
+                else if (attr.Constructor.Kind == HandleKind.MethodDefinition)
+                {
+                    // the assembly that defines the attribute itself (System.Runtime) uses it from its own metadata
+                    var owner = reader.GetMethodDefinition((MethodDefinitionHandle)attr.Constructor).GetDeclaringType();
+                    attributeType = reader.GetString(reader.GetTypeDefinition(owner).Name);
+                }
+                if (attributeType == "ReferenceAssemblyAttribute") return true;
+            }
+            return false;
+        }
+
         /// <summary>The assembly's own name (level 0 in the dependency graph).</summary>
         public static string ReadAssemblyName(MetadataReader reader) =>
             reader.IsAssembly ? reader.GetString(reader.GetAssemblyDefinition().Name) : "";
