@@ -110,7 +110,7 @@ function renderMetrics() {
 function renderAssemblyInfo(root, a) {
     if (!a) return;
     const rows = [
-        ['Assembly', a.name + ' ' + a.version], ['Type', a.kind], ['Platform', a.platform], ['Target framework', a.targetFramework || 'not recorded'],
+        ['Assembly', a.name + ' ' + a.version], ['Type', a.kind], ['Platform', a.platform], ['Target framework', a.targetFramework ? a.targetFramework + (a.targetFrameworkInferred ? ' (guessed from its references: the file does not record one)' : '') : 'not recorded'],
         ['Strong-named', a.strongNamed ? 'yes' : 'no'], ['Entry point', a.hasEntryPoint ? 'yes' : 'no'],
         ['Build', a.debugBuild ? 'debug (contains debug information)' : 'release / no debug information'],
         ['References', a.references + ' assemblies'], ['File size', a.sizeBytes < 1048576 ? (a.sizeBytes / 1024).toFixed(1) + ' KB' : (a.sizeBytes / 1048576).toFixed(1) + ' MB']

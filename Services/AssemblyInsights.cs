@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
+using DotNetVisualizer.Web.Services.Vulnerabilities;
 
 namespace DotNetVisualizer.Web.Services;
 
@@ -25,7 +26,7 @@ public static class AssemblyInsights
         "Id", "ID", "Ok", "OK", "Do", "Go", "On", "To", "Is", "As", "Of", "If", "Or", "X", "Y", "Z", "T", "U", "V", "W", "H", "IO", "UI", "Db", "DB"
     };
 
-    public static object ReadInfo(PEReader pe, MetadataReader md, long fileSize, string? targetFramework, int referenceCount)
+    public static object ReadInfo(PEReader pe, MetadataReader md, long fileSize, int referenceCount)
     {
         var asm = md.IsAssembly ? md.GetAssemblyDefinition() : default;
         var headers = pe.PEHeaders;
@@ -33,6 +34,7 @@ public static class AssemblyInsights
         bool is64 = headers.PEHeader?.Magic == PEMagic.PE32Plus;
         bool ilOnly = cor != null && (cor.Flags & CorFlags.ILOnly) != 0;
         bool requires32 = cor != null && (cor.Flags & CorFlags.Requires32Bit) != 0;
+        string? targetFramework = AssemblyReferenceReader.ReadOrInferTargetFramework(md, out bool inferred);
 
         return new
         {
@@ -46,6 +48,7 @@ public static class AssemblyInsights
             hasEntryPoint = cor != null && cor.EntryPointTokenOrRelativeVirtualAddress != 0 && (cor.Flags & CorFlags.NativeEntryPoint) == 0,
             debugBuild = HasAttribute(md, "DebuggableAttribute") && HasDebugInfoDirectory(pe),
             targetFramework,
+            targetFrameworkInferred = inferred,         // older assemblies record none: it is then a guess from what they reference
             references = referenceCount,
             sizeBytes = fileSize,
             metadataVersion = md.MetadataVersion

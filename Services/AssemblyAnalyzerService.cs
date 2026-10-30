@@ -488,10 +488,10 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
             // Assembly references (name + assembly version); shown by the vulnerability view as an inventory.
             references,
             assemblyName = AssemblyReferenceReader.ReadAssemblyName(mdReader),
-            targetFramework = AssemblyReferenceReader.ReadTargetFramework(mdReader),
+            targetFramework = AssemblyReferenceReader.ReadOrInferTargetFramework(mdReader, out _),
 
             // what the assembly is, and whether it looks obfuscated (indicators with their evidence, never a verdict)
-            assembly = AssemblyInsights.ReadInfo(peReader, mdReader, upload.CanSeek ? upload.Length : 0, AssemblyReferenceReader.ReadTargetFramework(mdReader), references.Count),
+            assembly = AssemblyInsights.ReadInfo(peReader, mdReader, upload.CanSeek ? upload.Length : 0, references.Count),
             obfuscation = AssemblyInsights.DetectObfuscation(mdReader),
 
             metrics = BuildMetrics(methodDisplay, methodMetrics, callPairs),

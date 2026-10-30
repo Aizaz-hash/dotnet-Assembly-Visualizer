@@ -59,6 +59,22 @@ namespace DotNetVisualizer.Web.Tests.Integration
         }
 
         [Fact]
+        public void A_recorded_target_framework_is_reported_as_recorded_not_guessed()
+        {
+            Assert.False(Info(SamplePaths.Inheritance).GetProperty("targetFrameworkInferred").GetBoolean());
+        }
+
+        [Fact]
+        public void An_old_dotnet_framework_assembly_gets_a_guessed_target_framework_and_says_so()
+        {
+            var file = Path.Combine(Environment.GetEnvironmentVariable("windir") ?? "", "Microsoft.NET", "Framework64", "v4.0.30319", "System.Core.dll");
+            if (!OperatingSystem.IsWindows() || !File.Exists(file)) return;                  // needs a .NET Framework assembly (Windows only)
+            var info = Info(file);
+            Assert.StartsWith(".NETFramework", info.GetProperty("targetFramework").GetString());
+            Assert.True(info.GetProperty("targetFrameworkInferred").GetBoolean());
+        }
+
+        [Fact]
         public void A_vulnerable_sample_lists_its_references()
         {
             Assert.True(Info(SamplePaths.Vulnerable).GetProperty("references").GetInt32() >= 3);

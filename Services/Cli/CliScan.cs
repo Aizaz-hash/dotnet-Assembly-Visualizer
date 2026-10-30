@@ -76,7 +76,7 @@ namespace DotNetVisualizer.Web.Services.Cli
                 var md = pe.GetMetadataReader();
                 references = AssemblyReferenceReader.Read(md);
                 assemblyName = AssemblyReferenceReader.ReadAssemblyName(md);
-                targetFramework = AssemblyReferenceReader.ReadTargetFramework(md);
+                targetFramework = AssemblyReferenceReader.ReadOrInferTargetFramework(md, out _);
             }
             catch (Exception ex) when (ex is BadImageFormatException or InvalidDataException or IOException)
             {
