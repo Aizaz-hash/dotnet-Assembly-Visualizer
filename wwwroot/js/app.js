@@ -491,7 +491,7 @@ function updateNavButtons() {
 }
 
 function applyState() {
-    ['inheritance', 'calls', 'cycles', 'architecture', 'compare', 'metrics', 'risky', 'vulns'].forEach(v => {
+    ['inheritance', 'calls', 'cycles', 'architecture', 'source', 'compare', 'metrics', 'risky', 'vulns'].forEach(v => {
         byId('view' + v.charAt(0).toUpperCase() + v.slice(1)).classList.toggle('active', state.view === v);
         byId('tab' + v.charAt(0).toUpperCase() + v.slice(1)).classList.toggle('active', state.view === v);
     });
@@ -510,6 +510,7 @@ function applyState() {
     else if (state.view === 'metrics') renderMetrics();
     else if (state.view === 'architecture') renderArchitecture();
     else if (state.view === 'compare') renderCompare();
+    else if (state.view === 'source') renderSource();
     else renderCycles();
     updateNavButtons();
 }
@@ -526,6 +527,11 @@ function cycleLink(methodId) {
 function renderTitle() {
     const t = byId('viewTitle');
     t.innerHTML = '';
+    if (state.view === 'source') {
+        t.appendChild(el('span', 'vt-name', 'C# Source'));
+        t.appendChild(el('span', 'vt-sub', 'Decompiled C# of the selected type or method'));
+        return;
+    }
     if (state.view === 'compare') {
         t.appendChild(el('span', 'vt-name', 'Compare versions'));
         t.appendChild(el('span', 'vt-sub', 'What changed in the public API between two versions of an assembly, and what can break callers'));

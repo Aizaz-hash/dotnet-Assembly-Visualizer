@@ -614,3 +614,10 @@ body { font-size: 14px; }
 .cmp-sev { display: inline-block; min-width: 76px; text-align: center; font-size: 11px; text-transform: uppercase; border-radius: 3px; padding: 1px 6px; margin-right: 8px; color: #fff; }
 .cmp-sev.cmp-breaking { background: #dc3545; } .cmp-sev.cmp-compatible { background: #43a047; } .cmp-sev.cmp-info { background: #fd7e14; }
 .cmp-diff { font-family: Consolas, monospace; font-size: 12px; margin: 3px 0 0 84px; } .cmp-before { color: #b02a37; } .cmp-after { color: #1e7e34; }
+
+/* C# Source tab */
+#viewSource .scroll-body { padding: 12px 18px; }
+.src-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; flex-wrap: wrap; }
+.src-label { font-family: Consolas, monospace; font-weight: 600; word-break: break-all; }
+.src-code { margin: 0 0 8px; padding: 12px 14px; background: #1e1e1e; color: #d4d4d4; border-radius: 4px; overflow: auto; font: 12.5px/1.45 Consolas, 'Courier New', monospace; tab-size: 4; max-height: calc(100vh - 260px); white-space: pre; }
+.cs-kw { color: #569cd6; } .cs-lit { color: #569cd6; } .cs-string { color: #ce9178; } .cs-comment { color: #6a9955; } .cs-number { color: #b5cea8; } .cs-pre { color: #9b9b9b; }
