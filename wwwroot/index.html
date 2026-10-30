@@ -21,9 +21,11 @@
         <div class="tb-sep"></div>
         <div class="tb-group">
             <div class="file-upload-wrapper">
-                <div class="tb-btn tb-open" id="uploadLabel" title="Open an assembly (.dll / .exe) - or drop one on the page">📂 Open</div>
-                <input type="file" id="dllFile" accept=".dll,.exe" />
+                <div class="tb-btn tb-open" id="uploadLabel" title="Open an assembly (.dll / .exe), a NuGet package (.nupkg), a .zip or several files - or drop them on the page">📂 Open</div>
+                <input type="file" id="dllFile" accept=".dll,.exe,.nupkg,.zip,.json" multiple />
+                <input type="file" id="dirFile" webkitdirectory style="display:none" />
             </div>
+            <button id="btnOpenFolder" class="tb-btn" title="Open a folder (for example a publish folder): loads its assemblies and picks up the .deps.json">📁 Folder</button>
             <span id="currentDllName" class="dll-name-display">No assembly loaded</span>
             <span id="uploadHint" class="upload-hint"></span>
         </div>
@@ -180,6 +182,7 @@
 
     <script src="js/graph-utils.js"></script>
     <script src="js/ui-logic.js"></script>
+    <script src="js/package-input.js"></script>
     <script src="js/app.js"></script>
     <script src="js/vuln.js"></script>
 </body>

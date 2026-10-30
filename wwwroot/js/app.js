@@ -61,9 +61,9 @@ function setTabBadge(badge, count, title) {
 }
 
 // Calls a function defined in vuln.js (loaded after this file) if it exists.
-function vulnCall(name, arg) {
+function vulnCall(name, ...args) {
     const fn = window[name];
-    if (typeof fn === 'function') fn(arg);
+    if (typeof fn === 'function') fn(...args);
 }
 
 function el(tag, className, text) {
@@ -1405,10 +1405,94 @@ async function loadFile(file, opts = {}) {
 //  Wiring
 // ============================================================================
 
+// ---------- opening more than one DLL: archives (.nupkg / .zip), folders, several files ----------
+
+const isArchive = (name) => /\.(nupkg|zip)$/i.test(name);
+const asFile = (item) => item.file || item;
+
+// Turns whatever the user picked or dropped into [{ path, size, getFile() }].
+async function entriesFromInputs(inputs) {
+    const entries = [];
+    for (const item of inputs) {
+        const file = asFile(item);
+        if (isArchive(file.name)) {
+            appLoader.show('Reading ' + file.name, 'Listing the archive…');
+            await nextFrame();
+            const zipEntries = await PackageInput.readZipEntries(file);
+            for (const z of zipEntries) {
+                entries.push({
+                    path: z.path, size: z.size,
+                    getFile: async () => new File([await z.read()], z.path.slice(z.path.lastIndexOf('/') + 1))
+                });
+            }
+        } else {
+            // dropped folders carry item.path; the folder picker carries webkitRelativePath ("Folder/sub/File.dll")
+            let path = item.path || (file.webkitRelativePath ? file.webkitRelativePath.replace(/^[^/]+\//, '') : file.name);
+            entries.push({ path, size: file.size, getFile: async () => file });
+        }
+    }
+    return entries;
+}
+
+async function openInputs(inputs) {
+    inputs = Array.from(inputs || []);
+    if (!inputs.length) return false;
+
+    // one plain DLL: exactly the old behaviour
+    if (inputs.length === 1 && /\.(dll|exe)$/i.test(asFile(inputs[0]).name)) return loadFile(asFile(inputs[0]));
+
+    let entries, plan;
+    try {
+        entries = await entriesFromInputs(inputs);
+        plan = PackageInput.plan(entries, { max: MAX_LOADED_ASSEMBLIES });
+    } catch (err) {
+        appLoader.hide();
+        showMessage('Could not open that: ' + err.message, 'error');
+        return false;
+    }
+    appLoader.hide();
+
+    if (!plan.assemblies.length) {
+        showMessage('No .NET assembly (.dll / .exe) was found in what you opened.' + (plan.skipped.length ? ' Skipped: ' + plan.skipped.slice(0, 3).map(s => s.path + ' (' + s.reason + ')').join('; ') + '.' : ''), 'error');
+        return false;
+    }
+
+    const byPath = new Map(entries.map(e => [e.path.replace(/\\/g, '/'), e]));
+    const depsCache = new Map();
+    let opened = 0, failed = 0, withDeps = 0;
+    for (const path of plan.assemblies) {
+        const entry = byPath.get(path);
+        let file;
+        try { file = await entry.getFile(); } catch (err) { failed++; showMessage('Could not unpack "' + path + '": ' + err.message, 'error'); continue; }
+        if (await loadFile(file)) {
+            opened++;
+            const depsPath = plan.deps[path];
+            if (depsPath && byPath.has(depsPath)) {
+                if (!depsCache.has(depsPath)) depsCache.set(depsPath, await byPath.get(depsPath).getFile());
+                vulnCall('vulnSetDeps', file.name, depsCache.get(depsPath));
+                withDeps++;
+            }
+        } else failed++;
+    }
+
+    const parts = ['Opened ' + opened + ' assembl' + (opened === 1 ? 'y' : 'ies')];
+    if (withDeps) parts.push('.deps.json picked up for the vulnerability scan (exact versions)');
+    const notOpened = plan.skipped.filter(s => /limit/.test(s.reason));
+    if (notOpened.length) parts.push(notOpened.length + ' more not opened (' + notOpened[0].reason + ')');
+    if (failed) parts.push(failed + ' could not be read');
+    if (opened) showMessage(parts.join(' · ') + '.', failed ? 'info' : 'success');
+    return opened > 0;
+}
+
 byId('dllFile').addEventListener('change', async (e) => {
-    await loadFile(e.target.files[0]);
+    await openInputs(e.target.files);
     e.target.value = '';
 });
+byId('dirFile').addEventListener('change', async (e) => {
+    await openInputs(e.target.files);
+    e.target.value = '';
+});
+byId('btnOpenFolder').onclick = () => byId('dirFile').click();
 
 document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
     const view = tab.dataset.view;
@@ -1474,8 +1558,35 @@ window.addEventListener('drop', async (e) => {
     e.preventDefault();
     dragDepth = 0;
     document.body.classList.remove('dragging');
-    await loadFile(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]);
+    await openInputs(await collectDropped(e.dataTransfer));
 });
+
+// Files from a drop; folders are walked (the plain files list does not include a dropped folder's contents).
+async function collectDropped(dt) {
+    if (!dt) return [];
+    const items = Array.from(dt.items || []).map(i => (i.webkitGetAsEntry ? i.webkitGetAsEntry() : null));
+    if (!items.length || items.every(i => !i)) return Array.from(dt.files || []);
+
+    const out = [];
+    const readAll = (reader) => new Promise((resolve, reject) => {
+        const all = [];
+        const next = () => reader.readEntries(batch => { if (!batch.length) resolve(all); else { all.push(...batch); next(); } }, reject);
+        next();
+    });
+    const walk = async (entry, prefix) => {
+        if (entry.isFile) {
+            const file = await new Promise((res, rej) => entry.file(res, rej));
+            out.push({ file, path: prefix + entry.name });
+        } else if (entry.isDirectory && out.length < 5000) {
+            for (const child of await readAll(entry.createReader())) await walk(child, prefix + entry.name + '/');
+        }
+    };
+    for (const entry of items) if (entry) await walk(entry, '');
+    // a single dropped folder: drop its own name from the paths so "App/App.dll" is treated like "App.dll"
+    const tops = new Set(out.map(o => o.path.split('/')[0]));
+    if (tops.size === 1 && out.every(o => o.path.includes('/'))) out.forEach(o => { o.path = o.path.slice(o.path.indexOf('/') + 1); });
+    return out;
+}
 
 fetch('/api/analysis/limits').then(r => r.ok ? r.json() : null).then(info => {
     if (!info) return;
