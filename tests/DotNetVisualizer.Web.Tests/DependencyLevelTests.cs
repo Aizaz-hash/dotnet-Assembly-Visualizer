@@ -403,8 +403,49 @@ namespace DotNetVisualizer.Web.Tests
         {
             var report = await Scanner(new FakeOsvClient(), new FakeNuGetClient()).ScanAsync(Request(("Internal.Private", "1.0.0.0")), default);
             Assert.False(report.Complete);
-            Assert.Contains(report.Notes, n => n.Contains("No NuGet package with a known version"));
+            Assert.Contains(report.Notes, n => n.Contains("No dependency could be checked") && n.Contains("could not be matched to a NuGet package"));
+            Assert.True(report.NothingToCheck);
             Assert.Equal("Dependency could not be resolved", Assert.Single(report.Components).Status);
+        }
+
+        [Fact]
+        public async Task An_assembly_that_only_references_the_runtime_is_complete_and_says_why_nothing_was_checked()
+        {
+            var osv = new FakeOsvClient();
+            var scanner = new VulnerabilityScanner(osv, true, null, Path.GetTempPath(), "x", new DependencyResolver(new FakeNuGetClient(), name => name.StartsWith("Microsoft.") || name.StartsWith("System.")));
+            var report = await scanner.ScanAsync(new ScanRequest
+            {
+                IncludeApplication = false, RootName = "MyTool", TargetFramework = ".NETCoreApp,Version=v8.0",
+                References = LevelFixtures.Refs(("System.Linq", "8.0.0.0"), ("Microsoft.AspNetCore.Http", "8.0.0.0"), ("System.Runtime", "8.0.0.0"))
+            }, default);
+
+            Assert.True(report.NothingToCheck);
+            Assert.True(report.Complete);                                  // nothing is missing: there simply is no package to check
+            Assert.False(report.DatabaseReachable);                         // the database was never asked - the UI must not call that "unreachable"
+            Assert.Empty(osv.Queried);
+            Assert.Contains(report.Notes, n => n.Contains("All 3 assemblies it references are supplied by the .NET runtime"));
+            Assert.All(report.Components, c => Assert.StartsWith("Assembly discovered", c.Status));
+        }
+
+        [Fact]
+        public async Task A_mix_of_runtime_private_and_unreachable_dependencies_is_explained_and_incomplete()
+        {
+            var nuget = new FakeNuGetClient();
+            nuget.Down.Add("Flaky.Pkg");
+            nuget.Package("Other", "1.0.0");
+            var scanner = new VulnerabilityScanner(new FakeOsvClient(), true, null, Path.GetTempPath(), "x", new DependencyResolver(nuget, name => name.StartsWith("System.")));
+            var report = await scanner.ScanAsync(new ScanRequest
+            {
+                IncludeApplication = false, RootName = "MyTool", TargetFramework = ".NETCoreApp,Version=v8.0",
+                References = LevelFixtures.Refs(("System.Linq", "8.0.0.0"), ("Private.Thing", "1.0.0.0"), ("Flaky.Pkg", "1.0.0.0"))
+            }, default);
+
+            Assert.True(report.NothingToCheck);
+            Assert.False(report.Complete);
+            var note = Assert.Single(report.Notes, n => n.StartsWith("No dependency could be checked"));
+            Assert.Contains("1 supplied by the .NET runtime", note);
+            Assert.Contains("1 could not be matched", note);
+            Assert.Contains("1 could not be looked up because NuGet was unreachable", note);
         }
 
         [Fact]
