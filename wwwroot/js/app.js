@@ -491,7 +491,7 @@ function updateNavButtons() {
 }
 
 function applyState() {
-    ['inheritance', 'calls', 'cycles', 'architecture', 'metrics', 'risky', 'vulns'].forEach(v => {
+    ['inheritance', 'calls', 'cycles', 'architecture', 'compare', 'metrics', 'risky', 'vulns'].forEach(v => {
         byId('view' + v.charAt(0).toUpperCase() + v.slice(1)).classList.toggle('active', state.view === v);
         byId('tab' + v.charAt(0).toUpperCase() + v.slice(1)).classList.toggle('active', state.view === v);
     });
@@ -509,6 +509,7 @@ function applyState() {
     else if (state.view === 'risky') renderRisky();
     else if (state.view === 'metrics') renderMetrics();
     else if (state.view === 'architecture') renderArchitecture();
+    else if (state.view === 'compare') renderCompare();
     else renderCycles();
     updateNavButtons();
 }
@@ -525,6 +526,11 @@ function cycleLink(methodId) {
 function renderTitle() {
     const t = byId('viewTitle');
     t.innerHTML = '';
+    if (state.view === 'compare') {
+        t.appendChild(el('span', 'vt-name', 'Compare versions'));
+        t.appendChild(el('span', 'vt-sub', 'What changed in the public API between two versions of an assembly, and what can break callers'));
+        return;
+    }
     if (state.view === 'architecture') {
         t.appendChild(el('span', 'vt-name', 'Architecture'));
         t.appendChild(el('span', 'vt-sub', 'How the namespaces of the loaded assembly depend on each other, and where they depend on each other in a circle'));
@@ -1516,7 +1522,7 @@ byId('btnOpenFolder').onclick = () => byId('dirFile').click();
 
 document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
     const view = tab.dataset.view;
-    if (!hasAssembly && view !== 'vulns') return;
+    if (!hasAssembly && view !== 'vulns' && view !== 'compare') return;
     navigate({ view, ...(view === 'cycles' ? { cycleMethod: null, cycleIdx: 0 } : {}) });
 }));
 byId('inhModeSelected').onclick = () => navigate({ inhMode: 'selected' });
