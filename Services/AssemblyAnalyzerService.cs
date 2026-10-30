@@ -42,6 +42,9 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
         var methodIdsByClass = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         var methodEdges = new List<object>();
         var callPairs = new List<(string From, string To)>();
+        // Constructors are only listed when something calls them or they call something: a compiler-generated default
+        // constructor that just calls object() would otherwise add a meaningless node to every class.
+        var pendingConstructors = new List<(string Id, object Node)>();
         var resolvedCallTargets = new Dictionary<int, (string Id, string ParentClass, bool IsInternal)>();
 
         var registeredMethodIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -152,7 +155,11 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
 
                         bool isLambdaBody = !string.IsNullOrEmpty(lambdaDisplayName) && (methodName.Contains("b__") || methodName.Equals("MoveNext"));
 
-                        if ((isLambdaGeneratedType && !isLambdaBody) || (!isLambdaGeneratedType && methodName.StartsWith("<") && !isTopLevelMain) || methodName.Equals(".ctor") || methodName.Equals(".cctor"))
+                        // Instance constructors take part in the call graph (new Foo(...) is a newobj, base(...) a call to .ctor).
+                        // Static constructors and constructors of compiler-generated lambda types are still left out.
+                        bool isConstructor = methodName.Equals(".ctor") && !isLambdaGeneratedType;
+
+                        if ((isLambdaGeneratedType && !isLambdaBody) || (!isLambdaGeneratedType && methodName.StartsWith("<") && !isTopLevelMain) || (methodName.Equals(".ctor") && !isConstructor) || methodName.Equals(".cctor"))
                             continue;
 
                         string displayMethodName = isTopLevelMain ? "Main" : isLambdaBody ? lambdaDisplayName : methodName;
@@ -175,7 +182,13 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
                         // Map metadata method token -> unique visualizer ID
                         tokenToUniqueMethodIdMap[methodHandle] = methodUniqueId;
 
-                        if (isNewMethodNode)
+                        if (isNewMethodNode && isConstructor)
+                        {
+                            // shown as "Foo(int a)" like ILSpy; the id keeps ".ctor" so it matches member references
+                            string ctorLabel = GetDisplayTypeName(mdReader, typeDef) + methodSignature.Substring(methodSignature.IndexOf('('));
+                            pendingConstructors.Add((methodUniqueId, new { id = methodUniqueId, name = ctorLabel, parentClass = fullName }));
+                        }
+                        else if (isNewMethodNode)
                         {
                             if (!methodIdsByClass.TryGetValue(fullName, out var idsOfClass))
                                 methodIdsByClass[fullName] = idsOfClass = new List<string>();
@@ -234,7 +247,7 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
                 while (TryReadInstruction(ref ilReader, out OpCode opCode, out int metadataToken))
                 {
                     // We only care about actual method calls.
-                    if (opCode.Value != OpCodes.Call.Value && opCode.Value != OpCodes.Callvirt.Value)
+                    if (opCode.Value != OpCodes.Call.Value && opCode.Value != OpCodes.Callvirt.Value && opCode.Value != OpCodes.Newobj.Value)
                     {
                         continue;
                     }
@@ -380,6 +393,11 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
                 // Ignore malformed/unreadable method bodies.
             }
         }
+
+        var connected = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (from, to) in callPairs) { connected.Add(from); connected.Add(to); }
+        foreach (var (id, node) in pendingConstructors)
+            if (connected.Contains(id)) methodNodes.Add(node);
 
         timer.Mark("call analysis (IL scan)");
 
