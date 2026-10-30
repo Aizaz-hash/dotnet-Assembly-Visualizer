@@ -1,5 +1,4 @@
 ﻿using DotNetVisualizer.Web.Interfaces;
-using DotNetVisualizer.Web.Services.ApiDiff;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DotNetVisualizer.Web.Controllers
@@ -13,30 +12,6 @@ namespace DotNetVisualizer.Web.Controllers
         public AnalysisController(IAssemblyAnalyzer analyzer)
         {
             _analyzer = analyzer;
-        }
-
-        /// <summary>Compares the public API of two versions of an assembly (metadata only; nothing is loaded or run).</summary>
-        [HttpPost("diff")]
-        public IActionResult Diff(IFormFile oldFile, IFormFile newFile)
-        {
-            if (oldFile == null || oldFile.Length == 0 || newFile == null || newFile.Length == 0)
-                return BadRequest("Both the old and the new assembly are needed.");
-
-            ApiSurface Read(IFormFile f, string which)
-            {
-                try
-                {
-                    using var s = f.OpenReadStream();
-                    return ApiSurfaceReader.Read(s);
-                }
-                catch (Exception ex) when (ex is InvalidDataException or BadImageFormatException)
-                {
-                    throw new InvalidDataException($"The {which} file is not a valid .NET assembly.");
-                }
-            }
-
-            try { return Ok(ApiDiffer.Compare(Read(oldFile, "old"), Read(newFile, "new"))); }
-            catch (InvalidDataException ex) { return BadRequest(ex.Message); }
         }
 
         [HttpPost("analyze")]
