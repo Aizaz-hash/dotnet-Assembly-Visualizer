@@ -31,10 +31,22 @@ namespace DotNetVisualizer.Web.Tests.Integration
             return osv;
         }
 
-        private static async Task<ScanReport> ScanWithManifest(FakeOsvClient osv)
+        // The SDK decides what goes into a generated deps.json (for example it drops or keeps System.Text.Json depending on the
+        // runtime version it builds against), so the runtime-supplied case uses this fixed manifest, written the way the SDK writes a
+        // package the framework supplies: listed in "libraries" but with no runtime assets.
+        private const string ManifestWithRuntimeSuppliedPackage = """
+        { "runtimeTarget": { "name": ".NETCoreApp,Version=v8.0" },
+          "targets": { ".NETCoreApp,Version=v8.0": {
+              "VulnerableDemo/1.0.0": { "dependencies": { "log4net": "2.0.8", "System.Text.Json": "8.0.0" } },
+              "log4net/2.0.8": { "runtime": { "lib/netstandard2.0/log4net.dll": {} } },
+              "System.Text.Json/8.0.0": { } } },
+          "libraries": { "VulnerableDemo/1.0.0": { "type": "project" }, "log4net/2.0.8": { "type": "package" }, "System.Text.Json/8.0.0": { "type": "package" } } }
+        """;
+
+        private static async Task<ScanReport> ScanWithManifest(FakeOsvClient osv, bool useRealManifest = true)
         {
             var (refs, name, tfm) = ReadAssembly(SamplePaths.Vulnerable);
-            using var manifest = File.OpenRead(SamplePaths.VulnerableDeps);
+            using Stream manifest = useRealManifest ? File.OpenRead(SamplePaths.VulnerableDeps) : new MemoryStream(System.Text.Encoding.UTF8.GetBytes(ManifestWithRuntimeSuppliedPackage));
             var scanner = new VulnerabilityScanner(osv, true, null, Path.GetTempPath(), "x", new DependencyResolver(new FakeNuGetClient()));
             return await scanner.ScanAsync(new ScanRequest
             {
@@ -57,7 +69,7 @@ namespace DotNetVisualizer.Web.Tests.Integration
         [Fact]
         public async Task A_package_the_runtime_supplies_is_informational_not_confirmed()
         {
-            var report = await ScanWithManifest(Osv());
+            var report = await ScanWithManifest(Osv(), useRealManifest: false);
             var stj = Assert.Single(report.Findings, f => f.Component == "System.Text.Json");
             Assert.Equal("informational", stj.Confidence);
             Assert.Contains("runtime", stj.ConfidenceNote);
@@ -121,8 +133,8 @@ namespace DotNetVisualizer.Web.Tests.Integration
             var text = output.ToString();
             Assert.Contains("exact versions from VulnerableDemo.deps.json", text);
             Assert.Contains("CVE-2018-1285", text);
-            Assert.Contains("FAIL: 1 finding(s) at or above 'high'", text);                         // System.Text.Json is informational: shown, not counted
-            Assert.Contains("[informational - not counted]", text);
+            Assert.Contains("FAIL: 1 finding(s) at or above 'high'", text);                         // informational findings are never counted
+            Assert.All(text.Split('\n').Where(l => l.Contains("[informational")), l => Assert.Contains("not counted", l));       // when the SDK kept System.Text.Json it is labelled, never counted
         }
 
         [Fact]
