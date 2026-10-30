@@ -46,7 +46,7 @@ public static class AssemblyInsights
             managedOnly = ilOnly,
             strongNamed = md.IsAssembly && !asm.PublicKey.IsNil,
             hasEntryPoint = cor != null && cor.EntryPointTokenOrRelativeVirtualAddress != 0 && (cor.Flags & CorFlags.NativeEntryPoint) == 0,
-            debugBuild = HasAttribute(md, "DebuggableAttribute") && HasDebugInfoDirectory(pe),
+            debugBuild = IsDebugBuild(md),
             targetFramework,
             targetFrameworkInferred = inferred,         // older assemblies record none: it is then a guess from what they reference
             references = referenceCount,
@@ -144,22 +144,27 @@ public static class AssemblyInsights
     private static string Printable(string name) =>
         string.Concat(name.Select(c => c > 32 && c < 127 ? c.ToString() : "\\u" + ((int)c).ToString("X4", CultureInfo.InvariantCulture)));
 
-    private static bool HasAttribute(MetadataReader md, string attributeName)
+    /// <summary>
+    /// A debug build is one the compiler told the JIT not to optimise: DebuggableAttribute with DisableOptimizations (0x100), or the older
+    /// (isJITTrackingEnabled, isJITOptimizerDisabled) form with the second flag set. Release builds also carry the attribute (and a pdb
+    /// reference), so its presence alone says nothing.
+    /// </summary>
+    private static bool IsDebugBuild(MetadataReader md)
     {
         if (!md.IsAssembly) return false;
         foreach (var h in md.GetAssemblyDefinition().GetCustomAttributes())
         {
-            var ctor = md.GetCustomAttribute(h).Constructor;
-            if (ctor.Kind != HandleKind.MemberReference) continue;
-            var parent = md.GetMemberReference((MemberReferenceHandle)ctor).Parent;
-            if (parent.Kind == HandleKind.TypeReference && md.GetString(md.GetTypeReference((TypeReferenceHandle)parent).Name) == attributeName) return true;
+            var attr = md.GetCustomAttribute(h);
+            if (attr.Constructor.Kind != HandleKind.MemberReference) continue;
+            var parent = md.GetMemberReference((MemberReferenceHandle)attr.Constructor).Parent;
+            if (parent.Kind != HandleKind.TypeReference || md.GetString(md.GetTypeReference((TypeReferenceHandle)parent).Name) != "DebuggableAttribute") continue;
+
+            var blob = md.GetBlobReader(attr.Value);
+            if (blob.RemainingBytes < 4 || blob.ReadUInt16() != 1) return false;                 // prolog
+            if (blob.RemainingBytes >= 6) return (blob.ReadInt32() & 0x100) != 0;               // DebuggingModes: DisableOptimizations
+            if (blob.RemainingBytes >= 4) { blob.ReadByte(); return blob.ReadByte() != 0; }     // (bool tracking, bool optimizerDisabled)
+            return false;
         }
         return false;
-    }
-
-    private static bool HasDebugInfoDirectory(PEReader pe)
-    {
-        try { return pe.ReadDebugDirectory().Any(e => e.Type == DebugDirectoryEntryType.CodeView || e.Type == DebugDirectoryEntryType.EmbeddedPortablePdb); }
-        catch (BadImageFormatException) { return false; }
     }
 }

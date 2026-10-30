@@ -59,6 +59,18 @@ namespace DotNetVisualizer.Web.Tests.Integration
         }
 
         [Fact]
+        public void Debug_versus_release_follows_how_the_sample_was_built_not_whether_a_pdb_exists()
+        {
+            // regression: "debug" was reported for Release builds because they also carry DebuggableAttribute and a pdb reference
+#if DEBUG
+            const bool expectedDebug = true;
+#else
+            const bool expectedDebug = false;
+#endif
+            Assert.Equal(expectedDebug, Info(SamplePaths.Inheritance).GetProperty("debugBuild").GetBoolean());
+        }
+
+        [Fact]
         public void A_recorded_target_framework_is_reported_as_recorded_not_guessed()
         {
             Assert.False(Info(SamplePaths.Inheritance).GetProperty("targetFrameworkInferred").GetBoolean());
