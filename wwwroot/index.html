@@ -61,6 +61,7 @@
                 <button class="tab" id="tabInheritance" data-view="inheritance">Inheritance</button>
                 <button class="tab" id="tabCalls" data-view="calls">Method Calls</button>
                 <button class="tab" id="tabCycles" data-view="cycles">Circular Dependencies <span id="cycleCount" class="tab-badge">-</span></button>
+                <button class="tab" id="tabCompare" data-view="compare">Compare</button>
                 <button class="tab" id="tabArchitecture" data-view="architecture">Architecture</button>
                 <button class="tab" id="tabMetrics" data-view="metrics">Metrics</button>
                 <button class="tab" id="tabRisky" data-view="risky">Risky APIs <span id="riskyBadge" class="tab-badge">-</span></button>
@@ -133,6 +134,10 @@
                         <div id="cycleCanvas" class="canvas-wrap"></div>
                     </div>
                 </div>
+            </section>
+
+            <section id="viewCompare" class="view">
+                <div id="compareScroll" class="scroll-body"></div>
             </section>
 
             <section id="viewArchitecture" class="view">
@@ -216,5 +221,6 @@
     <script src="js/risky.js"></script>
     <script src="js/metrics.js"></script>
     <script src="js/architecture.js"></script>
+    <script src="js/compare.js"></script>
 </body>
 </html>

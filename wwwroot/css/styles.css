@@ -598,3 +598,19 @@ body { font-size: 14px; }
 .arch-cycle:hover, .arch-cycle.active { background: #fff5f5; }
 .ac-title { font-weight: 600; } .ac-path { color: #495057; word-break: break-word; margin-top: 2px; }
 .arch-types { margin-top: 12px; } .arch-types summary { cursor: pointer; font-weight: 600; margin-bottom: 6px; }
+
+/* Compare tab */
+#viewCompare .scroll-body { padding: 14px 18px; }
+.cmp-pick { display: flex; gap: 14px; align-items: stretch; flex-wrap: wrap; margin-bottom: 14px; }
+.cmp-side { border: 1px solid #dee2e6; border-radius: 4px; padding: 8px 12px; background: #fff; min-width: 240px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.cmp-label { font-weight: 600; } .cmp-file { font-size: 12.5px; color: #868e96; } .cmp-file.set { color: #212529; }
+.cmp-pick .btn-primary { align-self: center; }
+.cmp-type { border: 1px solid #dee2e6; border-radius: 4px; margin-bottom: 8px; background: #fff; max-width: 1000px; }
+.cmp-type summary { cursor: pointer; padding: 6px 10px; font-weight: 600; font-family: Consolas, monospace; font-size: 13px; }
+.cmp-count { color: #868e96; font-weight: 400; font-family: 'Segoe UI', sans-serif; font-size: 12px; }
+.cmp-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; }
+.cmp-dot.cmp-breaking { background: #dc3545; } .cmp-dot.cmp-compatible { background: #43a047; } .cmp-dot.cmp-info { background: #fd7e14; }
+.cmp-row { padding: 5px 10px 6px 24px; border-top: 1px solid #f1f3f5; font-size: 13px; }
+.cmp-sev { display: inline-block; min-width: 76px; text-align: center; font-size: 11px; text-transform: uppercase; border-radius: 3px; padding: 1px 6px; margin-right: 8px; color: #fff; }
+.cmp-sev.cmp-breaking { background: #dc3545; } .cmp-sev.cmp-compatible { background: #43a047; } .cmp-sev.cmp-info { background: #fd7e14; }
+.cmp-diff { font-family: Consolas, monospace; font-size: 12px; margin: 3px 0 0 84px; } .cmp-before { color: #b02a37; } .cmp-after { color: #1e7e34; }
