@@ -1615,8 +1615,13 @@ fetch('/api/analysis/limits').then(r => r.ok ? r.json() : null).then(info => {
     byId('uploadHint').textContent = `.dll / .exe, max ${maxUploadMb} MB`;
 }).catch(() => { /* hint is optional */ });
 
-buildExplorer();
-applyState();
+// The first render needs every view's script (metrics.js, risky.js ... load after this file), so it waits until all of them have run.
+// Rendering earlier threw "renderMetrics is not defined", which also stopped the rest of this file from running.
+function startUp() {
+    buildExplorer();
+    applyState();
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startUp); else startUp();
 
 // The obfuscation notice stays until it is dismissed; the choice is remembered in this browser (and works without storage).
 (function () {
