@@ -491,7 +491,7 @@ function updateNavButtons() {
 }
 
 function applyState() {
-    ['inheritance', 'calls', 'cycles', 'metrics', 'risky', 'vulns'].forEach(v => {
+    ['inheritance', 'calls', 'cycles', 'architecture', 'metrics', 'risky', 'vulns'].forEach(v => {
         byId('view' + v.charAt(0).toUpperCase() + v.slice(1)).classList.toggle('active', state.view === v);
         byId('tab' + v.charAt(0).toUpperCase() + v.slice(1)).classList.toggle('active', state.view === v);
     });
@@ -508,6 +508,7 @@ function applyState() {
     else if (state.view === 'vulns') renderVulns();
     else if (state.view === 'risky') renderRisky();
     else if (state.view === 'metrics') renderMetrics();
+    else if (state.view === 'architecture') renderArchitecture();
     else renderCycles();
     updateNavButtons();
 }
@@ -524,6 +525,11 @@ function cycleLink(methodId) {
 function renderTitle() {
     const t = byId('viewTitle');
     t.innerHTML = '';
+    if (state.view === 'architecture') {
+        t.appendChild(el('span', 'vt-name', 'Architecture'));
+        t.appendChild(el('span', 'vt-sub', 'How the namespaces of the loaded assembly depend on each other, and where they depend on each other in a circle'));
+        return;
+    }
     if (state.view === 'metrics') {
         t.appendChild(el('span', 'vt-name', 'Code Metrics'));
         t.appendChild(el('span', 'vt-sub', 'Complexity, size, callers and unreferenced methods of the loaded assembly'));
