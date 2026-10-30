@@ -11,7 +11,11 @@ const VULN_CONSENT_KEY = 'dav.vuln.consent';
 
 let vulnReport = null;
 let vulnInfo = null;                        // { enabled, host, sends } from /status
-let vulnBusy = false;
+const vulnScanning = new Set();             // assemblies whose scan is running right now (several can run; the UI follows the active one)
+const vulnMeta = new Map();                 // assembly name -> { key, finishedAt, outcome } of its last scan attempt (see ScanPolicy)
+let vulnAutoTimer = null;
+const VULN_AUTO_KEY = 'dav.vuln.auto';      // 'off' switches automatic scans off; anything else (default) leaves them on
+const VULN_ASKED_KEY = 'dav.vuln.asked';    // sessionStorage: consent was asked once in this tab
 let vulnDepsFile = null;
 const vulnReports = new Map();              // assembly name -> report (a scan belongs to the assembly it was run for)
 const vulnDepsFiles = new Map();            // assembly name -> chosen .deps.json
@@ -70,9 +74,15 @@ async function loadVulnInfo() {
         if (r.ok) vulnInfo = await r.json();
     } catch { /* shown as "unknown" */ }
 }
+const vulnInfoReady = loadVulnInfo();          // automatic scans wait for this, so they know whether scanning is switched off on the server
+
+const vulnIsBusy = () => vulnScanning.has(currentAssemblyName);
+function vulnHasConsent() { try { return localStorage.getItem(VULN_CONSENT_KEY) === 'yes'; } catch { return false; } }
+function vulnAutoEnabled() { try { return localStorage.getItem(VULN_AUTO_KEY) !== 'off'; } catch { return true; } }
+function vulnSetAuto(on) { try { localStorage.setItem(VULN_AUTO_KEY, on ? 'on' : 'off'); } catch { /* not remembered */ } }
 
 function vulnConsent() {
-    try { if (localStorage.getItem(VULN_CONSENT_KEY) === 'yes') return true; } catch { /* ignore */ }
+    if (vulnHasConsent()) return true;
     const host = (vulnInfo && vulnInfo.host) || 'api.osv.dev';
     const ok = window.confirm(
         'Vulnerability scan\n\nThis sends package names and versions (never your code or assemblies) to ' + host + ' (OSV.dev) ' +
@@ -94,23 +104,26 @@ function vulnOnAssemblyChanged() {
     vulnFilters.component = vulnFilters.status = vulnFilters.confidence = vulnFilters.text = '';
     syncVulnToolbar();
     updateVulnBadge();
+    vulnScheduleAutoScan();
 }
 
 // A .deps.json that came with an opened package / folder: used for this assembly's scan (exact versions).
 function vulnSetDeps(name, file) {
     vulnDepsFiles.set(name, file);
-    if (hasAssembly && currentAssemblyName === name) { vulnDepsFile = file; syncVulnToolbar(); }
+    if (hasAssembly && currentAssemblyName === name) { vulnDepsFile = file; syncVulnToolbar(); vulnScheduleAutoScan(); }   // exact versions: scan again
 }
 
 function vulnForgetAssembly(name) {
     vulnReports.delete(name);
     vulnDepsFiles.delete(name);
+    vulnMeta.delete(name);
 }
 
 function syncVulnToolbar() {
     const has = hasAssembly;
-    byId('btnVulnScan').disabled = !has || vulnBusy;
-    byId('btnVulnScan').textContent = vulnBusy ? 'Scanning…' : (vulnReport ? 'Re-run scan' : 'Run scan');
+    byId('btnVulnScan').disabled = !has || vulnIsBusy();
+    byId('btnVulnScan').textContent = vulnIsBusy() ? 'Scanning…' : (vulnReport ? 'Re-run scan' : 'Run scan');
+    byId('vulnOptAuto').checked = vulnAutoEnabled();
     byId('btnVulnScan').title = has ? 'Scan the dependencies of ' + currentAssemblyName : 'Open an assembly first';
     byId('vulnOptApp').disabled = !has;
     byId('btnVulnDeps').disabled = !has;
@@ -118,51 +131,112 @@ function syncVulnToolbar() {
     byId('btnVulnPdf').disabled = !vulnReport;
     byId('vulnDepsName').textContent = vulnDepsFile ? vulnDepsFile.name : '';
     byId('btnVulnDepsClear').style.display = vulnDepsFile ? 'inline-block' : 'none';
-    byId('vulnScope').textContent = has ? 'Scanning: ' + currentAssemblyName : 'No assembly loaded';
+    byId('vulnScope').textContent = has ? (vulnIsBusy() ? 'Scanning: ' : 'Assembly: ') + currentAssemblyName : 'No assembly loaded';
 }
 
+// The "Run scan" / "Re-run scan" button: always scans, whatever was scanned before.
 async function runVulnScan() {
-    if (vulnBusy) return;
+    if (vulnIsBusy()) return;
     if (!hasAssembly) { showMessage('Open an assembly first - the scan is run for the loaded assembly.', 'error'); return; }
-    const name = currentAssemblyName;
-    const includeApp = byId('vulnOptApp').checked;
     if (!vulnConsent()) return;
+    await scanAssembly(currentAssemblyName, { auto: false });
+}
 
-    vulnBusy = true;
-    syncVulnToolbar();
-    setStatus('Resolving dependencies of ' + name + ' and checking them against OSV.dev…');
+// Scans one loaded assembly in the background (fetch is asynchronous: the rest of the UI keeps working). Used by the button and by the
+// automatic start, so there is a single implementation of what a scan sends and what it stores.
+async function scanAssembly(name, { auto }) {
+    const data = loadedAssemblies.get(name);
+    if (!data || vulnScanning.has(name)) return;
+    const depsFile = vulnDepsFiles.get(name) || null;
+    const includeApp = byId('vulnOptApp').checked;
+    const key = ScanPolicy.scanKey(loadedFiles.get(name), depsFile, includeApp);
+
+    vulnScanning.add(name);
+    vulnRefreshForScan(name);
+    setStatus((auto ? 'Scanning ' : 'Resolving dependencies of ') + name + (auto ? ' for known vulnerabilities in the background…' : ' and checking them against OSV.dev…'));
 
     const form = new FormData();
     form.append('includeApplication', includeApp ? 'true' : 'false');
-    if (vulnDepsFile) form.append('depsFile', vulnDepsFile);
-    form.append('assemblyName', (rawAssemblyData.assemblyName || name).replace(/\.(dll|exe)$/i, ''));
-    if (rawAssemblyData.targetFramework) form.append('targetFramework', rawAssemblyData.targetFramework);
-    if (rawAssemblyData.references && rawAssemblyData.references.length)
-        form.append('references', JSON.stringify(rawAssemblyData.references));
+    if (depsFile) form.append('depsFile', depsFile);
+    form.append('assemblyName', (data.assemblyName || name).replace(/\.(dll|exe)$/i, ''));
+    if (data.targetFramework) form.append('targetFramework', data.targetFramework);
+    if (data.references && data.references.length) form.append('references', JSON.stringify(data.references));
 
+    let outcome = 'failed';
     try {
         const response = await fetch('/api/vulnerabilities/scan', { method: 'POST', body: form });
         if (!response.ok) throw new Error((await response.text()) || ('Server returned ' + response.status));
         const report = await response.json();
         report.scannedFor = name;
-        report.scannedSources = ['the assembly\'s own references (dependency levels 1-' + (report.maxLevelResolved || 1) + ')', vulnDepsFile ? vulnDepsFile.name : null, includeApp ? 'this tool\'s own packages' : null].filter(Boolean);
+        report.scannedSources = ['the assembly\'s own references (dependency levels 1-' + (report.maxLevelResolved || 1) + ')', depsFile ? depsFile.name : null, includeApp ? 'this tool\'s own packages' : null].filter(Boolean);
         applyStoredStatuses(report);
+        outcome = report.complete ? 'ok' : 'incomplete';
         if (loadedAssemblies.has(name)) vulnReports.set(name, report);      // the assembly may have been removed meanwhile
-        const s = report.summary;
-        setStatus('Scan of ' + name + ' finished: ' + s.total + ' finding' + (s.total === 1 ? '' : 's') + ' (' + s.critical + ' critical, ' + s.high + ' high)' + (report.complete ? '' : ' - INCOMPLETE'));
+        const line = ScanPolicy.describeResult(name, report);
+        setStatus(line);
+        const bad = report.summary && report.summary.total > 0;
+        showMessage(line, bad || !report.complete ? 'info' : 'success');
     } catch (err) {
-        showMessage('Scan failed: ' + err.message, 'error');
+        showMessage('Scan of ' + name + ' failed: ' + err.message, 'error');
         setStatus('Ready');
     } finally {
-        vulnBusy = false;
-        if (hasAssembly && currentAssemblyName === name) vulnOnAssemblyChanged();   // show this assembly's (new) report
-        else syncVulnToolbar();
-        renderVulns();
+        vulnScanning.delete(name);
+        if (loadedAssemblies.has(name)) vulnMeta.set(name, { key, finishedAt: Date.now(), outcome });
+        vulnRefreshForScan(name);
+        // the manifest may have arrived while this scan was running: the inputs changed, so scan again
+        if (hasAssembly && currentAssemblyName === name && ScanPolicy.scanKey(loadedFiles.get(name), vulnDepsFiles.get(name) || null, byId('vulnOptApp').checked) !== key) vulnScheduleAutoScan();
     }
+}
+
+// Brings the Vulnerabilities tab (badge, toolbar, view) up to date for an assembly whose scan started or finished.
+function vulnRefreshForScan(name) {
+    if (!hasAssembly || currentAssemblyName !== name) return;
+    vulnReport = vulnReports.get(name) || null;
+    if (vulnReport && !vulnSelectedKey && vulnReport.findings.length) vulnSelectedKey = vulnKey(vulnReport.findings[0]);
+    syncVulnToolbar();
+    updateVulnBadge();
+    if (state.view === 'vulns') renderVulns();
+}
+
+// ---------- automatic scan ----------
+// Starts a scan by itself when an assembly is opened or selected - once consent was given, never twice for the same input within an hour,
+// and never in the way: it waits a moment so a folder or package can finish opening (its manifest gives exact versions).
+
+function vulnScheduleAutoScan() {
+    clearTimeout(vulnAutoTimer);
+    if (!hasAssembly) return;
+    vulnAutoTimer = setTimeout(vulnMaybeAutoScan, ScanPolicy.SETTLE_MS);
+}
+
+async function vulnMaybeAutoScan() {
+    await vulnInfoReady;
+    if (!hasAssembly) return;
+    const name = currentAssemblyName;
+    const meta = vulnMeta.get(name) || {};
+    const depsFile = vulnDepsFiles.get(name) || null;
+    const key = ScanPolicy.scanKey(loadedFiles.get(name), depsFile, byId('vulnOptApp').checked);
+    const decision = ScanPolicy.decideAutoScan({
+        hasAssembly, serverEnabled: vulnInfo ? vulnInfo.enabled !== false : true, autoEnabled: vulnAutoEnabled(), consent: vulnHasConsent(),
+        scanning: vulnScanning.has(name), report: vulnReports.get(name), reportKey: meta.key, key,
+        now: Date.now(), lastFinishedAt: meta.finishedAt, lastOutcome: meta.outcome, lastKey: meta.key
+    });
+    if (decision.reason === 'no-consent') vulnAskConsent();
+    if (decision.run) scanAssembly(name, { auto: true });
+}
+
+// Asked once per browser tab, and only as a small toast: scanning sends package names and versions (never code) to OSV.dev and NuGet.
+function vulnAskConsent() {
+    try { if (sessionStorage.getItem(VULN_ASKED_KEY)) return; sessionStorage.setItem(VULN_ASKED_KEY, '1'); } catch { /* ask again next time */ }
+    const host = (vulnInfo && vulnInfo.host) || 'api.osv.dev', nuget = (vulnInfo && vulnInfo.dependencyHost) || 'api.nuget.org';
+    showActionToast('Check this assembly\'s dependencies for known vulnerabilities automatically? Only package names and versions are sent to ' + host + ' and ' + nuget + ' - never your code.', [
+        { label: 'Allow', primary: true, onClick: () => { try { localStorage.setItem(VULN_CONSENT_KEY, 'yes'); } catch { /* not remembered */ } vulnMaybeAutoScan(); } },
+        { label: 'Not now', onClick: () => { /* manual scans still work */ } }
+    ]);
 }
 
 function updateVulnBadge() {
     const badge = byId('vulnBadge');
+    if (vulnIsBusy()) { badge.className = 'tab-badge scanning'; badge.textContent = ''; badge.title = 'Scanning the dependencies for known vulnerabilities…'; return; }
     if (!vulnReport) { setTabBadge(badge, 0, 'Not scanned yet'); return; }
     const open = vulnReport.findings.filter(f => vulnStatusOf(f) === 'Open');
     const urgent = open.filter(f => f.severity === 'Critical' || f.severity === 'High').length;
@@ -361,6 +435,13 @@ function renderVulns() {
     syncVulnToolbar();
 
     if (!hasAssembly) { renderVulnNoAssembly(banner); return; }
+    if (vulnIsBusy()) {
+        const note = el('div', 'vuln-banner scanning');
+        note.appendChild(el('div', 'vb-title', '⟳ Scanning ' + currentAssemblyName + ' for known vulnerabilities…'));
+        note.appendChild(el('div', null, 'This runs in the background - you can keep exploring the assembly. The results appear here when it is done' + (vulnReport ? ' (the report below is the previous one).' : '.')));
+        banner.appendChild(note);
+        if (!vulnReport) return;
+    }
     if (!vulnReport) { renderVulnIntro(banner); return; }
 
     renderVulnBanner(banner);
@@ -674,6 +755,10 @@ function renderVulnExtras(container) {
 // ---------- wiring ----------
 
 byId('btnVulnScan').onclick = runVulnScan;
+byId('vulnOptAuto').onchange = (e) => {
+    vulnSetAuto(e.target.checked);
+    if (e.target.checked) vulnScheduleAutoScan();
+};
 byId('btnVulnExport').onclick = exportVulnReport;
 byId('btnVulnPdf').onclick = exportVulnPdf;
 byId('btnVulnDeps').onclick = () => byId('vulnDepsFile').click();
@@ -684,5 +769,5 @@ byId('vulnDepsFile').addEventListener('change', (e) => {
 });
 byId('btnVulnDepsClear').onclick = () => { vulnDepsFile = null; if (hasAssembly) vulnDepsFiles.delete(currentAssemblyName); syncVulnToolbar(); };
 
-loadVulnInfo().then(() => { if (state.view === 'vulns') renderVulns(); });
+vulnInfoReady.then(() => { if (state.view === 'vulns') renderVulns(); });
 syncVulnToolbar();

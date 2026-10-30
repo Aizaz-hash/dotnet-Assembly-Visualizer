@@ -38,10 +38,8 @@
         Structure and call graph generation is only optimised for unobfuscated assemblies or basic (first-level) obfuscation. Deeply packed or control-flow flattened binaries are not supported.
     </div>
 
-    <div id="msgWindow">
-        <span id="msgText"></span>
-        <button onclick="closeMessage()">&times;</button>
-    </div>
+    <!-- small toast notifications, top right; filled by showMessage() in app.js -->
+    <div id="toastHost" role="status" aria-live="polite" aria-atomic="false"></div>
 
     <div id="workspace">
         <!-- Assembly explorer (tree) -->
@@ -136,7 +134,8 @@
                 <div class="view-toolbar" id="vulnToolbar">
                     <button id="btnVulnScan" class="btn-primary" disabled>Run scan</button>
                     <span id="vulnScope" class="view-hint"></span>
-                    <label title="Also check the packages this tool itself ships with"><input type="checkbox" id="vulnOptApp" /> Include this tool's own packages</label>
+                    <label title="Scan the dependencies in the background as soon as an assembly is opened or selected. Only package names and versions are sent."><input type="checkbox" id="vulnOptAuto" /> Scan automatically</label>
+                    <label title="Also check the packages this application itself ships with - not your assembly. Leave it off to scan only the assembly you opened."><input type="checkbox" id="vulnOptApp" /> Also scan this tool's own packages (not your assembly)</label>
                     <span class="vuln-deps">
                         <button id="btnVulnDeps" class="tb-btn small" disabled title="Choose a .deps.json, obj/project.assets.json or packages.lock.json (exact package versions and the dependency levels)">Add manifest…</button>
                         <input type="file" id="vulnDepsFile" accept=".json,application/json" style="display:none" />
@@ -183,6 +182,8 @@
     <script src="js/graph-utils.js"></script>
     <script src="js/ui-logic.js"></script>
     <script src="js/package-input.js"></script>
+    <script src="js/notify-policy.js"></script>
+    <script src="js/scan-policy.js"></script>
     <script src="js/app.js"></script>
     <script src="js/vuln.js"></script>
 </body>

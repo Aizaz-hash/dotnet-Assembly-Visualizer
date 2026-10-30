@@ -62,14 +62,24 @@ button, select, input { font-family: inherit; font-size: inherit; }
     padding: 3px 10px; font-size: 11px;
 }
 
-#msgWindow {
-    display: none; align-items: center; justify-content: space-between; gap: 10px;
-    padding: 5px 10px; font-size: 12px; border-bottom: 1px solid transparent;
+/* Notifications are small toasts at the top right, not a bar across the window. Colours are CSS variables per type (--toast-*), so a theme only has to override those. */
+#toastHost { position: fixed; top: 52px; right: 12px; z-index: 1100; display: flex; flex-direction: column; gap: 8px; width: min(340px, calc(100vw - 24px)); pointer-events: none; }
+.toast {
+    pointer-events: auto; display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border-radius: 6px; font-size: 13px; line-height: 1.35;
+    background: var(--toast-bg); color: var(--toast-fg); border: 1px solid var(--toast-border); border-left: 4px solid var(--toast-accent);
+    box-shadow: 0 4px 14px rgba(0,0,0,.18); animation: toast-in .18s ease-out; word-break: break-word;
 }
-#msgWindow button { background: none; border: none; font-size: 16px; cursor: pointer; color: inherit; }
-.msg-success { background: #e6f4ea; color: #1e6b34; border-color: #b7dfc2 !important; }
-.msg-error { background: var(--danger-bg); color: #8a1c1c; border-color: #f2b8b5 !important; }
-.msg-info { background: #e8f1fb; color: #1b4f8a; border-color: #b9d3f0 !important; }
+.toast.leaving { opacity: 0; transform: translateX(14px); transition: opacity .18s, transform .18s; }
+.toast .toast-text { flex: 1; }
+.toast .toast-close { background: none; border: none; color: inherit; opacity: .6; font-size: 15px; line-height: 1; cursor: pointer; padding: 0 2px; }
+.toast .toast-close:hover { opacity: 1; }
+.toast .toast-actions { display: flex; gap: 6px; margin-top: 6px; }
+.toast .toast-actions button { border: 1px solid var(--toast-accent); background: transparent; color: inherit; border-radius: 4px; padding: 2px 10px; font-size: 12px; cursor: pointer; }
+.toast .toast-actions button.primary { background: var(--toast-accent); color: #fff; }
+.toast-success { --toast-bg: #e6f4ea; --toast-fg: #1e6b34; --toast-border: #b7dfc2; --toast-accent: #2e9d4f; }
+.toast-error { --toast-bg: #fdecea; --toast-fg: #8a1c1c; --toast-border: #f2b8b5; --toast-accent: #dc3545; }
+.toast-info { --toast-bg: #e8f1fb; --toast-fg: #1b4f8a; --toast-border: #b9d3f0; --toast-accent: #2f7fd0; }
+@keyframes toast-in { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
 
 /* ---------- workspace ---------- */
 #workspace { flex: 1; display: flex; min-height: 0; }
@@ -293,9 +303,9 @@ body { background: #f8f9fa; color: #212529; }
 
 /* notices and messages */
 #obfuscationNotice { background: #fff3cd; color: #856404; border-bottom: 1px solid #ffeeba; }
-.msg-success { background: #d4edda; color: #155724; border-color: #c3e6cb !important; }
-.msg-error { background: #f8d7da; color: #721c24; border-color: #f5c6cb !important; }
-.msg-info { background: #e2e3e5; color: #383d41; border-color: #d6d8db !important; }
+.toast-success { --toast-bg: #d4edda; --toast-fg: #155724; --toast-border: #c3e6cb; }
+.toast-error { --toast-bg: #f8d7da; --toast-fg: #721c24; --toast-border: #f5c6cb; }
+.toast-info { --toast-bg: #e2e3e5; --toast-fg: #383d41; --toast-border: #d6d8db; }
 
 /* explorer */
 .pane-title { background: #f1f3f5; color: #495057; border-bottom: 1px solid #dee2e6; }
@@ -385,7 +395,6 @@ body { font-size: 14px; }
 .upload-hint { font-size: 12px; }
 #assemblySwitcher { padding: 4px 6px; font-size: 13px; }
 #obfuscationNotice { font-size: 12.5px; padding: 6px 14px; }
-#msgWindow { font-size: 13.5px; padding: 7px 14px; }
 
 #explorer { width: 380px; }
 .pane-title { font-size: 12px; padding: 5px 10px; }
@@ -565,3 +574,7 @@ body { font-size: 14px; }
 @keyframes loader-slide { 0% { left: -35%; } 100% { left: 100%; } }
 
 .vuln-banner.info { background: #e7f1ff; border-color: #9ec5fe; color: #084298; }
+
+/* the Vulnerabilities tab shows a ring while a scan runs in the background */
+.tab-badge.scanning { background: transparent !important; width: 12px; height: 12px; padding: 0; border: 2px solid #adb5bd; border-top-color: #4dabf7; border-radius: 50%; animation: spin .9s linear infinite; font-size: 0; vertical-align: -1px; }
+.vuln-banner.scanning { background: #e7f1ff; border-color: #9ec5fe; color: #084298; }
