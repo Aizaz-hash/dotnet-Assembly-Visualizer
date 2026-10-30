@@ -66,7 +66,7 @@ The **Vulnerabilities Scan** tab checks the dependencies of the assembly you hav
 
 ### More
 
-- Open an assembly with the **Open** button or by dragging a `.dll` / `.exe` onto the page; several assemblies can be loaded at once. They are listed in the explorer; click one to switch, and right-click it (or use the ✕ on hover) to **Reload** or **Remove** it.
+- Open an assembly with the **Open** button or by dragging a `.dll` / `.exe` onto the page; several assemblies can be loaded at once. You can also open a **NuGet package (`.nupkg`)**, a **`.zip`** or a whole **folder** (the **Folder** button, or drop a folder): the best `lib/<framework>` assembly of a package, or the application assemblies of a publish folder, are opened (copies of the .NET framework are skipped, up to 8 at once) and the `.deps.json` that comes with them is used automatically for exact package versions in the Vulnerabilities Scan. They are listed in the explorer; click one to switch, and right-click it (or use the ✕ on hover) to **Reload** or **Remove** it.
 - **Fit** and **PNG** export for graphs; the UI works offline (`vis-network` is bundled).
 - Helpful errors for native or corrupt DLLs and a configurable upload limit.
 - Fully offline UI (except the optional vulnerability lookup).
@@ -118,7 +118,7 @@ Then open **http://localhost:8080**. (To run the `v2` line, `git checkout v2` fi
 
 | Area | What it does |
 |---|---|
-| **Toolbar** | *Open* an assembly, Back / Forward (Alt+Left / Alt+Right). |
+| **Toolbar** | *Open* an assembly, package or zip, *Folder*, Back / Forward (Alt+Left / Alt+Right). |
 | **Explorer** | Lists the loaded assemblies (right-click: Reload, Remove); browse namespaces, types and methods; search for types and methods; methods in a circular chain carry a red ⚠. |
 | **Inheritance** | Graph (or tree) of base types, interfaces and derived types for the selected type, or for the whole assembly; adjustable depth. |
 | **Method Calls** | Callers and callees of the selected method; adjustable depth; merged nodes and edges. |

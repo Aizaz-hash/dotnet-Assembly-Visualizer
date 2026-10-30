@@ -96,6 +96,12 @@ function vulnOnAssemblyChanged() {
     updateVulnBadge();
 }
 
+// A .deps.json that came with an opened package / folder: used for this assembly's scan (exact versions).
+function vulnSetDeps(name, file) {
+    vulnDepsFiles.set(name, file);
+    if (hasAssembly && currentAssemblyName === name) { vulnDepsFile = file; syncVulnToolbar(); }
+}
+
 function vulnForgetAssembly(name) {
     vulnReports.delete(name);
     vulnDepsFiles.delete(name);
