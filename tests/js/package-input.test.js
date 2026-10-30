@@ -107,3 +107,22 @@ test('a single deps.json applies to every opened assembly; nothing to open gives
     const none = P.plan(E('readme.txt', 'notes.md'));
     assert.deepEqual(none.assemblies, []);
 });
+
+test('project.assets.json and packages.lock.json are picked up; deps.json wins when several exist', () => {
+    const only = P.plan(E('src/App.dll', 'src/obj/project.assets.json'));
+    assert.equal(only.deps['src/App.dll'], 'src/obj/project.assets.json');
+
+    const lock = P.plan(E('App.dll', 'packages.lock.json'));
+    assert.equal(lock.deps['App.dll'], 'packages.lock.json');
+
+    const all = P.plan(E('App.dll', 'App.deps.json', 'project.assets.json', 'packages.lock.json'));
+    assert.equal(all.deps['App.dll'], 'App.deps.json');
+
+    const noDeps = P.plan(E('App.dll', 'project.assets.json', 'packages.lock.json'));
+    assert.equal(noDeps.deps['App.dll'], 'project.assets.json');                      // assets (full graph) before the lock file
+});
+
+test('a manifest in an unrelated folder is not attached when several exist', () => {
+    const r = P.plan(E('a/A.dll', 'b/B.deps.json', 'c/other.deps.json'));
+    assert.equal(r.deps['a/A.dll'], undefined);
+});

@@ -80,7 +80,9 @@
     const dirName = (p) => p.lastIndexOf('/') < 0 ? '' : p.slice(0, p.lastIndexOf('/'));
     const stripExt = (n) => n.replace(/\.(dll|exe)$/i, '').replace(/\.deps\.json$/i, '');
     const isAssembly = (p) => /\.(dll|exe)$/i.test(p);
-    const isDeps = (p) => /\.deps\.json$/i.test(p);
+    // dependency manifests the scan understands; a published app's .deps.json is preferred (it is what actually ships)
+    const manifestRank = (p) => /\.deps\.json$/i.test(p) ? 0 : /(^|\/)project\.assets\.json$/i.test(p) ? 1 : /(^|\/)packages\.lock\.json$/i.test(p) ? 2 : -1;
+    const isDeps = (p) => manifestRank(p) >= 0;
 
     // Assemblies that ship with the runtime. A published app folder contains copies of them; they are not what the user opened.
     const FRAMEWORK = /^(System(\.|$)|Microsoft\.(CSharp|VisualBasic|Win32|NET|Extensions|AspNetCore)|mscorlib|netstandard|WindowsBase|PresentationCore|PresentationFramework|api-ms-|clr|coreclr|hostfxr|hostpolicy|mscordaccore|mscordbi|ucrtbase|createdump|libSystem)/i;
@@ -148,11 +150,11 @@
 
         const deps = {};
         for (const a of chosen) {
-            const same = depsFiles.find(d => lower(stripExt(baseName(d.path))) === lower(stripExt(baseName(a.path))) && dirName(d.path) === dirName(a.path))
-                || depsFiles.find(d => lower(stripExt(baseName(d.path))) === lower(stripExt(baseName(a.path))))
-                || depsFiles.find(d => dirName(d.path) === dirName(a.path))
-                || (depsFiles.length === 1 ? depsFiles[0] : null);
-            if (same) deps[a.path] = same.path;
+            const aName = lower(stripExt(baseName(a.path)));
+            // best manifest for this assembly: named after it, then in its folder, then the only one; ties go to deps.json > project.assets.json > packages.lock.json
+            const score = (d) => (lower(stripExt(baseName(d.path))) === aName ? 0 : dirName(d.path) === dirName(a.path) ? 10 : depsFiles.length === 1 ? 20 : 99) + manifestRank(d.path);
+            const best = depsFiles.map(d => ({ d, sc: score(d) })).filter(x => x.sc < 99).sort((x, y) => x.sc - y.sc)[0];
+            if (best) deps[a.path] = best.d.path;
         }
 
         const ordered = chosen.map(e => e.path);
