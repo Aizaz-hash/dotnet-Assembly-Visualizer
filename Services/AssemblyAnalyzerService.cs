@@ -654,7 +654,9 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
 
             if (target.Kind != HandleKind.MemberReference) return null;
             var member = reader.GetMemberReference((MemberReferenceHandle)target);
-            if (member.Parent.Kind != HandleKind.TypeReference) return null;
+            // a member of a generic instantiation (Expression<Func<int>>.Compile) has a type specification as its parent; it still names the
+            // generic type, so it must not be skipped
+            if (member.Parent.Kind != HandleKind.TypeReference && member.Parent.Kind != HandleKind.TypeSpecification) return null;
 
             string type = GetStringFromEntityHandle(reader, member.Parent);
             string method = reader.GetString(member.Name);

@@ -1406,7 +1406,7 @@ async function loadFile(file, opts = {}) {
         const obfuscated = AnalysisModel.describeObfuscation(data.obfuscation);
         if (obfuscated) showMessage('"' + file.name + '": ' + obfuscated, 'info');
         const verb = opts.reload ? 'Reloaded' : 'Parsed';
-        showMessage(`${verb} ${data.classes.length} types, ${data.methodGraph.nodes.length} methods, ${cycles.length} circular chains.` +
+        showMessage(`${verb} ${data.classes.length} types, ${data.methodGraph.nodes.length} methods, ${cycles.length} circular chain${cycles.length === 1 ? '' : 's'}.` +
             (dropped ? ` The oldest assembly ("${dropped}") was removed from the list (limit ${MAX_LOADED_ASSEMBLIES}).` : ''), 'success');
         return true;
     } catch (err) {

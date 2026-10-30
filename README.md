@@ -48,14 +48,14 @@ Methods that take part in a circular call chain are marked in the explorer and g
 
 ### Vulnerabilities Scan
 
-The **Vulnerabilities Scan** tab checks the dependencies of the assembly you have loaded for known security vulnerabilities and puts **Critical and High** findings first. It looks up the *exact* package versions in [OSV.dev](https://osv.dev) (GitHub Security Advisories, NVD and others) - nothing is executed, installed or modified.
+The **Vulnerabilities** view checks the dependencies of the assembly you have loaded for known security vulnerabilities and puts **Critical and High** findings first. It looks up the *exact* package versions in [OSV.dev](https://osv.dev) (GitHub Security Advisories, NVD and others) - nothing is executed, installed or modified.
 
 ![Vulnerability scan with a Critical finding selected](docs/images/v2-vuln-main.png)
 
-- **What is scanned:** the dependencies of the loaded assembly, with exact versions, from the `.deps.json` that was built with it (add it with *Add .deps.json…*). You can also tick *Include this tool's own packages*. The scan needs a loaded assembly: its result belongs to that assembly, is kept while you switch between assemblies, and disappears when you remove it. The assemblies referenced by the loaded DLL are listed too, but not matched to packages (an assembly reference only carries an assembly version such as `8.0.0.0`, which does not identify the NuGet package version).
+- **What is scanned:** the dependencies of the loaded assembly. With no extra file the scan reads the assembly's own references and follows the packages' dependencies (see *No manifest needed* below); a `.deps.json`, `project.assets.json` or `packages.lock.json` (*Add manifest…*, or open the folder it sits in) makes the versions exact. You can also tick *Also scan this tool's own packages* to check the packages this application itself ships with (not your assembly). The scan needs a loaded assembly: its result belongs to that assembly, is kept while you switch between assemblies, and disappears when you remove it. An assembly that only references the .NET runtime has no NuGet packages to check, and the view says exactly that instead of "database unreachable".
 - **What you get for every finding:** CVE / GHSA identifier, CVSS score and severity (computed from the CVSS v3 vector, or the advisory's own rating when only a v4 vector is published), affected component and version, the weakness (CWE), potential impact and exploitation conditions derived from the vector, fixed versions, a recommended upgrade with a command *for you to run*, the advisory text and references.
 - **Summary and filters:** counts per severity (click a card to filter), filters for severity, component, status and confidence, plus text search. Statuses are **Open**, **Accepted Risk** and **Fixed**; a finding you mark as fixed re-opens automatically if the next scan still reports it. Reports can be exported as **PDF** (the browser's print dialog - choose *Save as PDF*) or as JSON.
-- **Confirmed vs potential:** every finding is verified against the advisory's affected-version ranges. It is *confirmed* when the exact version is in range and the package really ships code. It is *potential* when that cannot be established - for example a legacy `System.*` package that the .NET shared framework supplies at runtime, so the vulnerable code may not be what runs.
+- **Confirmed, potential, informational:** every finding is verified against the advisory's affected-version ranges. It is **confirmed** when the exact version is known (from a manifest) and lies inside an affected range. It is **potential** when that cannot be established - the version was estimated from an assembly reference, or it was not found inside the advisory's listed ranges. It is **informational** when the package is one the .NET runtime supplies: whether the vulnerable code runs depends on the runtime's patch level, which a scan cannot see, so it is shown for awareness and is never counted by the command line's `--fail-on`. Heuristic findings are never presented as confirmed.
 
 ![A potential finding explained](docs/images/v2-vuln-potential.png)
 
@@ -63,7 +63,7 @@ The **Vulnerabilities Scan** tab checks the dependencies of the assembly you hav
 - **No manifest needed:** the scan starts from the loaded assembly's own references (level 1), matches them to NuGet packages, then follows each package's declared dependencies down to **level 4** (level 0 is the assembly itself). Every dependency is listed once with its level, where its version came from (exact from a `.deps.json`, estimated from the assembly version, or the lowest version the parent accepts) and a plain status: *Assembly discovered*, *Package identified*, *Version identified*, *Vulnerability found*, *Vulnerability lookup unavailable* or *Dependency could not be resolved*. Findings with an estimated version are marked *potential*; adding the `.deps.json` makes versions exact.
 - **Manifests:** add a `.deps.json`, `obj/project.assets.json` or `packages.lock.json` for exact versions - they also carry the dependency graph, so every package gets its level (and indirect packages are covered). Opening a folder or archive picks the right one automatically.
 - **Privacy:** only package names and versions are sent to `api.osv.dev` and, to find a package's dependencies, `api.nuget.org` - never your code or assemblies - and the UI asks for confirmation before the first scan. Set `Vulnerability:Enabled` to `false` to switch the feature off (for air-gapped use).
-- **Try it:** `samples/VulnerableDemo` is a deliberately vulnerable test assembly (log4net 2.0.8, Newtonsoft.Json 12.0.1, System.Text.Json 8.0.0). Build it, open the DLL and press *Run scan* (no `.deps.json` needed). See [samples/VulnerableDemo/README.md](samples/VulnerableDemo/README.md).
+- **Try it:** [`samples/vulnerabilities`](samples/vulnerabilities) is a deliberately vulnerable test assembly (log4net 2.0.8, Newtonsoft.Json 12.0.1, System.Text.Json 8.0.0). Build it, open the DLL and press *Run scan* (no manifest needed: findings are *potential*); add its `.deps.json` and they become *confirmed*, with System.Text.Json *informational*. See [samples/README.md](samples/README.md) for every sample.
 
 ### More
 
@@ -130,7 +130,7 @@ The views are arranged as a workflow: **what is in the assembly → how its part
 
 | View | What it shows |
 |---|---|
-| **Metrics** | Size and shape of the assembly: method count, cyclomatic complexity (hotspots, histogram), IL size, most-called and most-dependent methods, largest types, and private/internal methods that nothing in the assembly references. *The unreferenced list is a lead, not proof* (reflection or another assembly can call them). |
+| **Metrics** | **About this assembly** (version, kind, platform, target framework, strong name, debug build), **obfuscation indicators** (evidence, never a verdict), then size and shape: method count, cyclomatic complexity (hotspots, histogram), IL size, most-called and most-dependent methods, largest types, and private/internal methods that nothing in the assembly references. *The unreferenced list is a lead, not proof* (reflection or another assembly can call them). |
 | **Architecture** | How namespaces depend on each other (built from calls and inheritance), and where namespaces or types depend on each other in a circle - each with a concrete path, clickable. Field and parameter types are not part of the analysis. |
 
 ### 2 · Structure & relationships
@@ -147,7 +147,7 @@ The views are arranged as a workflow: **what is in the assembly → how its part
 | View | What it shows |
 |---|---|
 | **API Compatibility** | Choose two versions of an assembly: the public API changes, with the ones that can break callers marked (removed or changed members, narrower visibility, sealed types, added abstract members...), a suggested version bump, and Markdown / JSON export. |
-| **Risky APIs** | Calls to APIs that deserve a security review (unsafe deserializers, Process.Start, Assembly.Load, weak crypto, DllImport, disabled TLS checks) with why each is risky, what to check, and links to the calling methods. **Heuristic leads - not vulnerabilities.** |
+| **Risky APIs** | Calls to APIs that deserve a security review (unsafe deserializers, Process.Start, Assembly.Load, weak crypto, DllImport, disabled TLS checks, and - because static analysis is blind there - reflection and dynamic code generation) with why each is risky, what to check, and links to the calling methods. **Heuristic leads - not vulnerabilities.** |
 | **Vulnerabilities** | Known advisories for the packages the assembly depends on (levels 1-4, no manifest needed), checked against OSV.dev; summary by severity, filters, remediation, status tracking, PDF / JSON / SBOM / SARIF export. |
 
 ### How much to trust each result

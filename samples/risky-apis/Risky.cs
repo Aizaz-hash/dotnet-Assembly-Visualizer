@@ -1,8 +1,10 @@
 using System;
 using System.Diagnostics;
+using System.Linq.Expressions;
 using System.Net;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Reflection.Emit;
 using System.Security.Cryptography;
 
 namespace Samples.RiskyApis
@@ -20,6 +22,11 @@ namespace Samples.RiskyApis
     //   Encryption.Old                  DES.Create                            Medium  Weak cipher
     //   Network.TrustEverything         ServicePointManager callback setter   Medium  Insecure TLS (this one accepts every certificate)
     //   Native.GetTickCount             [DllImport("kernel32.dll")]           Low     Native interop
+    //   Reflective.Call                 MethodBase.Invoke                     Low     Reflection (the call graph has NO edge for it)
+    //   Reflective.Create               Activator.CreateInstance(Type)        Low     Reflection
+    //   Reflective.Lookup               Type.GetType(string)                  Low     Reflection
+    //   CodeGeneration.Emit             new DynamicMethod(...)                Medium  Dynamic code generation
+    //   CodeGeneration.Compile          Expression.Compile()                  Medium  Dynamic code generation
     // NEGATIVE CONTROL - SafeCode must produce NO finding: SHA256.HashData, Aes, a harmless Process property read.
     // ---------------------------------------------------------------------------------------------------------------------
 
@@ -58,6 +65,19 @@ namespace Samples.RiskyApis
     {
         [DllImport("kernel32.dll")]
         public static extern uint GetTickCount();
+    }
+
+    public class Reflective
+    {
+        public object Call(MethodInfo method, object target) => method.Invoke(target, null);
+        public object Create(Type type) => Activator.CreateInstance(type);
+        public Type Lookup(string name) => Type.GetType(name);
+    }
+
+    public class CodeGeneration
+    {
+        public DynamicMethod Emit() => new DynamicMethod("generated", typeof(int), Type.EmptyTypes);
+        public int Compile(Expression<Func<int>> expression) => expression.Compile()();
     }
 
     public class SafeCode
