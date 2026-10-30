@@ -8,7 +8,6 @@ let rawAssemblyData = { classes: [], inheritance: { nodes: [], edges: [] }, meth
 let hasAssembly = false;
 let currentAssemblyName = '';
 let maxUploadMb = null;
-let messageTimeout = null;
 
 // Previously analysed assemblies of this session (name -> analysis result).
 const loadedAssemblies = new Map();
@@ -100,15 +99,65 @@ function methodInfo(id) {
 
 function setStatus(text) { byId('statusText').textContent = text; }
 
-function showMessage(text, type = 'info') {
-    const win = byId('msgWindow');
-    if (messageTimeout) clearTimeout(messageTimeout);
-    win.className = type === 'error' ? 'msg-error' : (type === 'success' ? 'msg-success' : 'msg-info');
-    win.style.display = 'flex';
-    byId('msgText').textContent = text;
-    if (type !== 'error') messageTimeout = setTimeout(closeMessage, 5000);
+// ---------- notifications: small toasts at the top right ----------
+// Each toast stays 2.5-5 s (NotifyPolicy), pauses while the pointer is on it, can be closed, and a repeat of the same text refreshes the
+// existing toast instead of stacking a copy. At most three are visible; the oldest goes first.
+const toasts = [];     // { el, type, text, timer, sticky }
+
+function removeToast(t) {
+    clearTimeout(t.timer);
+    const i = toasts.indexOf(t);
+    if (i >= 0) toasts.splice(i, 1);
+    t.el.classList.add('leaving');
+    setTimeout(() => t.el.remove(), 200);
 }
-function closeMessage() { byId('msgWindow').style.display = 'none'; }
+
+function armToast(t, ms) {
+    clearTimeout(t.timer);
+    if (!t.sticky) t.timer = setTimeout(() => removeToast(t), ms);
+}
+
+function buildToast(text, type, actions) {
+    const host = byId('toastHost');
+    for (let n = NotifyPolicy.overflow(toasts.length, 1); n > 0 && toasts.length; n--) removeToast(toasts[0]);
+
+    const node = el('div', 'toast toast-' + type);
+    const body = el('div', 'toast-text');
+    body.appendChild(el('div', null, text));
+    const t = { el: node, type, text, timer: null, sticky: !!actions };
+    if (actions) {
+        const row = el('div', 'toast-actions');
+        actions.forEach(a => {
+            const b = el('button', a.primary ? 'primary' : '', a.label);
+            b.onclick = () => { removeToast(t); if (a.onClick) a.onClick(); };
+            row.appendChild(b);
+        });
+        body.appendChild(row);
+    }
+    node.appendChild(body);
+    const close = el('button', 'toast-close', '\u00d7');
+    close.title = 'Dismiss';
+    close.onclick = () => removeToast(t);
+    node.appendChild(close);
+    node.onmouseenter = () => clearTimeout(t.timer);
+    node.onmouseleave = () => armToast(t, 1500);
+    host.appendChild(node);
+    toasts.push(t);
+    return t;
+}
+
+function showMessage(text, type = 'info') {
+    type = NotifyPolicy.normalizeType(type);
+    if (type === 'error') console.error('[notice]', text);
+    const same = toasts.find(t => !t.sticky && NotifyPolicy.sameMessage(t, { type, text }));
+    if (same) { armToast(same, NotifyPolicy.toastDuration(type, text)); return; }
+    armToast(buildToast(text, type, null), NotifyPolicy.toastDuration(type, text));
+}
+
+// A question that needs an answer (for example consent to scan automatically): stays until a button is pressed or it is closed.
+function showActionToast(text, actions, type = 'info') {
+    return buildToast(text, NotifyPolicy.normalizeType(type), actions);
+}
 
 function showLoader(text) {
     byId('loaderStatusText').textContent = text;
