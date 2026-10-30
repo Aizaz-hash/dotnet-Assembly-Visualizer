@@ -33,6 +33,9 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
     public object Analyze(Stream upload)
     {
         var timer = new PipelineTimer();
+        // Nothing the analyzer cannot read may stop the rest of the analysis, but nothing may be dropped silently either:
+        // every skipped item is counted and reported (diagnostics), so a damaged file never looks like a clean one.
+        int skippedTypes = 0, skippedMethods = 0, skippedInterfaces = 0, unreadableBodies = 0;
         var inheritanceNodes = new List<object>();
         var inheritanceEdges = new List<object>();
         var classList = new List<string>();
@@ -65,7 +68,7 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
         using var peReader = new PEReader(upload);
 
         if (!peReader.HasMetadata)
-            throw new InvalidDataException("The uploaded file does not contain valid .NET assembly metadata.");
+            throw new InvalidDataException("This file is not a .NET assembly: it has no .NET metadata (a native / unmanaged library or another kind of file).");
 
         timer.Mark("load PE image");
 
@@ -102,6 +105,10 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
                         id = fullName,
                         name = GetDisplayTypeName(mdReader, typeDef),
                         type = isInterface ? "Interface" : "Class",
+                        // the real namespace (of the outermost type): a nested type's full name also contains dots, so the browser
+                        // cannot recover the namespace from the name without inventing one per enclosing type
+                        @namespace = GetOutermostNamespace(mdReader, typeDef),
+                        nested = !typeDef.GetDeclaringType().IsNil,
                         token = MetadataTokens.GetToken(typeHandle)          // lets the C# view ask for this type's source
                     });
                 }
@@ -143,7 +150,7 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
                     }
                     catch
                     {
-                        // Ignore malformed metadata entries.
+                        skippedInterfaces++;
                     }
                 }
 
@@ -239,13 +246,13 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
                     }
                     catch
                     {
-                        // Ignore malformed method metadata.
+                        skippedMethods++;
                     }
                 }
             }
             catch
             {
-                // Ignore malformed type metadata.
+                skippedTypes++;
             }
         }
 
@@ -427,7 +434,7 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
             }
             catch
             {
-                // Ignore malformed/unreadable method bodies.
+                unreadableBodies++;
             }
         }
 
@@ -504,6 +511,14 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
                     callers = h.Value.Callers
                 })
                 .ToList(),
+
+            diagnostics = new
+            {
+                referenceAssembly = AssemblyReferenceReader.IsReferenceAssembly(mdReader),
+                skippedTypes, skippedMethods, skippedInterfaces, unreadableBodies,
+                // true only when every type, member and method body could be read
+                complete = skippedTypes + skippedMethods + skippedInterfaces + unreadableBodies == 0
+            },
 
             timings = timer.ToResult()
         };
@@ -850,6 +865,13 @@ private static string? FindCanonicalMethodId(Dictionary<string, List<string>> me
         string typeName = string.Join(".", typeNames);
 
         return string.IsNullOrEmpty(ns) ? typeName : $"{ns}.{typeName}";
+    }
+
+    private static string GetOutermostNamespace(MetadataReader reader, TypeDefinition typeDef)
+    {
+        while (!typeDef.GetDeclaringType().IsNil)
+            typeDef = reader.GetTypeDefinition(typeDef.GetDeclaringType());
+        return reader.GetString(typeDef.Namespace);
     }
 
     private static string GetDisplayTypeName(MetadataReader reader, TypeDefinition typeDef)
