@@ -588,3 +588,13 @@ body { font-size: 14px; }
 .cx-cell { font-weight: 600; } .cx-low { color: #1e7e34; } .cx-mid { color: #b8860b; } .cx-high { color: #b02a37; }
 .cx-hist { margin: 4px 0 6px; } .cx-hist-row { display: flex; align-items: center; gap: 10px; font-size: 12.5px; margin: 2px 0; }
 .cx-hist-label { width: 120px; color: #6c757d; } .cx-hist-bar { height: 12px; border-radius: 2px; display: inline-block; background: currentColor; } .cx-hist-count { color: #495057; }
+
+/* Architecture tab */
+.arch-body { flex: 1; min-height: 0; display: flex; }
+.arch-body #archCanvas { position: relative; flex: 1 1 auto; min-width: 0; }
+.arch-list { flex: 0 0 min(340px, 40%); overflow-y: auto; border-left: 1px solid #dee2e6; padding: 10px 12px; background: #fff; }
+.arch-head { margin-bottom: 4px; } .arch-list .view-hint { margin-bottom: 8px; display: block; }
+.arch-cycle { border: 1px solid #dee2e6; border-left: 3px solid #dc3545; border-radius: 3px; padding: 6px 8px; margin-bottom: 6px; cursor: pointer; font-size: 12.5px; }
+.arch-cycle:hover, .arch-cycle.active { background: #fff5f5; }
+.ac-title { font-weight: 600; } .ac-path { color: #495057; word-break: break-word; margin-top: 2px; }
+.arch-types { margin-top: 12px; } .arch-types summary { cursor: pointer; font-weight: 600; margin-bottom: 6px; }
