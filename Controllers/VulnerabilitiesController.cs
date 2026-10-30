@@ -46,12 +46,12 @@ namespace DotNetVisualizer.Web.Controllers
                 try
                 {
                     await using var s = depsFile.OpenReadStream();
-                    extra = DepsJsonReader.Read(s, "deps-file");
+                    extra = DependencyManifestReader.Read(s, "deps-file");
                     extraName = depsFile.FileName;
                 }
                 catch (Exception ex) when (ex is JsonException or InvalidDataException)
                 {
-                    return BadRequest("Could not read the dependency file: " + ex.Message);
+                    return BadRequest("Could not read the dependency file (.deps.json, project.assets.json or packages.lock.json): " + ex.Message);
                 }
             }
 
