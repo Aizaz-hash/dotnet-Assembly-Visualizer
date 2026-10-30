@@ -663,3 +663,17 @@ body { font-size: 14px; }
 /* the Vulnerabilities tab shows a ring while a scan runs in the background */
 .tab-badge.scanning { background: transparent !important; width: 12px; height: 12px; padding: 0; border: 2px solid #adb5bd; border-top-color: #4dabf7; border-radius: 50%; animation: spin .9s linear infinite; font-size: 0; vertical-align: -1px; }
 .vuln-banner.scanning { background: #e7f1ff; border-color: #9ec5fe; color: #084298; }
+
+/* Overview */
+.ov-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
+.ov-name { font-size: 20px; font-weight: 600; }
+.ov-version { color: #868e96; font-size: 14px; }
+.ov-actions { margin-left: auto; }
+.ov-grid { margin-bottom: 14px; }
+.asm-v.mono { font-family: Consolas, "Courier New", monospace; font-size: 12px; }
+.ov-section { font-weight: 600; margin: 16px 0 8px; }
+.ov-card { cursor: pointer; }
+.ov-card:hover { border-color: #4dabf7; }
+.ov-card.warn .rcn-num { color: #e8590c; }
+.ov-card.bad .rcn-num { color: #c92a2a; }
+.ov-hint { font-size: 11px; color: #868e96; margin-top: 2px; }

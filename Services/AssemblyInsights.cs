@@ -40,6 +40,10 @@ public static class AssemblyInsights
         {
             name = md.IsAssembly ? md.GetString(asm.Name) : "",
             version = md.IsAssembly ? asm.Version.ToString() : "",
+            fullName = md.IsAssembly ? FullName(md, asm) : "",
+            publicKeyToken = md.IsAssembly ? PublicKeyToken(md, asm) : null,
+            publicKeyBits = md.IsAssembly && !asm.PublicKey.IsNil ? md.GetBlobBytes(asm.PublicKey).Length * 8 : 0,
+            mvid = md.GetGuid(md.GetModuleDefinition().Mvid).ToString(),
             culture = md.IsAssembly && !asm.Culture.IsNil ? md.GetString(asm.Culture) : "neutral",
             kind = headers.IsExe ? "Executable (.exe)" : "Library (.dll)",
             platform = ilOnly ? (requires32 ? "x86 only" : "Any CPU") : (is64 ? "x64 (contains native code)" : "x86 (contains native code)"),
@@ -53,6 +57,18 @@ public static class AssemblyInsights
             sizeBytes = fileSize,
             metadataVersion = md.MetadataVersion
         };
+    }
+
+    /// <summary>The identity .NET uses to bind to an assembly: "Name, Version=1.0.0.0, Culture=neutral, PublicKeyToken=abc123...".</summary>
+    public static string FullName(MetadataReader md, AssemblyDefinition asm) =>
+        $"{md.GetString(asm.Name)}, Version={asm.Version}, Culture={(asm.Culture.IsNil ? "neutral" : md.GetString(asm.Culture))}, PublicKeyToken={PublicKeyToken(md, asm) ?? "null"}";
+
+    /// <summary>The last 8 bytes of the SHA-1 of the public key, reversed, in hex - null when the assembly has no strong name.</summary>
+    public static string? PublicKeyToken(MetadataReader md, AssemblyDefinition asm)
+    {
+        if (asm.PublicKey.IsNil) return null;
+        var hash = System.Security.Cryptography.SHA1.HashData(md.GetBlobBytes(asm.PublicKey));
+        return Convert.ToHexString(hash.Skip(hash.Length - 8).Reverse().ToArray()).ToLowerInvariant();
     }
 
     public static object DetectObfuscation(MetadataReader md)

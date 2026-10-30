@@ -34,7 +34,7 @@ let cyclesOfMethod = new Map();    // methodId -> [cycle index]
 let cyclicEdges = new Set();       // "from\u0001to"
 
 // Navigation state
-let state = { view: 'metrics', type: null, method: null, cycleMethod: null, cycleIdx: 0, inhMode: 'selected', inhFormat: 'graph' };
+let state = { view: 'overview', type: null, method: null, cycleMethod: null, cycleIdx: 0, inhMode: 'selected', inhFormat: 'graph' };
 let history = [];
 let historyIdx = -1;
 
@@ -480,9 +480,9 @@ function updateNavButtons() {
 }
 
 function applyState() {
-    ['inheritance', 'calls', 'cycles', 'architecture', 'source', 'compare', 'metrics', 'risky', 'vulns'].forEach(v => {
-        byId('view' + v.charAt(0).toUpperCase() + v.slice(1)).classList.toggle('active', state.view === v);
-        byId('tab' + v.charAt(0).toUpperCase() + v.slice(1)).classList.toggle('active', state.view === v);
+    ViewRegistry.ids().forEach(v => {
+        byId(ViewRegistry.sectionId(v)).classList.toggle('active', state.view === v);
+        byId(ViewRegistry.tabId(v)).classList.toggle('active', state.view === v);
     });
     byId('inhModeSelected').classList.toggle('active', state.inhMode === 'selected');
     byId('inhModeAll').classList.toggle('active', state.inhMode === 'all');
@@ -497,6 +497,7 @@ function applyState() {
     else if (state.view === 'calls') renderCalls();
     else if (state.view === 'vulns') renderVulns();
     else if (state.view === 'risky') renderRisky();
+    else if (state.view === 'overview') renderOverview();
     else if (state.view === 'metrics') renderMetrics();
     else if (state.view === 'architecture') renderArchitecture();
     else if (state.view === 'compare') renderCompare();
@@ -560,6 +561,12 @@ function renderContextBar() {
 function renderTitle() {
     const t = byId('viewTitle');
     t.innerHTML = '';
+    if (state.view === 'overview') {
+        const v = ViewRegistry.get('overview');
+        t.appendChild(el('span', 'vt-name', v.title));
+        t.appendChild(el('span', 'vt-sub', v.subtitle));
+        return;
+    }
     if (state.view === 'source') {
         t.appendChild(el('span', 'vt-name', 'C# Source'));
         t.appendChild(el('span', 'vt-sub', 'Decompiled C# of the selected type or method'));
@@ -1256,7 +1263,7 @@ function clearAssembly() {
     rawAssemblyData = { classes: [], inheritance: { nodes: [], edges: [] }, methodGraph: { nodes: [], edges: [] }, deadlocks: [] };
     buildIndexes();
     // a newly opened assembly starts at the overview; picking a class or method then opens Inheritance / Method Calls
-    state = { view: 'metrics', type: null, method: null, cycleMethod: null, cycleIdx: 0, inhMode: state.inhMode, inhFormat: state.inhFormat };
+    state = { view: 'overview', type: null, method: null, cycleMethod: null, cycleIdx: 0, inhMode: state.inhMode, inhFormat: state.inhFormat };
     history = [{ ...state }];
     historyIdx = 0;
     byId('currentDllName').textContent = 'No assembly loaded';
@@ -1319,7 +1326,7 @@ function activateAssembly(name) {
     setTabBadge(badge, cycles.length, cycles.length + ' circular call chain' + (cycles.length === 1 ? '' : 's'));
 
     // a newly opened assembly starts at the overview; picking a class or method then opens Inheritance / Method Calls
-    state = { view: 'metrics', type: null, method: null, cycleMethod: null, cycleIdx: 0, inhMode: state.inhMode, inhFormat: state.inhFormat };
+    state = { view: 'overview', type: null, method: null, cycleMethod: null, cycleIdx: 0, inhMode: state.inhMode, inhFormat: state.inhFormat };
     history = [{ ...state }];
     historyIdx = 0;
     buildExplorer();
@@ -1568,7 +1575,7 @@ byId('btnOpenFolder').onclick = () => byId('dirFile').click();
 
 document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
     const view = tab.dataset.view;
-    if (!hasAssembly && view !== 'vulns' && view !== 'compare') return;
+    if (!hasAssembly && !ViewRegistry.isStandalone(view)) return;
     navigate({ view, ...(view === 'cycles' ? { cycleMethod: null, cycleIdx: 0 } : {}) });
 }));
 byId('inhModeSelected').onclick = () => navigate({ inhMode: 'selected' });
