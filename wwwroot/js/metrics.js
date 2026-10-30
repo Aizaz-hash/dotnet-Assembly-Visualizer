@@ -41,6 +41,9 @@ function renderMetrics() {
     if (!m) { root.appendChild(el('div', 'empty-note', 'This analysis has no metrics (it was produced by an older version). Reload the assembly.')); return; }
     const dead = rawAssemblyData.deadCode || [];
 
+    renderAssemblyInfo(root, rawAssemblyData.assembly);
+    renderObfuscation(root, rawAssemblyData.obfuscation);
+
     root.appendChild(el('p', 'risky-intro', 'Measured from the code of ' + currentAssemblyName + ' (nothing runs). Complexity is cyclomatic complexity: one path plus every branch, switch case and catch clause - above 10 is hard to test, above 20 is a candidate to split.'));
 
     const counts = el('div', 'risky-counts');
@@ -101,4 +104,35 @@ function renderMetrics() {
         search.oninput = () => { deadFilter = search.value; draw(); };
         root.appendChild(search); root.appendChild(host); draw();
     }
+}
+
+// What the assembly is: facts from its metadata header.
+function renderAssemblyInfo(root, a) {
+    if (!a) return;
+    const rows = [
+        ['Assembly', a.name + ' ' + a.version], ['Type', a.kind], ['Platform', a.platform], ['Target framework', a.targetFramework ? a.targetFramework + (a.targetFrameworkInferred ? ' (guessed from its references: the file does not record one)' : '') : 'not recorded'],
+        ['Strong-named', a.strongNamed ? 'yes' : 'no'], ['Entry point', a.hasEntryPoint ? 'yes' : 'no'],
+        ['Build', a.debugBuild ? 'debug (contains debug information)' : 'release / no debug information'],
+        ['References', a.references + ' assemblies'], ['File size', a.sizeBytes < 1048576 ? (a.sizeBytes / 1024).toFixed(1) + ' KB' : (a.sizeBytes / 1048576).toFixed(1) + ' MB']
+    ];
+    const box = el('details', 'asm-info'); box.open = true;
+    box.appendChild(el('summary', null, 'About this assembly'));
+    const grid = el('div', 'asm-grid');
+    rows.forEach(([k, v]) => { grid.appendChild(el('span', 'asm-k', k)); grid.appendChild(el('span', 'asm-v', String(v))); });
+    box.appendChild(grid);
+    root.appendChild(box);
+}
+
+// Obfuscation indicators: evidence, never a verdict. The wording says what a clean result does NOT prove.
+function renderObfuscation(root, o) {
+    if (!o) return;
+    const box = el('div', 'vuln-banner ' + (o.likely ? 'warn' : 'info'));
+    box.appendChild(el('div', 'vb-title', o.likely ? '⚠ Obfuscation indicators found' : 'Obfuscation indicators: none found'));
+    if (o.likely) {
+        const ul = el('ul'); o.evidence.forEach(e => ul.appendChild(el('li', null, e))); box.appendChild(ul);
+        if (o.examples && o.examples.length) box.appendChild(el('div', 'view-hint', 'Examples: ' + o.examples.join(', ')));
+    }
+    box.appendChild(el('div', null, o.note));
+    box.appendChild(el('div', 'view-hint', o.namesChecked.toLocaleString() + ' names checked (types, methods and fields; compiler-generated names are skipped).'));
+    root.appendChild(box);
 }

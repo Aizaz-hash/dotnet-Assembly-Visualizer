@@ -88,6 +88,28 @@ public static class RiskyApiRules
                 "Read the callback: it should reject untrusted certificates. Remove any 'always true' callback outside tests."),
             "System.Net.Http.HttpClientHandler", "set_ServerCertificateCustomValidationCallback");
 
+        // Reflection and dynamic invocation: not dangerous in themselves, but the callee is a string or a Type at run time, so the call graph
+        // has NO edge for these calls. They tell the reader where static analysis is blind.
+        var reflection = new RiskyApiRule("reflection-invoke", "Reflection / dynamic invocation", "Low", "Calls code by name or type at run time (reflection)",
+            "The method or type is chosen at run time, so the call graph cannot show it: there is no edge from this method to what it really calls. The same mechanism is how plugins, serializers and DI containers work, and how some malware hides its behaviour.",
+            "Find out what name or type can reach it. If it can come from outside the process (a file, a request, a setting an attacker can change), treat it like loading code. Otherwise it is usually fine.");
+        Add(reflection, "System.Reflection.MethodBase", "Invoke");
+        Add(reflection, "System.Type", "InvokeMember", "GetType");
+        Add(reflection, "System.Activator", "CreateInstance");
+        Add(reflection, "System.Delegate", "DynamicInvoke");
+        Add(reflection, "System.Reflection.Assembly", "CreateInstance", "GetType");
+
+        var codegen = new RiskyApiRule("dynamic-codegen", "Dynamic code generation", "Medium", "Generates and runs code at run time",
+            "Code that does not exist in the file is created while the program runs, so neither the call graph nor the C# view can show it. Needed by some serializers and expression engines; also used to hide or unpack behaviour.",
+            "Check what the generated code is built from. If any part comes from outside the process, it is code injection; if it comes from fixed expressions in this assembly, it is usually fine.");
+        Add(codegen, "System.Reflection.Emit.DynamicMethod");
+        Add(codegen, "System.Reflection.Emit.AssemblyBuilder");
+        Add(codegen, "System.Reflection.Emit.ModuleBuilder");
+        Add(codegen, "System.Reflection.Emit.ILGenerator", "Emit");
+        Add(codegen, "System.Linq.Expressions.LambdaExpression", "Compile");
+        Add(codegen, "System.Linq.Expressions.Expression`1", "Compile");
+        Add(codegen, "System.CodeDom.Compiler.CodeDomProvider", "CompileAssemblyFromSource", "CompileAssemblyFromFile", "CompileAssemblyFromDom");
+
         return d;
     }
 

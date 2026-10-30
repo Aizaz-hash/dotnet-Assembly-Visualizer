@@ -69,3 +69,19 @@ namespace Samples.Obfuscation
         }
     }
 }
+
+namespace Samples.Obfuscation.Renamed
+{
+    // A block of identifiers the way a renaming obfuscator leaves them (one or two letters, reused everywhere).
+    // EXPECTED: Metrics > "Obfuscation indicators" reports that this assembly looks obfuscated, with the share of one/two-letter names as evidence.
+    public class aa { public int a; public int b; public int c() => a + b; public int d(int e) => e + c(); public int f() => d(1); }
+    public class bb { public int a; public int b; public int c() => a + b; public int d(int e) => e + c(); public int f() => d(1); }
+    public class cc { public int a; public int b; public int c() => a + b; public int d(int e) => e + c(); public int f() => d(1); }
+    public class dd { public int a; public int b; public int c() => a + b; public int d(int e) => e + c(); public int f() => d(1); }
+    public class ee { public int a; public int b; public int c() => a + b; public int d(int e) => e + c(); public int f() => d(1); }
+    public class ff { public int a; public int b; public int c() => a + b; public int d(int e) => e + c(); public int f() => d(1); }
+    public class gg { public int a; public int b; public int c() => a + b; public int d(int e) => e + c(); public int f() => d(1); }
+    public class hh { public int a; public int b; public int c() => a + b; public int d(int e) => e + c(); public int f() => d(1); }
+    public class jj { public int a; public int b; public int c() => a + b; public int d(int e) => e + c(); public int f() => d(1); }
+    public class kk { public int a; public int b; public int c() => a + b; public int d(int e) => e + c(); public int f() => d(1); }
+}

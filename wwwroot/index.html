@@ -192,7 +192,7 @@
                 <div class="view-toolbar" id="vulnToolbar">
                     <button id="btnVulnScan" class="btn-primary" disabled>Run scan</button>
                     <span id="vulnScope" class="view-hint"></span>
-                    <label title="Also check the packages this tool itself ships with"><input type="checkbox" id="vulnOptApp" /> Include this tool's own packages</label>
+                    <label title="Also check the packages this application itself ships with - not your assembly. Leave it off to scan only the assembly you opened."><input type="checkbox" id="vulnOptApp" /> Also scan this tool's own packages (not your assembly)</label>
                     <span class="vuln-deps">
                         <button id="btnVulnDeps" class="tb-btn small" disabled title="Choose a .deps.json, obj/project.assets.json or packages.lock.json (exact package versions and the dependency levels)">Add manifest…</button>
                         <input type="file" id="vulnDepsFile" accept=".json,application/json" style="display:none" />

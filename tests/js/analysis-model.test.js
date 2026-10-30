@@ -159,3 +159,12 @@ test('a reference assembly is explained as having no real code', () => {
     assert.match(text, /reference assembly/);
     assert.match(text, /no real code/);
 });
+
+test('obfuscation: a clean assembly says nothing on load, an obfuscated one gives one sentence with its evidence', () => {
+    assert.equal(Model.describeObfuscation(undefined), '');
+    assert.equal(Model.describeObfuscation({ likely: false, evidence: [] }), '');
+    const text = Model.describeObfuscation({ likely: true, evidence: ['72% of its names (36 of 50) are one or two letters'] });
+    assert.match(text, /signs of obfuscation/);
+    assert.match(text, /72% of its names/);
+    assert.match(text, /may be incomplete/);
+});

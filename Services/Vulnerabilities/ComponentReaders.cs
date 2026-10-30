@@ -64,6 +64,25 @@ namespace DotNetVisualizer.Web.Services.Vulnerabilities
             return list.OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase).ToList();
         }
 
+        /// <summary>
+        /// The recorded target framework, or - for older assemblies that record none - a best guess from what they reference:
+        /// mscorlib means .NET Framework, netstandard means .NET Standard. Without this, an old .NET Framework assembly was treated as
+        /// modern .NET and the packages it really needs from NuGet (System.Memory, System.Text.Json...) were skipped as "supplied by the runtime".
+        /// </summary>
+        public static string? ReadOrInferTargetFramework(MetadataReader reader, out bool inferred)
+        {
+            inferred = false;
+            var recorded = ReadTargetFramework(reader);
+            if (recorded != null) return recorded;
+
+            var names = reader.AssemblyReferences.Select(h => reader.GetString(reader.GetAssemblyReference(h).Name)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            inferred = true;
+            if (names.Contains("mscorlib")) return ".NETFramework,Version=v4.0";
+            if (names.Contains("netstandard")) return ".NETStandard,Version=v2.0";
+            inferred = false;
+            return null;
+        }
+
         /// <summary>A reference assembly (what the compiler reads, [ReferenceAssembly]) has the API but no real code: there is no behaviour to analyse.</summary>
         public static bool IsReferenceAssembly(MetadataReader reader)
         {

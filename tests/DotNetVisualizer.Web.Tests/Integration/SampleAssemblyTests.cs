@@ -200,6 +200,11 @@ namespace DotNetVisualizer.Web.Tests.Integration
         [InlineData("weak-cipher-des", "Encryption", "Old", "Medium")]
         [InlineData("tls-validation", "Network", "TrustEverything", "Medium")]
         [InlineData("native-call", "Native", "GetTickCount", "Low")]
+        [InlineData("reflection-invoke", "Reflective", "Call", "Low")]
+        [InlineData("reflection-invoke", "Reflective", "Create", "Low")]
+        [InlineData("reflection-invoke", "Reflective", "Lookup", "Low")]
+        [InlineData("dynamic-codegen", "CodeGeneration", "Emit", "Medium")]
+        [InlineData("dynamic-codegen", "CodeGeneration", "Compile", "Medium")]
         public void Every_documented_risky_use_is_found_with_its_severity(string rule, string cls, string method, string severity)
         {
             var risks = Risks(SamplePaths.RiskyApis);

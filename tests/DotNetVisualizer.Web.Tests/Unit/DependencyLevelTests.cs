@@ -171,6 +171,15 @@ namespace DotNetVisualizer.Web.Tests.Unit
         }
 
         [Fact]
+        public async Task A_dotnet_framework_assembly_needs_its_NuGet_packages_even_when_the_modern_runtime_has_an_assembly_of_that_name()
+        {
+            // regression: an old assembly records no target framework; it was treated as modern .NET and System.Memory-style packages were skipped
+            var nuget = new FakeNuGetClient().Package("System.Collections", "4.3.0");
+            var r = await Resolver(nuget).ResolveAsync(new DependencyRequest { References = LevelFixtures.Refs(("System.Collections", "4.3.0.0")), TargetFramework = ".NETFramework,Version=v4.0" }, default);
+            Assert.Equal(("resolved", "4.3.0"), (r.Nodes.Single().Resolution, r.Nodes.Single().Version));
+        }
+
+        [Fact]
         public async Task A_manifest_version_wins_over_the_estimate()
         {
             var nuget = LevelFixtures.Graph();

@@ -488,7 +488,11 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
             // Assembly references (name + assembly version); shown by the vulnerability view as an inventory.
             references,
             assemblyName = AssemblyReferenceReader.ReadAssemblyName(mdReader),
-            targetFramework = AssemblyReferenceReader.ReadTargetFramework(mdReader),
+            targetFramework = AssemblyReferenceReader.ReadOrInferTargetFramework(mdReader, out _),
+
+            // what the assembly is, and whether it looks obfuscated (indicators with their evidence, never a verdict)
+            assembly = AssemblyInsights.ReadInfo(peReader, mdReader, upload.CanSeek ? upload.Length : 0, references.Count),
+            obfuscation = AssemblyInsights.DetectObfuscation(mdReader),
 
             metrics = BuildMetrics(methodDisplay, methodMetrics, callPairs),
 
@@ -650,7 +654,9 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
 
             if (target.Kind != HandleKind.MemberReference) return null;
             var member = reader.GetMemberReference((MemberReferenceHandle)target);
-            if (member.Parent.Kind != HandleKind.TypeReference) return null;
+            // a member of a generic instantiation (Expression<Func<int>>.Compile) has a type specification as its parent; it still names the
+            // generic type, so it must not be skipped
+            if (member.Parent.Kind != HandleKind.TypeReference && member.Parent.Kind != HandleKind.TypeSpecification) return null;
 
             string type = GetStringFromEntityHandle(reader, member.Parent);
             string method = reader.GetString(member.Name);

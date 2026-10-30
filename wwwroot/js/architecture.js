@@ -42,6 +42,11 @@ function renderArchitecture() {
     if (!hasAssembly) { canvasMessage(canvas, 'Open a .NET assembly to see how its namespaces depend on each other.'); return; }
 
     const m = archModel();
+    // the filter only means something when there is a cycle to filter to
+    const filter = byId('optArchCycles');
+    filter.disabled = m.nsCycles.length === 0;
+    filter.title = m.nsCycles.length === 0 ? 'No namespace is in a cycle, so there is nothing to filter to' : 'Show only the namespaces that are part of a cycle';
+    if (m.nsCycles.length === 0 && archState.onlyCycles) { archState.onlyCycles = false; filter.checked = false; }
     if (m.namespaces.nodes.length < 2 && !archState.typeView) {
         canvasMessage(canvas, 'This assembly has a single namespace, so there are no dependencies between namespaces to show.');
     }
