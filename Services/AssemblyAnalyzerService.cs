@@ -45,6 +45,9 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
         // Constructors are only listed when something calls them or they call something: a compiler-generated default
         // constructor that just calls object() would otherwise add a meaningless node to every class.
         var pendingConstructors = new List<(string Id, object Node)>();
+        // Calls to APIs that deserve a security look (see RiskyApiRules): rule + api -> how often and from where.
+        var riskHits = new Dictionary<(RiskyApiRule Rule, string Api), RiskHit>();
+        var riskByToken = new Dictionary<int, (RiskyApiRule Rule, string Api)?>();
         var resolvedCallTargets = new Dictionary<int, (string Id, string ParentClass, bool IsInternal)>();
 
         var registeredMethodIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -182,6 +185,13 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
                         // Map metadata method token -> unique visualizer ID
                         tokenToUniqueMethodIdMap[methodHandle] = methodUniqueId;
 
+                        if ((methodDef.Attributes & MethodAttributes.PinvokeImpl) != 0)
+                        {
+                            var import = methodDef.GetImport();
+                            if (!import.Module.IsNil)
+                                RecordRisk(riskHits, (RiskyApiRules.NativeCall, mdReader.GetString(mdReader.GetModuleReference(import.Module).Name) + "!" + mdReader.GetString(import.Name)), methodUniqueId);
+                        }
+
                         if (isNewMethodNode && isConstructor)
                         {
                             // shown as "Foo(int a)" like ILSpy; the id keeps ".ctor" so it matches member references
@@ -256,6 +266,10 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
                         continue;
 
                     EntityHandle calledEntityHandle = MetadataTokens.EntityHandle(metadataToken);
+
+                    if (!riskByToken.TryGetValue(metadataToken, out var risk))
+                        riskByToken[metadataToken] = risk = FindRisk(mdReader, calledEntityHandle);
+                    if (risk != null) RecordRisk(riskHits, risk.Value, item.CallerMethodId);
 
                     // The same callee is referenced from many call sites; resolve each metadata token only once.
                     bool alreadyResolved = resolvedCallTargets.TryGetValue(metadataToken, out var resolved);
@@ -444,8 +458,64 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
             assemblyName = AssemblyReferenceReader.ReadAssemblyName(mdReader),
             targetFramework = AssemblyReferenceReader.ReadTargetFramework(mdReader),
 
+            riskyApis = riskHits
+                .OrderBy(h => Array.IndexOf(new[] { "High", "Medium", "Low" }, h.Key.Rule.Severity))
+                .ThenBy(h => h.Key.Rule.Category, StringComparer.Ordinal)
+                .ThenByDescending(h => h.Value.Count)
+                .Select(h => new
+                {
+                    ruleId = h.Key.Rule.Id,
+                    category = h.Key.Rule.Category,
+                    severity = h.Key.Rule.Severity,
+                    title = h.Key.Rule.Title,
+                    api = h.Key.Api,
+                    why = h.Key.Rule.Why,
+                    advice = h.Key.Rule.Advice,
+                    count = h.Value.Count,
+                    callers = h.Value.Callers
+                })
+                .ToList(),
+
             timings = timer.ToResult()
         };
+    }
+
+    private sealed class RiskHit
+    {
+        public int Count;
+        public List<string> Callers { get; } = new();
+    }
+
+    private const int MaxRiskCallers = 25;
+
+    private static void RecordRisk(Dictionary<(RiskyApiRule Rule, string Api), RiskHit> hits, (RiskyApiRule Rule, string Api) risk, string callerMethodId)
+    {
+        if (!hits.TryGetValue(risk, out var hit)) hits[risk] = hit = new RiskHit();
+        hit.Count++;
+        if (hit.Callers.Count < MaxRiskCallers && !hit.Callers.Contains(callerMethodId)) hit.Callers.Add(callerMethodId);
+    }
+
+    /// <summary>Is this call target one of the APIs in <see cref="RiskyApiRules"/>? Only references to other assemblies can match.</summary>
+    private static (RiskyApiRule Rule, string Api)? FindRisk(MetadataReader reader, EntityHandle target)
+    {
+        try
+        {
+            if (target.Kind == HandleKind.MethodSpecification)
+                target = reader.GetMethodSpecification((MethodSpecificationHandle)target).Method;
+
+            if (target.Kind != HandleKind.MemberReference) return null;
+            var member = reader.GetMemberReference((MemberReferenceHandle)target);
+            if (member.Parent.Kind != HandleKind.TypeReference) return null;
+
+            string type = GetStringFromEntityHandle(reader, member.Parent);
+            string method = reader.GetString(member.Name);
+            var rule = RiskyApiRules.Match(type, method);
+            return rule == null ? null : (rule, method == ".ctor" ? "new " + type : type + "." + method);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     // METHOD SIGNATURE HELPERS

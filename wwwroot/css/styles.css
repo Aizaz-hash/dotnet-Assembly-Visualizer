@@ -565,3 +565,20 @@ body { font-size: 14px; }
 @keyframes loader-slide { 0% { left: -35%; } 100% { left: 100%; } }
 
 .vuln-banner.info { background: #e7f1ff; border-color: #9ec5fe; color: #084298; }
+
+/* Risky APIs tab */
+#viewRisky .scroll-body { padding: 14px 18px; }
+.risky-intro p { margin: 0 0 12px; color: #495057; font-size: 13px; line-height: 1.5; max-width: 900px; }
+.risky-counts { display: flex; gap: 10px; margin-bottom: 12px; }
+.risky-count { cursor: pointer; border: 1px solid #dee2e6; border-left-width: 4px; border-radius: 4px; padding: 6px 16px; background: #fff; min-width: 90px; }
+.risky-count.active { box-shadow: 0 0 0 2px #007bff55; }
+.risky-count.sev-high { border-left-color: #dc3545; } .risky-count.sev-medium { border-left-color: #fd7e14; } .risky-count.sev-low { border-left-color: #0d6efd; }
+.rcn-num { font-size: 22px; font-weight: 700; } .rcn-label { font-size: 11.5px; text-transform: uppercase; color: #6c757d; }
+.risky-filter { margin-bottom: 12px; } .risky-filter input { width: 100%; max-width: 420px; padding: 5px 8px; border: 1px solid #ced4da; border-radius: 3px; }
+.risky-card { border: 1px solid #dee2e6; border-radius: 4px; padding: 10px 14px; margin-bottom: 10px; background: #fff; max-width: 980px; }
+.rc-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.rc-title { font-weight: 600; } .rc-cat { margin-left: auto; font-size: 11.5px; color: #6c757d; background: #f1f3f5; padding: 1px 8px; border-radius: 10px; }
+.rc-api { font-family: Consolas, monospace; font-size: 12.5px; color: #343a40; margin: 6px 0; word-break: break-all; }
+.rc-why, .rc-advice { font-size: 13px; line-height: 1.45; color: #495057; margin-bottom: 4px; }
+.rc-callers { font-size: 12.5px; margin-top: 6px; } .rc-callers-label { color: #6c757d; }
+.rc-caller { margin-right: 10px; display: inline-block; }
