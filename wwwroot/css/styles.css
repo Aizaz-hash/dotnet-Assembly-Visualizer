@@ -563,3 +563,5 @@ body { font-size: 14px; }
 .app-loader-bar #appLoaderFill { height: 100%; width: 0; background: #007bff; transition: width .15s linear; }
 .app-loader-bar.indeterminate #appLoaderFill { width: 35%; position: absolute; animation: loader-slide 1.1s ease-in-out infinite; }
 @keyframes loader-slide { 0% { left: -35%; } 100% { left: 100%; } }
+
+.vuln-banner.info { background: #e7f1ff; border-color: #9ec5fe; color: #084298; }

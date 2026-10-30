@@ -221,7 +221,7 @@ function buildVulnReportDocument(doc, report) {
     [
         ['Assembly', report.scannedFor || '-'],
         ['Sources', (report.scannedSources && report.scannedSources.length ? report.scannedSources.join(', ') : '-')],
-        ['Database', report.database + ' (' + (report.databaseReachable ? 'reachable' : 'unreachable') + ')'],
+        ['Database', report.database + ' (' + (report.nothingToCheck ? 'not queried - nothing to check' : (report.databaseReachable ? 'reachable' : 'unreachable')) + ')'],
         ['Scanned', new Date(report.scannedAtUtc).toLocaleString()],
         ['Components checked', String(report.components.length)]
     ].forEach(([k, v]) => { const line = E('div'); line.appendChild(E('b', null, k + ': ')); line.appendChild(doc.createTextNode(v)); meta.appendChild(line); });
@@ -229,7 +229,7 @@ function buildVulnReportDocument(doc, report) {
 
     const ok = report.complete && report.databaseReachable;
     const banner = E('div', 'banner ' + (ok ? 'ok' : (report.databaseReachable ? 'warn' : 'bad')));
-    banner.appendChild(E('b', null, ok ? 'Scan complete' : (report.databaseReachable ? 'Scan INCOMPLETE - some components could not be checked' : 'Database unreachable - nothing was checked; this is NOT a clean result')));
+    banner.appendChild(E('b', null, report.nothingToCheck ? (report.complete ? 'No NuGet packages to check - every dependency is supplied by the .NET runtime' : 'Nothing could be checked - see the notes; this is NOT a clean result') : ok ? 'Scan complete' : (report.databaseReachable ? 'Scan INCOMPLETE - some components could not be checked' : 'Database unreachable - nothing was checked; this is NOT a clean result')));
     if (report.notes.length) { const ul = E('ul'); report.notes.forEach(n => ul.appendChild(E('li', null, n))); banner.appendChild(ul); }
     body.appendChild(banner);
 
@@ -419,10 +419,15 @@ function renderVulnIntro(container) {
 function renderVulnBanner(container) {
     const r = vulnReport;
     const ok = r.complete && r.databaseReachable;
-    const box = el('div', 'vuln-banner ' + (ok ? 'ok' : (r.databaseReachable ? 'warn' : 'bad')));
+    const checked = r.components.filter(c => c.result === 'ok').length;
+    // nothing was sent to the database: say what that means, not that the database is down
+    const kind = r.nothingToCheck ? (r.complete ? 'info' : 'warn') : (ok ? 'ok' : (r.databaseReachable ? 'warn' : 'bad'));
+    const title = r.nothingToCheck ? (r.complete ? 'ℹ No NuGet packages to check' : '⚠ Nothing could be checked')
+        : (ok ? '✓ Scan complete' : (r.databaseReachable ? '⚠ Scan incomplete' : '✕ Database unreachable'));
+    const box = el('div', 'vuln-banner ' + kind);
     const when = new Date(r.scannedAtUtc).toLocaleString();
-    box.appendChild(el('div', 'vb-title', (ok ? '✓ Scan complete' : (r.databaseReachable ? '⚠ Scan incomplete' : '✕ Database unreachable')) +
-        ` - ${r.components.length} component${r.components.length === 1 ? '' : 's'} checked against ${r.database} · ${when}` + (r.scannedFor ? ` · ${r.scannedFor}` : '')));
+    box.appendChild(el('div', 'vb-title', title +
+        ` - ${r.components.length} dependenc${r.components.length === 1 ? 'y' : 'ies'} listed, ${checked} checked against ${r.database} · ${when}` + (r.scannedFor ? ` · ${r.scannedFor}` : '')));
     if (r.notes.length) {
         const ul = el('ul');
         r.notes.forEach(n => ul.appendChild(el('li', null, n)));
