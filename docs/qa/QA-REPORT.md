@@ -15,7 +15,7 @@ Every statement below is something that was run or measured; where a claim could
 | A very large assembly in the UI | `System.Private.CoreLib` (2,383 types, 30,000 methods, 25 MB of analysis) loaded in the browser; each view's first render timed |
 | Navigation | class → Inheritance, method → Method Calls, the circular-dependency link from the Method Calls note and from the Selected bar, Back, Clear selection, switching assemblies |
 | Claims against reality | each sentence of the README's UI, vulnerability and limitation sections was checked against what the product does |
-| Automated | 297 C# tests (Unit + Integration on the real sample assemblies) and 71 JavaScript tests, all passing at the end |
+| Automated | 299 C# tests (209 Unit + 90 Integration on the real sample assemblies) and 71 JavaScript tests, all passing at the end |
 
 ## Summary
 
@@ -23,7 +23,7 @@ Every statement below is something that was run or measured; where a claim could
 |---|---:|---:|---:|---:|
 | Critical | 0 | 0 | 0 | 0 |
 | High | 5 | 5 | 0 | 0 |
-| Medium | 8 | 5 | 3 | 0 |
+| Medium | 9 | 6 | 3 | 0 |
 | Low | 7 | 7 | 0 | 0 |
 | UX / polish | 7 | 1 | 4 | 2 |
 
@@ -74,6 +74,8 @@ Format: **Issue · Severity · Location · Steps · Expected · Actual · Why it
 **QA-09 · The README contradicted the product in three places** · Medium · docs · *Fixed* - it said references are "not matched to packages", described confirmed vs potential without informational, and pointed at a sample path that no longer existed; the obfuscation line was a blanket "not supported". All rewritten; the README now has a trust table and a limitations list.
 
 **QA-10 · The obfuscation warning was vague and unconditional** · Medium · notice · *Fixed* - see "Obfuscation" below. The notice now says what was verified, and the Metrics view shows the evidence when a file looks obfuscated.
+
+**QA-28 · Four tests were never run by CI** · Medium · test structure · *Fixed* - after the tests were split into `Unit` and `Integration` (CI runs them as two filtered runs by namespace), the class `ShippedCodeTests` stayed in the parent namespace, so neither filter selected it. Found by adding the two filtered counts (203 + 90 = 293) and comparing them with the full run (297). Fix: the class moved, and `TestStructureTests` fails if any test class is in neither namespace.
 
 **QA-11 · Calls through an interface, a base type or a delegate are not edges** · Medium · Method Calls, Circular Dependencies · ***Open (documented, pinned by a test)***
 - Steps: `samples/method-calls`, `Dispatcher.Go(IWorker)` calls `worker.Work()`.

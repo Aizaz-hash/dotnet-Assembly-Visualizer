@@ -371,7 +371,7 @@ namespace DotNetVisualizer.Web.Tests.Unit
     }
 }
 
-namespace DotNetVisualizer.Web.Tests
+namespace DotNetVisualizer.Web.Tests.Unit
 {
     using DotNetVisualizer.Web.Models;
     using DotNetVisualizer.Web.Services.Vulnerabilities;
