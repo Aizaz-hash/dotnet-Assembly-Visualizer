@@ -6,6 +6,10 @@
     <title>dotnet Assembly Visualizer</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <script src="lib/vis-network.min.js"></script>
+    <meta name="color-scheme" content="light dark">
+    <!-- sets the theme before anything is painted, so a dark choice never flashes white; the same rules as js/theme.js -->
+    <script>(function () { var d = document.documentElement, p = 'system'; try { p = localStorage.getItem('av.theme') || 'system'; } catch (e) { } if (p !== 'light' && p !== 'dark') p = 'system'; var dark = p === 'dark' || (p === 'system' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches); d.dataset.theme = dark ? 'dark' : 'light'; d.dataset.themePref = p; })();</script>
+    <link rel="stylesheet" href="css/theme.css">
     <link rel="stylesheet" href="css/styles.css">
 </head>
 
@@ -30,14 +34,15 @@
             <span id="uploadHint" class="upload-hint"></span>
         </div>
         <div class="tb-spacer"></div>
+        <label class="theme-switch" title="Light, dark, or follow the system setting">Theme
+            <select id="themeSelect">
+                <option value="system">System</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+        </label>
         <h1 class="app-title">dotnet Assembly Visualizer</h1>
     </header>
-
-    <div id="obfuscationNotice">
-        <span>⚠</span>
-        <b>Obfuscation limitation:</b> structure and call-graph analysis is most accurate for unobfuscated assemblies. Renamed members are shown under their obfuscated names, and packed or encrypted method bodies, calls made through reflection and code generated at run time cannot be resolved, so results for such binaries may be incomplete.
-        <button id="btnHideObfuscation" class="notice-close" title="Hide this notice">✕</button>
-    </div>
 
     <!-- small toast notifications, top right; filled by showMessage() in app.js -->
     <div id="toastHost" role="status" aria-live="polite" aria-atomic="false"></div>
@@ -249,6 +254,7 @@
     <script src="js/package-input.js"></script>
     <script src="js/csharp-highlight.js"></script>
     <script src="js/architecture-utils.js"></script>
+    <script src="js/theme.js"></script>
     <script src="js/views.js"></script>
     <script src="js/overview-model.js"></script>
     <script src="js/notify-policy.js"></script>

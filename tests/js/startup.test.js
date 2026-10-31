@@ -85,11 +85,12 @@ test('a newly opened assembly starts at the overview and selecting a class or me
     assert.match(app, /function selectMethod/);                         // a method opens Method Calls (or stays in a view that shows it)
 });
 
-test('the obfuscation notice names what is verified and what is not, and can be dismissed', () => {
-    const html = read('index.html');
-    const notice = html.match(/<div id="obfuscationNotice">([\s\S]*?)<\/div>/)[1];
-    assert.match(notice, /most accurate for unobfuscated assemblies/);
-    assert.match(notice, /reflection/);
-    assert.match(notice, /btnHideObfuscation/);
-    assert.ok(!/not supported/i.test(notice), 'no blanket "not supported" claim');
+test('the obfuscation limitation is a warning on the Overview, not a banner over every screen', () => {
+    const html = read('index.html'), css = read('css', 'styles.css'), metrics = read('js', 'metrics.js'), app = read('js', 'app.js');
+    assert.ok(!/obfuscationNotice|btnHideObfuscation/.test(html + css + app), 'the banner (which flashed while the page loaded) is gone');
+    const warning = metrics.match(/limit\.id = 'obfuscationLimitation';[\s\S]*?root\.appendChild\(limit\);/)[0];
+    assert.match(warning, /most accurate for unobfuscated assemblies/);
+    assert.match(warning, /reflection/);
+    assert.ok(!/not supported/i.test(warning), 'no blanket "not supported" claim');
+    assert.match(read('js', 'overview.js'), /renderObfuscation\(root, rawAssemblyData\.obfuscation\)/);
 });

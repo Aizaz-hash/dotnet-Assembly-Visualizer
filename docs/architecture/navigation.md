@@ -46,16 +46,12 @@ Idea: one vertically scrollable *analysis screen* with the C# code, the method v
 
 Things to decide when it is built: whether the graph canvases (vis-network) can live in a scrolling page (they need an explicit height), and whether panels render lazily when scrolled into view (the C# decompile is the expensive one).
 
-## Planned: dark theme
+## Themes (Light, Dark, System)
+Every colour of the interface is a CSS variable defined in  once per theme;  has no colour literals (a test enforces it, and that both themes define the same variables). The tokens are named by role and by the colour they have in the light theme:  is a surface,  text,  a border - so the light theme is exactly what the interface always looked like, and the dark theme sets the same names to colours made for a dark surface (neutrals rebuilt as a dark scale, pastel alert backgrounds as dark tints, dark status text as light text, buttons and badges keep their hue). Named groups cover the overlay, the C# viewer () and the graphs ().
 
-State today: the UI colours are plain values in `styles.css`; the notification toasts are the first part that uses **tokens** (`--toast-*` custom properties, one set per type). The plan:
+ keeps the choice ( key : system, light or dark; a missing or damaged value means system), resolves it to , listens for operating-system changes while the choice is System, and fires ;  redraws the open view then, because vis-network takes colours as values:  reads the  variables. A tiny inline script in the page head sets the theme before the stylesheets load. Tests check readability (WCAG AA, 4.5:1) of text, links, code and graph labels in both themes.
 
-1. Introduce tokens on `:root` for the roles the UI uses: surface (`--surface`, `--surface-raised`), text (`--text`, `--text-muted`), border, accent, and the severity/status colours already used by the cards and badges (`--sev-critical … --sev-low`, `--ok`, `--warn`, `--bad`).
-2. Replace literal colours in `styles.css` by those tokens, one file section at a time (the Overview, toasts and tab strip already use a small, regular set of colours, so they are a good start). The graph canvases take their colours from `graph-utils.js` and `architecture-utils.js`; give those a `theme()` function that reads the tokens with `getComputedStyle`.
-3. Add `[data-theme="dark"]` (and `@media (prefers-color-scheme: dark)` as the default) that only redefines the tokens. No component CSS changes after step 2.
-4. Store the choice in `localStorage` with a try/catch (it must work without storage), toggle in the toolbar.
-
-Because components never name a colour after step 2, a later theme (high contrast, for example) is another token block.
+Adding a theme (for example high contrast) is one more variable block and one more option; no component CSS changes.
 
 ## The Overview tab and disabled tabs
 

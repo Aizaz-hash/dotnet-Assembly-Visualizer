@@ -796,15 +796,14 @@ function inhNodeStyle(id, selected) {
     const t = typeNodes.get(id);
     const iface = !!t && t.type === 'Interface';
     const external = !t;
-    let color = iface
-        ? { background: '#e3f2fd', border: '#1e88e5', highlight: { background: '#cfe8fc', border: '#1565c0' } }
-        : { background: '#fff3e0', border: '#fb8c00', highlight: { background: '#ffe0b2', border: '#e65100' } };
-    if (external) color = { background: '#f5f5f5', border: '#9e9e9e', highlight: { background: '#e4e4e4', border: '#757575' } };
-    if (selected) color = { background: iface ? '#e3f2fd' : '#fff3e0', border: '#007bff', highlight: { background: iface ? '#cfe8fc' : '#ffe0b2', border: '#0056b3' } };
+    const C = Theme.colors();                          // graph colours come from the active theme (css/theme.css)
+    const kind = iface ? C.iface : C.cls;
+    let color = external ? C.ext : kind;
+    if (selected) color = { background: kind.background, border: C.selBd, highlight: { background: kind.highlight.background, border: C.selHbd } };
     return {
         id, label: t ? t.name : shortName(id), shape: iface ? 'ellipse' : 'box', margin: 12,
         borderWidth: selected ? 3 : 1.5, color,
-        font: { face: 'Segoe UI, sans-serif', size: 15, color: external ? '#6b6b6b' : '#1e1e1e' },
+        font: { face: 'Segoe UI, sans-serif', size: 15, color: external ? C.fontExt : C.font },
         title: `${id}${external ? '\n(not in this assembly)' : ''}`
     };
 }
@@ -846,8 +845,8 @@ function renderInheritanceGraph() {
             from: id, to: b.id, arrows: 'to',
             label: b.relation ? b.relation.toLowerCase() : undefined,
             dashes: implementsRel ? [6, 4] : false,
-            color: { color: '#7a7a7a', highlight: '#333' },
-            font: { size: 12, color: '#555', strokeWidth: 3, strokeColor: '#fcfcfc', align: 'middle' },
+            color: { color: Theme.colors().edge, highlight: Theme.colors().edgeH },
+            font: { size: 12, color: Theme.colors().label, strokeWidth: 3, strokeColor: Theme.colors().labelStroke, align: 'middle' },
             smooth: { enabled: true, type: 'cubicBezier', forceDirection: 'vertical', roundness: 0.5 }
         });
     }));
@@ -999,14 +998,15 @@ function nodeStyle(id, selected) {
     const info = methodInfo(id);
     const cyclic = cyclesOfMethod.has(id);
     const label = `${cyclic ? '⚠ ' : ''}${shortName(info.className)}\n➔ ${truncate(info.name, 40)}`;
-    let color = { background: '#e8f5e9', border: '#4caf50', highlight: { background: '#c8e6c9', border: '#2e7d32' } };
-    if (info.external) color = { background: '#f5f5f5', border: '#9e9e9e', highlight: { background: '#e4e4e4', border: '#757575' } };
-    if (cyclic) color = { background: '#ffebeb', border: '#dc3545', highlight: { background: '#f8d7da', border: '#bd2130' } };
-    if (selected) color = { background: cyclic ? '#ffebeb' : (info.external ? '#f5f5f5' : '#e8f5e9'), border: '#007bff', highlight: { background: cyclic ? '#f8d7da' : '#c8e6c9', border: '#0056b3' } };
+    const C = Theme.colors();
+    let color = C.ok;
+    if (info.external) color = C.ext;
+    if (cyclic) color = C.bad;
+    if (selected) color = { background: color.background, border: C.selBd, highlight: { background: cyclic ? C.bad.highlight.background : C.ok.highlight.background, border: C.selHbd } };
     return {
         id, label, shape: 'box', margin: 10,
         borderWidth: selected ? 3 : 1.5,
-        color, font: { face: 'Segoe UI, sans-serif', size: 14, multi: false, color: cyclic ? '#721c24' : '#212529' },
+        color, font: { face: 'Segoe UI, sans-serif', size: 14, multi: false, color: cyclic ? C.fontBad : C.font },
         title: `${info.className}.${info.name}${cyclic ? '\n⚠ part of a circular call chain' : ''}${info.external ? '\n(external / not in this assembly)' : ''}`
     };
 }
@@ -1033,10 +1033,10 @@ function buildCallGraph(center, depth, wantCallers, wantCallees) {
             edges.push({
                 from: id, to: c, arrows: 'to',
                 label: count > 1 ? `×${count}` : undefined,
-                color: cyc ? { color: '#dc3545', highlight: '#bd2130' } : { color: '#8a8a8a', highlight: '#444' },
+                color: cyc ? { color: Theme.colors().edgeBad, highlight: Theme.colors().edgeBadH } : { color: Theme.colors().edgeM, highlight: Theme.colors().edgeMH },
                 dashes: cyc ? [7, 4] : false,
                 width: cyc ? 2 : 1,
-                font: { size: 10, color: '#555', strokeWidth: 3, strokeColor: '#fcfcfc' },
+                font: { size: 10, color: Theme.colors().label, strokeWidth: 3, strokeColor: Theme.colors().labelStroke },
                 smooth: (levels.get(id) >= levels.get(c))
                     ? { enabled: true, type: 'curvedCW', roundness: 0.45 }          // back-edges (recursion / cycles) arc over the forward flow
                     : { enabled: true, type: 'cubicBezier', forceDirection: 'horizontal', roundness: 0.5 }
@@ -1173,7 +1173,7 @@ function exportGraphPng() {
     const out = document.createElement('canvas');
     out.width = canvas.width; out.height = canvas.height;
     const ctx = out.getContext('2d');
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = Theme.colors().canvas;          // the image gets the background of the theme it was drawn in
     ctx.fillRect(0, 0, out.width, out.height);
     ctx.drawImage(canvas, 0, 0);
     const a = document.createElement('a');
@@ -1291,9 +1291,7 @@ function renderCycleDetail(body, chain, canvas) {
         const st = nodeStyle(id, false);
         st.x = Math.cos(angle) * radius * 1.5; st.y = Math.sin(angle) * radius;
         st.fixed = true;
-        st.color = i === 0
-            ? { background: '#d4edda', border: '#28a745', highlight: { background: '#c3e6cb', border: '#1e7e34' } }
-            : { background: '#ffebeb', border: '#dc3545', highlight: { background: '#f8d7da', border: '#bd2130' } };
+        st.color = i === 0 ? Theme.colors().good : Theme.colors().bad;
         st.borderWidth = i === 0 ? 3 : 2;
         st.label = (i === 0 ? '▶ start\n' : '') + `${shortName(methodInfo(id).className)}\n➔ ${truncate(methodInfo(id).name, 36)}`;
         return st;
@@ -1304,9 +1302,9 @@ function renderCycleDetail(body, chain, canvas) {
         return {
             from: id, to, arrows: 'to', width: 2.5,
             label: closing ? `${i + 1} ↺` : String(i + 1),
-            color: { color: '#dc3545', highlight: '#bd2130' },
+            color: { color: Theme.colors().edgeBad, highlight: Theme.colors().edgeBadH },
             dashes: closing ? [7, 4] : false,
-            font: { size: 13, color: '#721c24', strokeWidth: 3, strokeColor: '#fafafa' },
+            font: { size: 13, color: Theme.colors().fontBad, strokeWidth: 3, strokeColor: Theme.colors().labelStroke },
             smooth: n === 1 ? { type: 'curvedCW', roundness: 0.6 } : { type: 'curvedCW', roundness: 0.18 }
         };
     });
@@ -1774,6 +1772,17 @@ fetch('/api/analysis/limits').then(r => r.ok ? r.json() : null).then(info => {
     byId('uploadHint').textContent = `.dll / .exe, max ${maxUploadMb} MB`;
 }).catch(() => { /* hint is optional */ });
 
+// Theme switch in the toolbar: Light / Dark / System (the choice is remembered in this browser).
+(function () {
+    const sel = byId('themeSelect');
+    sel.value = Theme.pref();
+    sel.onchange = () => Theme.set(sel.value);
+    document.addEventListener('themechange', (e) => { sel.value = e.detail.pref; });   // stays right when the theme is changed from elsewhere
+})();
+
+// A theme change redraws the open view: the graphs are drawn with colours read from the theme.
+document.addEventListener('themechange', () => { if (typeof hasAssembly !== 'undefined' && hasAssembly) applyState(); });
+
 // The first render needs every view's script (metrics.js, risky.js ... load after this file), so it waits until all of them have run.
 // Rendering earlier threw "renderMetrics is not defined", which also stopped the rest of this file from running.
 function startUp() {
@@ -1782,12 +1791,3 @@ function startUp() {
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startUp); else startUp();
 
-// The obfuscation notice stays until it is dismissed; the choice is remembered in this browser (and works without storage).
-(function () {
-    const notice = byId('obfuscationNotice');
-    try { if (localStorage.getItem('av.hideObfuscationNotice') === '1') notice.hidden = true; } catch { /* storage unavailable: keep it visible */ }
-    byId('btnHideObfuscation').onclick = () => {
-        notice.hidden = true;
-        try { localStorage.setItem('av.hideObfuscationNotice', '1'); } catch { /* not remembered */ }
-    };
-})();

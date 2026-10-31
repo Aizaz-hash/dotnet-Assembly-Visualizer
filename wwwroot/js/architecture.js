@@ -91,8 +91,8 @@ function renderArchList(list, m) {
 function archNodeBox(label, cyclic, selected) {
     return {
         label, shape: 'box', margin: 8, widthConstraint: { maximum: 300 }, borderWidth: selected ? 3 : 1.5,
-        color: cyclic ? { background: '#ffebeb', border: selected ? '#007bff' : '#dc3545' } : { background: '#e8f5e9', border: selected ? '#007bff' : '#43a047' },
-        font: { face: 'Segoe UI, sans-serif', size: 14, color: cyclic ? '#721c24' : '#1e1e1e' }
+        color: cyclic ? { background: Theme.colors().bad.background, border: selected ? Theme.colors().selBd : Theme.colors().bad.border } : { background: Theme.colors().ok.background, border: selected ? Theme.colors().selBd : Theme.colors().archOkBd },
+        font: { face: 'Segoe UI, sans-serif', size: 14, color: cyclic ? Theme.colors().fontBad : Theme.colors().font }
     };
 }
 
@@ -138,8 +138,8 @@ function drawNamespaces(canvas, m) {
         return {
             from: e.from, to: e.to, arrows: 'to', width: 1 + Math.min(4, Math.log2(e.count)),
             label: e.count > 1 ? String(e.count) : undefined, title: e.count + ' dependenc' + (e.count === 1 ? 'y' : 'ies') + ', e.g. ' + e.example,
-            color: bad ? { color: '#dc3545', highlight: '#bd2130' } : { color: '#9aa0a6', highlight: '#444' }, dashes: bad ? [7, 4] : false,
-            font: { size: 10, color: '#555', strokeWidth: 3, strokeColor: '#fcfcfc' },
+            color: bad ? { color: Theme.colors().edgeBad, highlight: Theme.colors().edgeBadH } : { color: Theme.colors().edgeA, highlight: Theme.colors().edgeMH }, dashes: bad ? [7, 4] : false,
+            font: { size: 10, color: Theme.colors().label, strokeWidth: 3, strokeColor: Theme.colors().labelStroke },
             smooth: { enabled: true, type: 'cubicBezier', forceDirection: 'horizontal', roundness: 0.45 }
         };
     });
@@ -158,7 +158,7 @@ function drawTypeCycle(canvas, m, cycle) {
     cycle.path.slice(0, -1).forEach((id, i) => { const n = nodes.find(x => x.id === id); if (n) n.level = i; });
     nodes.forEach(n => { if (n.level === undefined) n.level = layer.get(n.id); });
     const edges = used.map(e => ({
-        from: e.from, to: e.to, arrows: 'to', color: { color: '#dc3545', highlight: '#bd2130' }, dashes: [7, 4],
+        from: e.from, to: e.to, arrows: 'to', color: { color: Theme.colors().edgeBad, highlight: Theme.colors().edgeBadH }, dashes: [7, 4],
         smooth: { enabled: true, type: 'curvedCW', roundness: 0.3 }
     }));
     byId('archHint').textContent = `${nodes.length} types in one cycle · ${edges.length} dependencies · double-click a type to open its methods`;

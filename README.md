@@ -120,6 +120,8 @@ Then open **http://localhost:8080**. (To run the `v2` line, `git checkout v2` fi
 
 The views are arranged as a workflow: **Overview → Details → Security & risk → Compare.** Start at the left of the tab bar and move right; a newly opened assembly starts at **Overview**. The groups and views are listed in one place (`wwwroot/js/views.js`); see [docs/architecture/navigation.md](docs/architecture/navigation.md).
 
+**Themes.** The **Theme** switch in the toolbar offers **System** (follows the operating system or browser setting and changes with it), **Light** and **Dark**. The choice is remembered in this browser and applied before the page is painted, so there is no flash. All colours are variables in `wwwroot/css/theme.css`; the graphs and the C# viewer follow the theme too.
+
 **Selecting things (ILSpy-style).** Pick a **class** in the explorer and the **Code Navigator** opens with its inheritance and its C# code; expand the class to see its methods; pick a **method** and the Code Navigator shows its callers and callees with the method's C# code. The class and method you chose stay visible in the **Selected** bar under the tabs in every view, each part is a link back to its view, and a method that is part of a circular call chain carries a red **⚠ circular dependency** link to that cycle (also shown as a note in Method Calls and a ⚠ in the explorer). Back / Forward (Alt+Left / Alt+Right) retrace your steps.
 
 | Area | What it does |
