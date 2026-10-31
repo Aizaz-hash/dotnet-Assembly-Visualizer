@@ -39,22 +39,22 @@ async function fetchSource(name, token) {
 }
 
 // What is selected: a method wins over its type unless the user chose "Type".
-function sourceTarget() {
+function sourceTarget(typeOnly) {
     if (sourceScopeFor !== (state.method || null)) { sourceScope = 'auto'; sourceScopeFor = state.method || null; }
     const method = state.method ? methodById.get(state.method) : null;
     const type = state.type ? typeNodes.get(state.type) : (method ? typeNodes.get(method.parentClass) : null);
-    if (sourceScope === 'type' && type) return { kind: 'type', label: type.id, token: type.token };
+    if ((typeOnly || sourceScope === 'type') && type) return { kind: 'type', label: type.id, token: type.token };
     if (method && sourceScope !== 'type') return { kind: 'method', label: method.parentClass + '.' + method.name, token: method.token };
     if (type) return { kind: 'type', label: type.id, token: type.token };
     return null;
 }
 
-function renderSource() {
-    const root = byId('sourceScroll');
+// `root` is the C# Source view, or the code panel under the Inheritance graph (`typeOnly`: always the whole selected class).
+function renderSource(root = byId('sourceScroll'), typeOnly = false) {
     root.innerHTML = '';
     if (!hasAssembly) { root.appendChild(el('div', 'empty-note', 'Open a .NET assembly, then pick a type or method in the explorer.')); return; }
 
-    const target = sourceTarget();
+    const target = sourceTarget(typeOnly);
     if (!target || target.token == null) {
         root.appendChild(el('div', 'empty-note', target ? 'This analysis has no source information (it was produced by an older version). Reload the assembly.' : 'Select a type or a method in the explorer to see its C#.'));
         return;
@@ -62,11 +62,11 @@ function renderSource() {
 
     const bar = el('div', 'src-bar');
     bar.appendChild(el('span', 'src-label', target.label));
-    if (state.method) {
+    if (state.method && !typeOnly) {
         const seg = el('div', 'seg');
         [['auto', 'Method'], ['type', 'Whole type']].forEach(([key, text]) => {
             const b = el('button', 'seg-btn' + ((sourceScope === 'type') === (key === 'type') ? ' active' : ''), text);
-            b.onclick = () => { sourceScope = key === 'type' ? 'type' : 'auto'; renderSource(); };
+            b.onclick = () => { sourceScope = key === 'type' ? 'type' : 'auto'; renderSource(root, typeOnly); };
             seg.appendChild(b);
         });
         bar.appendChild(seg);

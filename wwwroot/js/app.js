@@ -873,7 +873,22 @@ function renderInheritance() {
     if (graph) { byId('inhHint').textContent = ''; renderInheritanceGraph(); }
     else { byId('inhHint').textContent = 'Click a type to navigate to it · ▸ expands'; renderInheritanceTree(); }
     renderMembersPanel();
+    renderInheritanceCode();
 }
+
+// The C# code of the selected class sits under the graph (or the tree), so structure and code are read together.
+let inhCodeOn = true;
+try { inhCodeOn = localStorage.getItem('av.inhCode') !== '0'; } catch { /* storage unavailable: keep it on */ }
+function renderInheritanceCode() {
+    byId('btnInhCode').classList.toggle('active', inhCodeOn);
+    byId('inhCode').style.display = inhCodeOn ? 'flex' : 'none';
+    if (inhCodeOn) renderSource(byId('inhCodeScroll'), true);
+}
+byId('btnInhCode').onclick = () => {
+    inhCodeOn = !inhCodeOn;
+    try { localStorage.setItem('av.inhCode', inhCodeOn ? '1' : '0'); } catch { /* not remembered */ }
+    renderInheritance();
+};
 
 function renderInheritanceTree() {
     const body = byId('inheritanceBody');

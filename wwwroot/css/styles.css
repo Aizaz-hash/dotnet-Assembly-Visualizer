@@ -683,3 +683,10 @@ body { font-size: 14px; }
 .ov-card.warn .rcn-num { color: #e8590c; }
 .ov-card.bad .rcn-num { color: #c92a2a; }
 .ov-hint { font-size: 11px; color: #868e96; margin-top: 2px; }
+
+/* Inheritance + C# code: the graph (or tree) on top, the code of the selected class below */
+#viewInheritance .inh-row, #viewInheritance #inheritanceBody { flex: 1 1 50%; min-height: 0; }
+.inh-code { flex: 1 1 50%; min-height: 0; flex-direction: column; border-top: 2px solid #dee2e6; }
+.inh-code .scroll-body { padding: 8px 14px; }
+.inh-code .src-code { max-height: none; }
+#btnInhCode.active { background: #e7f1ff; border-color: #9ec5fe; }

@@ -76,3 +76,12 @@ test('wiring: the selection bar opens the same selection in the other views, and
     for (const v of ['inheritance', 'calls', 'cycles', 'source']) assert.match(app, new RegExp("\\['" + v + "', '"));
     assert.match(read('js', 'source.js'), /sourceScopeFor/, 'the "whole type" choice does not leak to the next method');
 });
+
+test('the Inheritance view carries the C# code of the selected class, using the same renderer as the C# Source view', () => {
+    const html = read('index.html');
+    assert.ok(html.includes('id="inhCodeScroll"') && html.includes('id="btnInhCode"'));
+    const app = read('js', 'app.js');
+    assert.match(app, /renderSource\(byId\('inhCodeScroll'\), true\)/);
+    assert.match(read('js', 'source.js'), /function renderSource\(root = byId\('sourceScroll'\), typeOnly = false\)/);
+    assert.match(app, /function renderInheritance\(\)[\s\S]*?renderInheritanceCode\(\);\n\}/, 'every redraw of the view refreshes the code too');
+});
