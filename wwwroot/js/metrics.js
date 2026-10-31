@@ -115,4 +115,11 @@ function renderObfuscation(root, o) {
     box.appendChild(el('div', null, o.note));
     box.appendChild(el('div', 'view-hint', o.namesChecked.toLocaleString() + ' names checked (types, methods and fields; compiler-generated names are skipped).'));
     root.appendChild(box);
+
+    // What the analysis cannot do on obfuscated code: a standing warning on the page that describes the assembly, not a banner over every screen.
+    const limit = el('div', 'vuln-banner warn');
+    limit.id = 'obfuscationLimitation';
+    limit.appendChild(el('div', 'vb-title', '⚠ Obfuscation limitation'));
+    limit.appendChild(el('div', null, 'Structure and call-graph analysis is most accurate for unobfuscated assemblies. Renamed members are shown under their obfuscated names, and packed or encrypted method bodies, calls made through reflection and code generated at run time cannot be resolved, so results for such binaries may be incomplete.'));
+    root.appendChild(limit);
 }
