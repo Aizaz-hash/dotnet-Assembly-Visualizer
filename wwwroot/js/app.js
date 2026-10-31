@@ -1786,8 +1786,12 @@ document.addEventListener('themechange', () => { if (typeof hasAssembly !== 'und
 // The first render needs every view's script (metrics.js, risky.js ... load after this file), so it waits until all of them have run.
 // Rendering earlier threw "renderMetrics is not defined", which also stopped the rest of this file from running.
 function startUp() {
-    buildExplorer();
-    applyState();
+    try {
+        buildExplorer();
+        applyState();
+    } finally {
+        document.body.classList.add('app-ready');         // the first screen is complete: show the workspace (see styles.css)
+    }
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startUp); else startUp();
 

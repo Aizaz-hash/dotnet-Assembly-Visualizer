@@ -176,3 +176,12 @@ test('graph colours are read from the active theme and read again after a change
     T.set('dark');
     assert.notStrictEqual(T.colors(), first, 'a theme change drops the cache');
 });
+
+test('nothing half-drawn is painted while the page starts: the workspace waits for the first screen, the theme box is right from the start', () => {
+    const html = read('index.html'), css = read('css', 'styles.css'), app = read('js', 'app.js');
+    assert.match(css, /body:not\(\.app-ready\) #workspace \{ visibility: hidden; animation: reveal-late 0s linear 3s forwards; \}/, 'hidden until ready, with a fallback if the scripts fail');
+    assert.match(app, /function startUp\(\) \{\n    try \{\n        buildExplorer\(\);\n        applyState\(\);\n    \} finally \{\n        document\.body\.classList\.add\('app-ready'\);/);
+    const select = html.indexOf('id="themeSelect"');
+    const sync = html.indexOf("s.value = p", select);
+    assert.ok(select > 0 && sync > select && sync - select < 600, 'the select is set from the stored choice right after it is parsed');
+});

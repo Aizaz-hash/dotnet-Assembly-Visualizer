@@ -688,3 +688,8 @@ body { font-size: 14px; }
 .theme-switch { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--fg-f1f3f5); }
 .theme-switch select { background: var(--bg-343a40); color: var(--fg-ffffff); border: 1px solid var(--bd-495057); border-radius: 3px; padding: 2px 4px; }
 .theme-switch select:focus { outline: 2px solid var(--fg-0a58ca); outline-offset: 1px; }
+
+/* Until the scripts have drawn the first screen the workspace is not painted: otherwise the bare markup (a tab bar with nothing selected, empty panes)
+   shows for a moment and is then replaced. If the scripts never finish (an error), the workspace appears after 3 seconds anyway. */
+body:not(.app-ready) #workspace { visibility: hidden; animation: reveal-late 0s linear 3s forwards; }
+@keyframes reveal-late { to { visibility: visible; } }

@@ -15,7 +15,7 @@ const RENDERERS = {
 
 test('the first render waits for all scripts: app.js never calls a view renderer while it is still loading', () => {
     const app = read('js', 'app.js');
-    assert.match(app, /function startUp\(\) \{\n\s+buildExplorer\(\);\n\s+applyState\(\);/);
+    assert.match(app, /function startUp\(\) \{\n\s+try \{\n\s+buildExplorer\(\);\n\s+applyState\(\);/);
     assert.match(app, /DOMContentLoaded', startUp/);
     const topLevelCalls = app.split('\n').filter(l => /^(applyState|render[A-Z]\w*|buildExplorer)\(/.test(l));
     assert.deepEqual(topLevelCalls, []);
