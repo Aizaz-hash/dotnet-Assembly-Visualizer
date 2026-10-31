@@ -162,5 +162,23 @@
         return { assemblies: ordered, skipped, deps, kind: isPackage ? 'package' : (all.length > 1 ? 'folder' : 'files') };
     }
 
-    return { readZipEntries, plan, tfmRank, MAX_ENTRY_BYTES };
+    // Lists a folder opened with the browser's directory picker (showDirectoryPicker) as [{ path, getFile() }]. Only names are listed here:
+    // no file is read until plan() has chosen the assemblies and the dependency file that go with them, so the rest (.pdb, .xml, ...) is never touched.
+    const MAX_FOLDER_ENTRIES = 5000, MAX_FOLDER_DEPTH = 8;
+    async function entriesFromDirectory(dir, opts) {
+        const max = (opts && opts.max) || MAX_FOLDER_ENTRIES;
+        const out = [];
+        async function walk(handle, prefix, depth) {
+            for await (const child of handle.values()) {
+                if (out.length >= max) throw new Error(`the folder has more than ${max} files.`);
+                const path = prefix + child.name;
+                if (child.kind === 'directory') { if (depth < MAX_FOLDER_DEPTH) await walk(child, path + '/', depth + 1); }
+                else out.push({ path, getFile: () => child.getFile() });
+            }
+        }
+        await walk(dir, '', 0);
+        return out;
+    }
+
+    return { readZipEntries, plan, tfmRank, entriesFromDirectory, MAX_ENTRY_BYTES, MAX_FOLDER_ENTRIES };
 });

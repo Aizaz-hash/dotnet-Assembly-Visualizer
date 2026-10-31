@@ -171,3 +171,12 @@ test('the vulnerability scanner needs an assembly: no dependency-file-only scan 
     assert.equal((vuln.match(/fetch\('\/api\/vulnerabilities\/scan'/g) || []).length, 1);
     assert.match(vuln, /Open an assembly first/);
 });
+
+test('the Folder button uses the directory picker where there is one, and falls back to the classic input', () => {
+    const app = read('js', 'app.js');
+    assert.match(app, /byId\('btnOpenFolder'\)\.onclick = openFolder;/);
+    assert.match(app, /typeof window\.showDirectoryPicker !== 'function'\) \{ byId\('dirFile'\)\.click\(\); return; \}/);
+    assert.match(app, /showDirectoryPicker\(\{ mode: 'read' \}\)/);
+    assert.match(app, /err\.name === 'AbortError'\) return;/, 'closing the dialog is not an error');
+    assert.match(app, /async function openEntries\(entries\)/, 'a folder, a package and a picked folder share one way of opening');
+});

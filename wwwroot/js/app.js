@@ -1619,11 +1619,21 @@ async function openInputs(inputs) {
     // one plain DLL: exactly the old behaviour
     if (inputs.length === 1 && /\.(dll|exe)$/i.test(asFile(inputs[0]).name)) return loadFile(asFile(inputs[0]));
 
-    let entries, plan;
-    try {
-        entries = await entriesFromInputs(inputs);
-        plan = PackageInput.plan(entries, { max: MAX_LOADED_ASSEMBLIES });
-    } catch (err) {
+    let entries;
+    try { entries = await entriesFromInputs(inputs); }
+    catch (err) {
+        appLoader.hide();
+        showMessage('Could not open that: ' + err.message, 'error');
+        return false;
+    }
+    return openEntries(entries);
+}
+
+// Chooses what to open from a list of [{ path, getFile() }] (a folder, a package, an archive) and opens it.
+async function openEntries(entries) {
+    let plan;
+    try { plan = PackageInput.plan(entries, { max: MAX_LOADED_ASSEMBLIES }); }
+    catch (err) {
         appLoader.hide();
         showMessage('Could not open that: ' + err.message, 'error');
         return false;
@@ -1670,7 +1680,26 @@ byId('dirFile').addEventListener('change', async (e) => {
     await openInputs(e.target.files);
     e.target.value = '';
 });
-byId('btnOpenFolder').onclick = () => byId('dirFile').click();
+// The Folder button. Where the browser has the directory picker (Chrome, Edge) it is used: the browser asks only to let the page *view* the folder,
+// the app lists the names, and then reads just the assemblies (and the .deps.json for the vulnerability scan) it needs - the .pdb and everything
+// else stays untouched. Other browsers, or a folder the picker refuses, use the classic folder input (its "upload N files" prompt is the browser's own).
+async function openFolder() {
+    if (typeof window.showDirectoryPicker !== 'function') { byId('dirFile').click(); return; }
+    let handle;
+    try { handle = await window.showDirectoryPicker({ mode: 'read' }); }
+    catch (err) {
+        if (err && err.name === 'AbortError') return;                  // the user closed the dialog
+        byId('dirFile').click();                                       // for example a system folder the picker does not allow
+        return;
+    }
+    appLoader.show('Reading ' + handle.name, 'Listing the folder…');
+    await nextFrame();
+    let entries;
+    try { entries = await PackageInput.entriesFromDirectory(handle); }
+    catch (err) { appLoader.hide(); showMessage('Could not open that: ' + err.message, 'error'); return; }
+    await openEntries(entries);
+}
+byId('btnOpenFolder').onclick = openFolder;
 
 document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
     const view = tab.dataset.view;

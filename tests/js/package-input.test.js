@@ -126,3 +126,40 @@ test('a manifest in an unrelated folder is not attached when several exist', () 
     const r = P.plan(E('a/A.dll', 'b/B.deps.json', 'c/other.deps.json'));
     assert.equal(r.deps['a/A.dll'], undefined);
 });
+
+// ---------------------------------------------------------------- a folder opened with the browser's directory picker
+
+function dir(name, children) {
+    return { kind: 'directory', name, async *values() { for (const c of children) yield c; } };
+}
+function file(name, reads) { return { kind: 'file', name, getFile: async () => { reads.push(name); return { name }; } }; }
+
+test('a picked folder is listed by name only, with sub folders, and nothing is read while listing', async () => {
+    const reads = [];
+    const root = dir('net8.0', [file('Inheritance.dll', reads), file('Inheritance.pdb', reads), file('Inheritance.deps.json', reads), dir('sub', [file('Other.dll', reads)])]);
+    const entries = await P.entriesFromDirectory(root);
+    assert.deepEqual(entries.map(e => e.path), ['Inheritance.dll', 'Inheritance.pdb', 'Inheritance.deps.json', 'sub/Other.dll']);
+    assert.deepEqual(reads, [], 'listing a folder reads no file');
+});
+
+test('only the assemblies the plan chooses and their .deps.json are ever read; the .pdb is not', async () => {
+    const reads = [];
+    const root = dir('net8.0', [file('Inheritance.dll', reads), file('Inheritance.pdb', reads), file('Inheritance.deps.json', reads)]);
+    const entries = await P.entriesFromDirectory(root);
+    const plan = P.plan(entries, { max: 8 });
+    assert.deepEqual(plan.assemblies, ['Inheritance.dll']);
+    assert.equal(plan.deps['Inheritance.dll'], 'Inheritance.deps.json');
+    const byPath = new Map(entries.map(e => [e.path, e]));
+    for (const p of [...plan.assemblies, ...Object.values(plan.deps)]) await byPath.get(p).getFile();
+    assert.deepEqual(reads.sort(), ['Inheritance.deps.json', 'Inheritance.dll']);
+});
+
+test('a folder with too many files is refused instead of listed for ever, and depth is bounded', async () => {
+    const reads = [];
+    const many = dir('big', Array.from({ length: 12 }, (_, i) => file('f' + i + '.dll', reads)));
+    await assert.rejects(() => P.entriesFromDirectory(many, { max: 10 }), /more than 10 files/);
+    let deep = dir('leaf', [file('Deep.dll', reads)]);
+    for (let i = 0; i < 12; i++) deep = dir('d' + i, [deep]);
+    const entries = await P.entriesFromDirectory(deep);
+    assert.equal(entries.length, 0, 'folders nested deeper than the limit are not followed');
+});
