@@ -1054,7 +1054,6 @@ function renderMethodNote() {
     note.innerHTML = '';
     const n = inMode('calls') ? (cyclesOfMethod.get(state.method) || []).length : 0;
     if (!n) { note.style.display = 'none'; return; }
-    note.appendChild(el('span', 'mn-icon', 'ⓘ'));
     note.appendChild(document.createTextNode('This method may have a circular dependency. Click '));
     const link = el('a', 'mn-link', 'Circular Dependency View');
     link.href = '#';

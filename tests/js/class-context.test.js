@@ -143,7 +143,7 @@ test('the order is Overview, Details, Security & risk, Compare', () => {
 test('the Overview has one Compare hint (a link in a neutral line of text), no extra Compare button', () => {
     const ov = read('js', 'overview.js');
     assert.ok(!/btnOverviewCompare|Compare with another DLL|Compare two versions of a DLL/.test(ov));
-    assert.ok(!/ⓘ/.test(ov), 'no warning-style icon on the hint');
+    assert.ok(!/ⓘ/.test(ov + read('js', 'app.js')), 'no ⓘ icon anywhere (hint or method note)');
 });
 
 
