@@ -27,7 +27,7 @@
         { id: 'navigator', group: 'groupDetail', label: 'Code Navigator', title: 'Code Navigator', subtitle: 'The selected class (inheritance) or method (callers and callees) with its C# code', sections: ['viewInheritance', 'viewCalls'] },
         { id: 'cycles', group: 'groupDetail', label: 'Circular Dependencies', title: 'Circular Dependencies', subtitle: 'Groups of methods that call each other in a circle' },
         { id: 'risky', group: 'groupSecurity', label: 'Risky APIs', title: 'Risky APIs', subtitle: 'Calls to APIs that deserve a security review (deserialization, processes, code loading, weak crypto, native code, TLS checks)' },
-        { id: 'vulns', group: 'groupSecurity', label: 'Vulnerabilities', title: 'Vulnerabilities', subtitle: 'Known vulnerabilities (CVE) in the dependencies of the loaded assembly - Critical and High first', standalone: true },
+        { id: 'vulns', group: 'groupSecurity', label: 'Vulnerabilities', title: 'Vulnerabilities', subtitle: 'Known vulnerabilities (CVE) in the dependencies of the loaded assembly - Critical and High first' },
         { id: 'compare', group: 'groupCompare', label: 'Compare Versions', title: 'Compare Versions', subtitle: 'Compare two versions of an assembly: what changed in the public API and what can break callers', standalone: true }
     ];
 

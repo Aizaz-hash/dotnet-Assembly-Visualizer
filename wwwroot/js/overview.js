@@ -32,7 +32,7 @@ function compareNote() {
     return note;
 }
 
-// What the page shows before anything is open: what the tool does and three ways to start (none of them needs an assembly first).
+// What the page shows before anything is open: what the tool does and the two ways to start.
 function renderOverviewIntro(root) {
     const intro = el('div', 'ov-intro');
     intro.appendChild(el('div', 'ov-intro-title', 'Understand a .NET assembly without running it'));
@@ -40,7 +40,6 @@ function renderOverviewIntro(root) {
 
     const starts = [
         { key: 'open', title: 'Open an assembly', text: 'Click Open, or drop a .dll / .exe, a folder or a .nupkg onto this page. It starts at this Overview.', cta: 'Open an assembly…', go: () => byId('dllFile').click() },
-        { key: 'scan', title: 'Scan for known vulnerabilities', text: 'Check NuGet dependencies against OSV.dev - for an opened assembly, or on its own from a .deps.json, project.assets.json or packages.lock.json.', cta: 'Open Vulnerabilities', go: () => navigate({ view: 'vulns' }) },
         { key: 'compare', title: 'Compare two versions', text: 'Pick two versions of a DLL to list what changed in the public API and what can break the code that uses it.', cta: 'Open Compare Versions', go: () => navigate({ view: 'compare' }) }
     ];
     const cards = el('div', 'ov-start');

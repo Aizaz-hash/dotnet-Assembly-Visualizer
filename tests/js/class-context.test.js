@@ -128,9 +128,9 @@ test('the Overview tab holds Summary, Architecture and Metrics; links to the old
     assert.ok(html.includes('id="viewArchitecture"') && html.includes('id="viewMetrics"') && html.includes('id="overviewSwitch"'));
 });
 
-test('before an assembly is open only the views that bring their own input stay enabled', () => {
+test('before an assembly is open only Overview and Compare Versions are usable - the vulnerability scanner needs an assembly', () => {
     const V = require('../../wwwroot/js/views.js');
-    assert.deepEqual(V.ids().filter(v => V.isStandalone(v)), ['overview', 'vulns', 'compare']);
+    assert.deepEqual(V.ids().filter(v => V.isStandalone(v)), ['overview', 'compare']);
     assert.match(read('js', 'app.js'), /tab\.classList\.toggle\('disabled', off\)/);
 });
 
@@ -156,18 +156,18 @@ test('the Overview has a one-line hint linking to Compare Versions, neutral in c
     assert.match(app, /function renderMethodNote\(\)/, 'the method view keeps its own note');
 });
 
-test('before anything is open the Overview is an introduction with three ways to start, not an empty page', () => {
+test('before anything is open the Overview is an introduction with two ways to start, not an empty page', () => {
     const ov = read('js', 'overview.js');
     assert.match(ov, /if \(!hasAssembly\) \{ renderOverviewIntro\(root\); return; \}/);
-    for (const label of ['Open an assembly', 'Scan for known vulnerabilities', 'Compare two versions', 'What you get once an assembly is open']) assert.ok(ov.includes(label), label);
+    for (const label of ['Open an assembly', 'Compare two versions', 'What you get once an assembly is open']) assert.ok(ov.includes(label), label);
+    assert.ok(!/Scan for known vulnerabilities|Open Vulnerabilities/.test(ov), 'no way into the scanner before an assembly is open');
+    assert.equal((ov.match(/\{ key: '/g) || []).length, 2, 'exactly two start cards');
     assert.match(ov, /byId\('dllFile'\)\.click\(\)/);
 });
 
-test('the vulnerability scanner works without an assembly: it scans a dependency file on its own', () => {
+test('the vulnerability scanner needs an assembly: no dependency-file-only scan and no start link to it', () => {
     const vuln = read('js', 'vuln.js');
-    assert.match(vuln, /async function scanManifest\(\)/);
-    assert.match(vuln, /form\.append\('includeApplication', 'false'\)/);
-    assert.match(vuln, /if \(!vulnManifest\.file\) \{ byId\('vulnDepsFile'\)\.click\(\); return; \}/);
-    assert.equal((vuln.match(/fetch\('\/api\/vulnerabilities\/scan'/g) || []).length, 2, 'one request for an assembly, one for a dependency file');
-    assert.ok(!/Open an assembly first/.test(vuln), 'no dead end on the Vulnerabilities tab');
+    assert.ok(!/scanManifest|vulnManifest/.test(vuln));
+    assert.equal((vuln.match(/fetch\('\/api\/vulnerabilities\/scan'/g) || []).length, 1);
+    assert.match(vuln, /Open an assembly first/);
 });

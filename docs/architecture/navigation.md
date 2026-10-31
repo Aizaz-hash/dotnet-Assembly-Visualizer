@@ -59,4 +59,4 @@ Because components never name a colour after step 2, a later theme (high contras
 
 ## The Overview tab and disabled tabs
 
-Overview is one tab with three screens (Summary, Architecture, Metrics) chosen with a switch at the top of the page (`state.ovTab`). `ViewRegistry.resolve` maps the old names `architecture` and `metrics` to those screens, so every existing link keeps working. Without an assembly, only views marked `standalone` in the registry (Overview, Vulnerabilities, Compare Versions) are usable; the other tabs are greyed out with the tooltip "Open an assembly first".
+Overview is one tab with three screens (Summary, Architecture, Metrics) chosen with a switch at the top of the page (`state.ovTab`). `ViewRegistry.resolve` maps the old names `architecture` and `metrics` to those screens, so every existing link keeps working. Without an assembly, only views marked `standalone` in the registry (Overview and Compare Versions) are usable; the other tabs are greyed out with the tooltip "Open an assembly first".
