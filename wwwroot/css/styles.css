@@ -690,3 +690,5 @@ body { font-size: 14px; }
 .inh-code .scroll-body { padding: 8px 14px; }
 .inh-code .src-code { max-height: none; }
 #btnInhCode.active { background: #e7f1ff; border-color: #9ec5fe; }
+#viewCalls #callCanvasWrap { flex: 1 1 50%; min-height: 0; }
+#btnCallCode.active { background: #e7f1ff; border-color: #9ec5fe; }

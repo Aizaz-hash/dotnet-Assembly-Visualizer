@@ -148,7 +148,7 @@
                     <span class="tb-spacer"></span>
                     <span class="legend-inline"><i class="lg lg-sel"></i>Selected <i class="lg lg-norm"></i>Method <i class="lg lg-ext"></i>External <i class="lg lg-cyc"></i>Circular</span>
                     <button id="btnFit" class="tb-btn small" title="Zoom to fit">Fit</button>
-                    <button id="btnSourceCalls" class="tb-btn small" title="Show the C# of this method">C#</button>
+                    <button id="btnCallCode" class="tb-btn small active" title="Show or hide the C# code of the selected method under the graph">C# code</button>
                     <button id="btnExport" class="tb-btn small" title="Download as PNG">PNG</button>
                 </div>
                 <div id="methodNote" class="method-note" style="display:none;"></div>
@@ -157,6 +157,7 @@
                     <div id="chipLayer"></div>
                     <div id="canvasLoaderOverlay"><div class="spinner-wheel"></div><div id="loaderStatusText">Working…</div></div>
                 </div>
+                <div id="callCode" class="inh-code"><div id="callCodeScroll" class="scroll-body"></div></div>
             </section>
 
             <section id="viewCycles" class="view">

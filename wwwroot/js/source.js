@@ -39,22 +39,24 @@ async function fetchSource(name, token) {
 }
 
 // What is selected: a method wins over its type unless the user chose "Type".
-function sourceTarget(typeOnly) {
+// mode: 'type' = always the selected class, 'method' = the selected method (the class when there is none), undefined = the user's choice
+function sourceTarget(mode) {
     if (sourceScopeFor !== (state.method || null)) { sourceScope = 'auto'; sourceScopeFor = state.method || null; }
     const method = state.method ? methodById.get(state.method) : null;
     const type = state.type ? typeNodes.get(state.type) : (method ? typeNodes.get(method.parentClass) : null);
-    if ((typeOnly || sourceScope === 'type') && type) return { kind: 'type', label: type.id, token: type.token };
+    if (mode === 'method' && method) return { kind: 'method', label: method.parentClass + '.' + method.name, token: method.token };
+    if ((mode === 'type' || (!mode && sourceScope === 'type')) && type) return { kind: 'type', label: type.id, token: type.token };
     if (method && sourceScope !== 'type') return { kind: 'method', label: method.parentClass + '.' + method.name, token: method.token };
     if (type) return { kind: 'type', label: type.id, token: type.token };
     return null;
 }
 
-// `root` is the C# Source view, or the code panel under the Inheritance graph (`typeOnly`: always the whole selected class).
-function renderSource(root = byId('sourceScroll'), typeOnly = false) {
+// `root` is the C# Source view, or the code panel under the Inheritance / Method Calls graph (`mode` fixes what it shows).
+function renderSource(root = byId('sourceScroll'), mode) {
     root.innerHTML = '';
     if (!hasAssembly) { root.appendChild(el('div', 'empty-note', 'Open a .NET assembly, then pick a type or method in the explorer.')); return; }
 
-    const target = sourceTarget(typeOnly);
+    const target = sourceTarget(mode);
     if (!target || target.token == null) {
         root.appendChild(el('div', 'empty-note', target ? 'This analysis has no source information (it was produced by an older version). Reload the assembly.' : 'Select a type or a method in the explorer to see its C#.'));
         return;
@@ -62,11 +64,11 @@ function renderSource(root = byId('sourceScroll'), typeOnly = false) {
 
     const bar = el('div', 'src-bar');
     bar.appendChild(el('span', 'src-label', target.label));
-    if (state.method && !typeOnly) {
+    if (state.method && !mode) {
         const seg = el('div', 'seg');
         [['auto', 'Method'], ['type', 'Whole type']].forEach(([key, text]) => {
             const b = el('button', 'seg-btn' + ((sourceScope === 'type') === (key === 'type') ? ' active' : ''), text);
-            b.onclick = () => { sourceScope = key === 'type' ? 'type' : 'auto'; renderSource(root, typeOnly); };
+            b.onclick = () => { sourceScope = key === 'type' ? 'type' : 'auto'; renderSource(root, mode); };
             seg.appendChild(b);
         });
         bar.appendChild(seg);
@@ -90,4 +92,3 @@ function renderSource(root = byId('sourceScroll'), typeOnly = false) {
     });
 }
 
-byId('btnSourceCalls').onclick = () => navigate({ view: 'source' });

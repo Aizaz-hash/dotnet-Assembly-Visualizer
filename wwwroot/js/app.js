@@ -882,13 +882,24 @@ try { inhCodeOn = localStorage.getItem('av.inhCode') !== '0'; } catch { /* stora
 function renderInheritanceCode() {
     byId('btnInhCode').classList.toggle('active', inhCodeOn);
     byId('inhCode').style.display = inhCodeOn ? 'flex' : 'none';
-    if (inhCodeOn) renderSource(byId('inhCodeScroll'), true);
+    if (inhCodeOn) renderSource(byId('inhCodeScroll'), 'type');
 }
-byId('btnInhCode').onclick = () => {
+
+// Method Calls: the graph of the selected method with its C# code below (the class code while only a class is selected).
+function renderCallsCode() {
+    byId('btnCallCode').classList.toggle('active', inhCodeOn);
+    byId('callCode').style.display = inhCodeOn ? 'flex' : 'none';
+    if (inhCodeOn) renderSource(byId('callCodeScroll'), state.method ? 'method' : 'type');
+}
+
+// One switch for both views: the code panel is on or off everywhere.
+function toggleCodePanel() {
     inhCodeOn = !inhCodeOn;
     try { localStorage.setItem('av.inhCode', inhCodeOn ? '1' : '0'); } catch { /* not remembered */ }
-    renderInheritance();
-};
+    applyState();
+}
+byId('btnInhCode').onclick = toggleCodePanel;
+byId('btnCallCode').onclick = toggleCodePanel;
 
 function renderInheritanceTree() {
     const body = byId('inheritanceBody');
@@ -1027,6 +1038,11 @@ function renderMethodNote() {
 }
 
 function renderCalls() {
+    renderCallsGraph();
+    renderCallsCode();
+}
+
+function renderCallsGraph() {
     destroyCallNetwork();
     hideLoader();
     renderMethodNote();

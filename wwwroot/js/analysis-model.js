@@ -123,7 +123,7 @@
 
     // Views that show the selected class / method. Choosing another class or method while one of these is open keeps that view, so the
     // user can walk through classes in the C# code, in the cycles or in the method list without being thrown back to Inheritance.
-    const CLASS_VIEWS = ['inheritance', 'calls', 'cycles', 'source'];
+    const CLASS_VIEWS = ['inheritance', 'cycles', 'source'];       // Method Calls is about one method: a class opens its Inheritance (with its code)
     const METHOD_VIEWS = ['calls', 'cycles', 'source'];
 
     /** Which view to show after the user picks a class ('type') or a method in the explorer or in a graph. */

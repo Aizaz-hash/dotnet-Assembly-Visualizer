@@ -11,9 +11,9 @@ const ctx = { cycles: m.cycles, methodsByClass: m.methodsByClass };
 const chains = (sel) => Model.cycleChains({ type: null, method: null, cycleAll: false, ...sel }, ctx);
 const idOf = (cls, name) => m.methodsByClass.get(cls).find(x => x.name.startsWith(name + '(')).id;
 
-test('picking a class keeps a view that shows the class; other views go to Inheritance', () => {
-    for (const v of ['inheritance', 'calls', 'cycles', 'source']) assert.equal(Model.viewAfterSelect(v, 'type'), v);
-    for (const v of ['overview', 'metrics', 'architecture', 'risky', 'vulns', 'compare']) assert.equal(Model.viewAfterSelect(v, 'type'), 'inheritance');
+test('picking a class keeps a view that shows the class; Method Calls and the other views go to Inheritance', () => {
+    for (const v of ['inheritance', 'cycles', 'source']) assert.equal(Model.viewAfterSelect(v, 'type'), v);
+    for (const v of ['calls', 'overview', 'metrics', 'architecture', 'risky', 'vulns', 'compare']) assert.equal(Model.viewAfterSelect(v, 'type'), 'inheritance');
 });
 
 test('picking a method keeps Methods, Cycles and C# code; Inheritance and the summaries go to Methods', () => {
@@ -81,7 +81,20 @@ test('the Inheritance view carries the C# code of the selected class, using the 
     const html = read('index.html');
     assert.ok(html.includes('id="inhCodeScroll"') && html.includes('id="btnInhCode"'));
     const app = read('js', 'app.js');
-    assert.match(app, /renderSource\(byId\('inhCodeScroll'\), true\)/);
-    assert.match(read('js', 'source.js'), /function renderSource\(root = byId\('sourceScroll'\), typeOnly = false\)/);
+    assert.match(app, /renderSource\(byId\('inhCodeScroll'\), 'type'\)/);
+    assert.match(read('js', 'source.js'), /function renderSource\(root = byId\('sourceScroll'\), mode\)/);
     assert.match(app, /function renderInheritance\(\)[\s\S]*?renderInheritanceCode\(\);\n\}/, 'every redraw of the view refreshes the code too');
+});
+
+test('the Method Calls view carries the C# code of the selected method (the class while only a class is selected)', () => {
+    const html = read('index.html'), app = read('js', 'app.js');
+    assert.ok(html.includes('id="callCodeScroll"') && html.includes('id="btnCallCode"') && !html.includes('btnSourceCalls'));
+    assert.match(app, /renderSource\(byId\('callCodeScroll'\), state\.method \? 'method' : 'type'\)/);
+    assert.match(app, /function renderCalls\(\) \{\n    renderCallsGraph\(\);\n    renderCallsCode\(\);/);
+});
+
+test('one switch hides or shows the code panel in both views', () => {
+    const app = read('js', 'app.js');
+    assert.match(app, /byId\('btnInhCode'\)\.onclick = toggleCodePanel/);
+    assert.match(app, /byId\('btnCallCode'\)\.onclick = toggleCodePanel/);
 });
