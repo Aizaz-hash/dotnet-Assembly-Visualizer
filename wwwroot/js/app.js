@@ -34,7 +34,7 @@ let cyclesOfMethod = new Map();    // methodId -> [cycle index]
 let cyclicEdges = new Set();       // "from\u0001to"
 
 // Navigation state
-let state = { view: 'overview', type: null, method: null, cycleMethod: null, cycleIdx: 0, inhMode: 'selected', inhFormat: 'graph' };
+let state = { view: 'overview', type: null, method: null, cycleAll: false, cycleIdx: 0, inhMode: 'selected', inhFormat: 'graph' };
 let history = [];
 let historyIdx = -1;
 
@@ -182,11 +182,6 @@ function canvasMessage(container, text, buttonText, onButton) {
 
 // ---------- indexes ----------
 
-function rotateTo(body, methodId) {
-    const i = body.indexOf(methodId);
-    return i <= 0 ? body.slice() : body.slice(i).concat(body.slice(0, i));
-}
-
 const canonicalKey = AnalysisModel.canonicalKey;
 
 // All lookup tables come from the pure model (analysis-model.js), which is unit-tested; the globals below are what the views read.
@@ -303,6 +298,14 @@ function typeIcon(typeId) {
     return t && t.type === 'Interface' ? 'ico-iface' : 'ico-class';
 }
 
+// Picking a class or a method from anywhere (explorer, graph node, list) keeps the view when it is one that shows the selection.
+function selectClass(typeId) { navigate({ view: AnalysisModel.viewAfterSelect(state.view, 'type'), type: typeId, method: null, cycleIdx: 0 }); }
+function selectMethod(methodId) {
+    const m = methodById.get(methodId);
+    if (!m) return;
+    navigate({ view: AnalysisModel.viewAfterSelect(state.view, 'method'), type: m.parentClass, method: methodId, cycleIdx: 0 });
+}
+
 function typeLinkOpt(ref, extra) {
     const t = typeNodes.get(ref.id);
     return {
@@ -312,7 +315,7 @@ function typeLinkOpt(ref, extra) {
         tag: ref.relation ? ref.relation.toLowerCase() : undefined,
         external: !t,
         title: ref.id,
-        onSelect: t ? () => navigate({ view: 'inheritance', type: ref.id, method: null }) : undefined,
+        onSelect: t ? () => selectClass(ref.id) : undefined,
         ...extra
     };
 }
@@ -325,8 +328,8 @@ function methodOpt(m) {
         label: m.name,
         title: m.id,
         cycleCount: n,
-        onCycleClick: () => navigate({ view: 'cycles', cycleMethod: m.id, cycleIdx: 0 }),
-        onSelect: () => navigate({ view: 'calls', type: m.parentClass, method: m.id })
+        onCycleClick: () => navigate({ view: 'cycles', type: m.parentClass, method: m.id, cycleIdx: 0 }),
+        onSelect: () => selectMethod(m.id)
     };
 }
 
@@ -346,7 +349,7 @@ function typeOpt(typeId) {
             (methodsByClass.get(typeId) || []).forEach(m => kids.push(methodOpt(m)));
             return kids;
         },
-        onSelect: () => navigate({ view: 'inheritance', type: typeId, method: null })
+        onSelect: () => selectClass(typeId)
     };
 }
 
@@ -451,11 +454,13 @@ function renderSearchResults(query) {
 
 function sameState(a, b) {
     return a.view === b.view && a.type === b.type && a.method === b.method &&
-        a.cycleMethod === b.cycleMethod && a.cycleIdx === b.cycleIdx && a.inhMode === b.inhMode && a.inhFormat === b.inhFormat;
+        a.cycleAll === b.cycleAll && a.cycleIdx === b.cycleIdx && a.inhMode === b.inhMode && a.inhFormat === b.inhFormat;
 }
 
 function navigate(patch, push = true) {
     const next = { ...state, ...patch };
+    // picking another class or method means "show me that one": a "show all chains" choice made for the previous selection ends here
+    if (('type' in patch || 'method' in patch) && !('cycleAll' in patch)) next.cycleAll = false;
     if (sameState(next, state) && push) { applyState(); return; }
     state = next;
     if (push) {
@@ -511,7 +516,7 @@ function cycleLink(methodId) {
     if (!n) return null;
     const a = el('span', 'cycle-link', `⚠ Circular Dependency Detected${n > 1 ? ` (${n})` : ''}`);
     a.title = 'Show the circular call chain(s) this method belongs to';
-    a.onclick = () => navigate({ view: 'cycles', cycleMethod: methodId, cycleIdx: 0 });
+    a.onclick = () => { const m = methodById.get(methodId); navigate({ view: 'cycles', type: m ? m.parentClass : state.type, method: methodId, cycleIdx: 0 }); };
     return a;
 }
 
@@ -549,10 +554,33 @@ function renderContextBar() {
         if (info) {
             const warn = el('span', 'cb-cycle', '⚠ circular dependency' + (info.count > 1 ? ' (' + info.count + ')' : ''));
             warn.title = 'This method is part of a circular call chain - click to see it';
-            warn.onclick = () => navigate({ view: 'cycles', cycleMethod: method.id, cycleIdx: 0 });
+            warn.onclick = () => navigate({ view: 'cycles', cycleIdx: 0 });
             bar.appendChild(warn);
         }
     }
+    else {
+        const n = AnalysisModel.cycleChains({ type: typeId, method: null, cycleAll: false }, { cycles, methodsByClass }).chains.length;
+        if (n) {
+            const warn = el('span', 'cb-cycle', '⚠ in ' + n + ' circular chain' + (n === 1 ? '' : 's'));
+            warn.title = 'Some methods of this class are part of a circular call chain - click to see the chains through this class';
+            warn.onclick = () => navigate({ view: 'cycles', cycleIdx: 0 });
+            bar.appendChild(warn);
+        }
+    }
+
+    // the same selection in the other views: one click, nothing else changes
+    const hasType = !!typeNodes.get(typeId);
+    const targets = [['inheritance', 'Inheritance', hasType], ['calls', 'Methods', hasType || !!method], ['cycles', 'Cycles', true], ['source', 'C# code', hasType || !!method]];
+    const open = el('span', 'cb-open');
+    open.appendChild(el('span', 'cb-label', 'Open in'));
+    targets.forEach(([view, label, enabled]) => {
+        const b = el('a', 'cb-view' + (state.view === view ? ' current' : '') + (enabled ? '' : ' disabled'), label);
+        b.id = 'cbOpen' + view.charAt(0).toUpperCase() + view.slice(1);
+        b.title = enabled ? 'Show the selected ' + (method ? 'method' : 'class') + ' in ' + label : 'Not available for this selection';
+        if (enabled && state.view !== view) b.onclick = () => navigate({ view, ...(view === 'cycles' ? { cycleAll: false, cycleIdx: 0 } : {}) });
+        open.appendChild(b);
+    });
+    bar.appendChild(open);
     const clear = el('span', 'cb-clear', 'clear selection');
     clear.onclick = () => navigate({ type: null, method: null });
     bar.appendChild(clear);
@@ -730,7 +758,7 @@ function inheritanceOpt(ref, direction, ancestors, level = 1) {
         } : undefined,
         // Depth = how many levels of the hierarchy are opened automatically (you can still expand further by hand).
         expanded: !loop && list.length > 0 && level < inhDepthValue(),
-        onSelect: t ? () => navigate({ view: 'inheritance', type: ref.id, method: null }) : undefined
+        onSelect: t ? () => selectClass(ref.id) : undefined
     });
 }
 
@@ -977,7 +1005,7 @@ function renderMethodNote() {
     const link = el('a', 'mn-link', 'Circular Dependency View');
     link.href = '#';
     link.title = 'Show the ' + n + ' circular call chain' + (n === 1 ? '' : 's') + ' through this method';
-    link.onclick = (e) => { e.preventDefault(); navigate({ view: 'cycles', cycleMethod: state.method, cycleIdx: 0 }); };
+    link.onclick = (e) => { e.preventDefault(); navigate({ view: 'cycles', cycleIdx: 0 }); };
     note.appendChild(link);
     note.appendChild(document.createTextNode(' to investigate.'));
     note.style.display = 'block';
@@ -1044,7 +1072,7 @@ function renderCalls() {
             const isMain = n.id === state.method;
             const chip = el('div', 'cyc-chip' + (isMain ? ' main' : ''), isMain ? '⚠ Circular Dependency Detected' : '⚠ Circular');
             chip.title = 'Click to view the circular call chain(s) through this method';
-            chip.onclick = () => navigate({ view: 'cycles', cycleMethod: n.id, cycleIdx: 0 });
+            chip.onclick = () => { const m = methodById.get(n.id); navigate({ view: 'cycles', type: m ? m.parentClass : state.type, method: n.id, cycleIdx: 0 }); };
             layer.appendChild(chip);
             chips.push({ id: n.id, el: chip });
         });
@@ -1100,13 +1128,17 @@ function exportGraphPng() {
 //  Circular dependency view
 // ============================================================================
 
-function filteredCycleList() {
-    const out = [];
-    cycles.forEach((c, i) => {
-        if (state.cycleMethod && !c.body.includes(state.cycleMethod)) return;
-        out.push({ index: i, body: state.cycleMethod ? rotateTo(c.body, state.cycleMethod) : c.body });
-    });
-    return out;
+// The chains of the selected method, of the selected class (through any of its methods), or all of them.
+function cycleScope() {
+    return AnalysisModel.cycleChains({ type: state.type, method: state.method, cycleAll: state.cycleAll }, { cycles, methodsByClass });
+}
+function filteredCycleList() { return cycleScope().chains; }
+
+function selectionLabel() {
+    const m = state.method ? methodInfo(state.method) : null;
+    if (m) return truncate(m.name.replace(/\(.*$/, '') + '()', 36);
+    const t = state.type ? typeNodes.get(state.type) : null;
+    return t ? truncate(t.name, 36) : '';
 }
 
 function methodToken(id, cls) {
@@ -1128,31 +1160,39 @@ function renderCycles() {
 
     if (!hasAssembly) { list.appendChild(el('div', 'empty-note', 'Upload a .NET assembly to begin.')); filter.style.display = 'none'; return; }
 
-    if (state.cycleMethod) {
-        const info = methodInfo(state.cycleMethod);
+    const scope = cycleScope();
+    const items = scope.chains;
+    if (scope.kind !== 'all') {
         filter.style.display = 'inline-block';
         filter.innerHTML = '';
-        filter.appendChild(document.createTextNode(`Through: ${truncate(info.name.replace(/\(.*$/, '') + '()', 36)} `));
+        filter.appendChild(document.createTextNode((scope.kind === 'method' ? 'Through method: ' : 'Through class: ') + selectionLabel() + ' '));
         const x = el('button', null, '×'); x.title = 'Show all circular chains';
-        x.onclick = () => navigate({ cycleMethod: null, cycleIdx: 0 });
+        x.onclick = () => navigate({ cycleAll: true, cycleIdx: 0 });
         filter.appendChild(x);
+    } else if (state.type || state.method) {
+        filter.style.display = 'inline-block';
+        filter.innerHTML = '';
+        filter.appendChild(document.createTextNode('All chains '));
+        const only = el('button', 'filter-only', 'only ' + selectionLabel());
+        only.title = 'Show only the chains through the selected ' + (state.method ? 'method' : 'class');
+        only.onclick = () => navigate({ cycleAll: false, cycleIdx: 0 });
+        filter.appendChild(only);
     } else filter.style.display = 'none';
 
-    const items = filteredCycleList();
     byId('cycleStats').textContent = `${items.length} of ${cycles.length} chain${cycles.length === 1 ? '' : 's'} shown`;
 
     if (!items.length) {
-        list.appendChild(el('div', 'empty-note', cycles.length ? 'No circular chains for this method.' : '✓ No circular call chains were detected in this assembly.'));
+        list.appendChild(el('div', 'empty-note', cycles.length ? (scope.kind === 'class' ? 'No circular chains go through the methods of this class.' : 'No circular chains for this method.') : '✓ No circular call chains were detected in this assembly.'));
         return;
     }
     if (state.cycleIdx >= items.length) state.cycleIdx = 0;
 
     // group by the class of the chain's first method (or one group when filtered to a method)
     let lastGroup = null;
-    const ordered = state.cycleMethod ? items : items.slice().sort((a, b) => methodInfo(a.body[0]).className.localeCompare(methodInfo(b.body[0]).className));
+    const ordered = scope.kind !== 'all' ? items : items.slice().sort((a, b) => methodInfo(a.body[0]).className.localeCompare(methodInfo(b.body[0]).className));
     const positionOf = new Map(items.map((it, i) => [it, i]));
     ordered.forEach((it, n) => {
-        const group = state.cycleMethod ? `Chains through ${methodInfo(state.cycleMethod).name.replace(/\(.*$/, '')}()` : methodInfo(it.body[0]).className;
+        const group = scope.kind !== 'all' ? `Chains through ${selectionLabel()}` : methodInfo(it.body[0]).className;
         if (group !== lastGroup) { list.appendChild(el('div', 'cyc-group-head', group)); lastGroup = group; }
         const pos = positionOf.get(it);
         const row = el('div', 'cyc-item' + (pos === state.cycleIdx ? ' selected' : ''));
@@ -1263,7 +1303,7 @@ function clearAssembly() {
     rawAssemblyData = { classes: [], inheritance: { nodes: [], edges: [] }, methodGraph: { nodes: [], edges: [] }, deadlocks: [] };
     buildIndexes();
     // a newly opened assembly starts at the overview; picking a class or method then opens Inheritance / Method Calls
-    state = { view: 'overview', type: null, method: null, cycleMethod: null, cycleIdx: 0, inhMode: state.inhMode, inhFormat: state.inhFormat };
+    state = { view: 'overview', type: null, method: null, cycleAll: false, cycleIdx: 0, inhMode: state.inhMode, inhFormat: state.inhFormat };
     history = [{ ...state }];
     historyIdx = 0;
     byId('currentDllName').textContent = 'No assembly loaded';
@@ -1326,7 +1366,7 @@ function activateAssembly(name) {
     setTabBadge(badge, cycles.length, cycles.length + ' circular call chain' + (cycles.length === 1 ? '' : 's'));
 
     // a newly opened assembly starts at the overview; picking a class or method then opens Inheritance / Method Calls
-    state = { view: 'overview', type: null, method: null, cycleMethod: null, cycleIdx: 0, inhMode: state.inhMode, inhFormat: state.inhFormat };
+    state = { view: 'overview', type: null, method: null, cycleAll: false, cycleIdx: 0, inhMode: state.inhMode, inhFormat: state.inhFormat };
     history = [{ ...state }];
     historyIdx = 0;
     buildExplorer();
@@ -1576,7 +1616,7 @@ byId('btnOpenFolder').onclick = () => byId('dirFile').click();
 document.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
     const view = tab.dataset.view;
     if (!hasAssembly && !ViewRegistry.isStandalone(view)) return;
-    navigate({ view, ...(view === 'cycles' ? { cycleMethod: null, cycleIdx: 0 } : {}) });
+    navigate({ view, ...(view === 'cycles' ? { cycleAll: false, cycleIdx: 0 } : {}) });
 }));
 byId('inhModeSelected').onclick = () => navigate({ inhMode: 'selected' });
 byId('inhModeAll').onclick = () => navigate({ inhMode: 'all' });

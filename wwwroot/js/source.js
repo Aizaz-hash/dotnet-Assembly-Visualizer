@@ -5,6 +5,7 @@
 const codeSessions = new Map();       // assembly name -> { id, file }  (id from POST /api/decompile)
 const codeCache = new Map();          // "name|token" -> source text
 let sourceScope = 'auto';             // auto | method | type
+let sourceScopeFor = null;           // the method the scope was chosen for: another selection starts at the default again
 let sourceRequest = 0;                // ignores answers that arrive after the selection changed
 
 async function codeSessionFor(name, forceNew) {
@@ -39,6 +40,7 @@ async function fetchSource(name, token) {
 
 // What is selected: a method wins over its type unless the user chose "Type".
 function sourceTarget() {
+    if (sourceScopeFor !== (state.method || null)) { sourceScope = 'auto'; sourceScopeFor = state.method || null; }
     const method = state.method ? methodById.get(state.method) : null;
     const type = state.type ? typeNodes.get(state.type) : (method ? typeNodes.get(method.parentClass) : null);
     if (sourceScope === 'type' && type) return { kind: 'type', label: type.id, token: type.token };

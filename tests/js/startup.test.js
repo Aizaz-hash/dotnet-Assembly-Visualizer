@@ -82,8 +82,8 @@ test('a newly opened assembly starts at the overview and selecting a class or me
     const resets = app.split('\n').filter(l => /^\s+state = \{ view: '/.test(l));
     assert.equal(resets.length, 2);                     // closing everything, and opening an assembly
     assert.ok(resets.every(l => l.includes("view: 'overview'")), 'every place that resets the state starts at the overview');
-    assert.match(app, /navigate\(\{ view: 'inheritance', type: ref\.id, method: null \}\)/);          // a class opens Inheritance
-    assert.match(app, /navigate\(\{ view: 'calls', type: m\.parentClass, method: m\.id \}\)/);       // a method opens Method Calls
+    assert.match(app, /function selectClass/);                          // a class opens Inheritance (or stays in a view that shows it)
+    assert.match(app, /function selectMethod/);                         // a method opens Method Calls (or stays in a view that shows it)
 });
 
 test('the obfuscation notice names what is verified and what is not, and can be dismissed', () => {

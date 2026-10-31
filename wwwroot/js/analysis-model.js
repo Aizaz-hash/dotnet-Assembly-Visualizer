@@ -121,6 +121,35 @@
         return kind === 'method' ? 'calls' : 'inheritance';
     }
 
+    // Views that show the selected class / method. Choosing another class or method while one of these is open keeps that view, so the
+    // user can walk through classes in the C# code, in the cycles or in the method list without being thrown back to Inheritance.
+    const CLASS_VIEWS = ['inheritance', 'calls', 'cycles', 'source'];
+    const METHOD_VIEWS = ['calls', 'cycles', 'source'];
+
+    /** Which view to show after the user picks a class ('type') or a method in the explorer or in a graph. */
+    function viewAfterSelect(currentView, kind) {
+        const keep = kind === 'method' ? METHOD_VIEWS : CLASS_VIEWS;
+        return keep.indexOf(currentView) >= 0 ? currentView : viewForSelection(kind);
+    }
+
+    /**
+     * The circular chains that belong to the selection: a selected method -> chains through it; a selected class (no method) -> chains
+     * through any of its methods; nothing selected, or `cycleAll` -> every chain. Each chain is rotated to start at the anchor method.
+     * sel = { type, method, cycleAll }, model = { cycles: [{ body: [methodId] }], methodsByClass: Map(typeId -> [{ id }]) }
+     */
+    function cycleChains(sel, model) {
+        let kind = 'all', anchors = null;
+        if (!sel.cycleAll && sel.method) { kind = 'method'; anchors = new Set([sel.method]); }
+        else if (!sel.cycleAll && sel.type) { kind = 'class'; anchors = new Set((model.methodsByClass.get(sel.type) || []).map(m => m.id)); }
+        const chains = [];
+        model.cycles.forEach((c, index) => {
+            if (!anchors) { chains.push({ index, body: c.body }); return; }
+            const at = c.body.findIndex(id => anchors.has(id));
+            if (at >= 0) chains.push({ index, body: c.body.slice(at).concat(c.body.slice(0, at)) });
+        });
+        return { kind, chains };
+    }
+
     /** Methods of one cycle, in the order the chain runs, with the edge that closes it. */
     function describeCycle(model, index) {
         const c = model.cycles[index];
@@ -152,5 +181,5 @@
         return 'this assembly shows signs of obfuscation (' + (o.evidence || []).join('; ') + '). Names are shown as they are in the file, and the call graph may be incomplete - see Metrics > Obfuscation indicators.';
     }
 
-    return { SEP, shortName, canonicalKey, build, cycleInfo, viewForSelection, describeCycle, describeDiagnostics, describeObfuscation };
+    return { SEP, shortName, canonicalKey, build, cycleInfo, viewForSelection, viewAfterSelect, cycleChains, describeCycle, describeDiagnostics, describeObfuscation };
 });

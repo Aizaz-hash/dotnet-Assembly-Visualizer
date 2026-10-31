@@ -650,6 +650,12 @@ body { font-size: 14px; }
 .context-bar .cb-sep { color: #adb5bd; }
 .context-bar .cb-cycle { background: #ffe3e3; color: #a61e1e; border-radius: 10px; padding: 0 8px; cursor: pointer; }
 .context-bar .cb-hint { color: #868e96; }
+.context-bar .cb-open { display: inline-flex; align-items: center; gap: 8px; margin-left: 12px; padding-left: 12px; border-left: 1px solid #dee2e6; }
+.context-bar .cb-view { color: #0b5ed7; cursor: pointer; }
+.context-bar .cb-view:hover { text-decoration: underline; }
+.context-bar .cb-view.current { color: #212529; font-weight: 600; cursor: default; text-decoration: none; }
+.context-bar .cb-view.disabled { color: #adb5bd; cursor: default; text-decoration: none; }
+.filter-chip .filter-only { margin-left: 2px; }
 .context-bar .cb-clear { margin-left: auto; color: #868e96; cursor: pointer; }
 .context-bar .cb-clear:hover { color: #212529; }
 
