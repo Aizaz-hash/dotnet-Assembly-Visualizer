@@ -9,8 +9,8 @@ const root = path.join(__dirname, '..', '..', 'wwwroot');
 const read = (...p) => fs.readFileSync(path.join(root, ...p), 'utf8').replace(/\r\n/g, '\n');
 
 const RENDERERS = {
-    navigator: ['renderInheritance', 'renderCalls'], cycles: 'renderCycles', architecture: 'renderArchitecture',
-    compare: 'renderCompare', metrics: 'renderMetrics', risky: 'renderRisky', vulns: 'renderVulns', overview: 'renderOverview'
+    navigator: ['renderInheritance', 'renderCalls'], cycles: 'renderCycles',
+    compare: 'renderCompare', risky: 'renderRisky', vulns: 'renderVulns', overview: ['renderOverview', 'renderArchitecture', 'renderMetrics']
 };
 
 test('the first render waits for all scripts: app.js never calls a view renderer while it is still loading', () => {
@@ -35,16 +35,15 @@ test('every view in the tab bar has a section in the page and a renderer defined
     }
 });
 
-test('the tab bar follows the workflow: overview, analysis, security and risk, API compatibility, then the detailed views', () => {
+test('the tab bar follows the workflow: overview, details, security and risk, then compare', () => {
     const html = read('index.html');
     const groups = [...html.matchAll(/<div class="tab-group" id="(\w+)">([\s\S]*?)<\/div>\s*<\/div>/g)]
         .map(m => ({ id: m[1], views: [...m[2].matchAll(/data-view="(\w+)"/g)].map(v => v[1]) }));
     assert.deepEqual(groups, [
         { id: 'groupSummary', views: ['overview'] },
-        { id: 'groupAnalysis', views: ['metrics', 'architecture'] },
+        { id: 'groupDetail', views: ['navigator', 'cycles'] },
         { id: 'groupSecurity', views: ['risky', 'vulns'] },
-        { id: 'groupCompatibility', views: ['compare'] },
-        { id: 'groupDetail', views: ['navigator', 'cycles'] }
+        { id: 'groupCompare', views: ['compare'] }
     ]);
 });
 
@@ -59,9 +58,9 @@ test('the view registry and the page agree: same groups, same views, same order'
     assert.equal(new Set(V.ids()).size, V.ids().length, 'no view listed twice');
 });
 
-test('API Compatibility is its own category and no longer part of Security & risk', () => {
+test('Compare Versions is its own category and not part of Security & risk', () => {
     const V = require('../../wwwroot/js/views.js');
-    assert.equal(V.get('compare').group, 'groupCompatibility');
+    assert.equal(V.get('compare').group, 'groupCompare');
     assert.deepEqual(V.inGroup('groupSecurity').map(v => v.id), ['risky', 'vulns']);
 });
 

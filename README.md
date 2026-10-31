@@ -118,7 +118,7 @@ Then open **http://localhost:8080**. (To run the `v2` line, `git checkout v2` fi
 
 ## Using the UI
 
-The views are arranged as a workflow: **Overview → Analysis → Security & risk → API Compatibility → Detailed views.** Start at the left of the tab bar and move right; a newly opened assembly starts at **Overview**. The groups and views are listed in one place (`wwwroot/js/views.js`); see [docs/architecture/navigation.md](docs/architecture/navigation.md).
+The views are arranged as a workflow: **Overview → Details → Security & risk → Compare.** Start at the left of the tab bar and move right; a newly opened assembly starts at **Overview**. The groups and views are listed in one place (`wwwroot/js/views.js`); see [docs/architecture/navigation.md](docs/architecture/navigation.md).
 
 **Selecting things (ILSpy-style).** Pick a **class** in the explorer and the **Code Navigator** opens with its inheritance and its C# code; expand the class to see its methods; pick a **method** and the Code Navigator shows its callers and callees with the method's C# code. The class and method you chose stay visible in the **Selected** bar under the tabs in every view, each part is a link back to its view, and a method that is part of a circular call chain carries a red **⚠ circular dependency** link to that cycle (also shown as a note in Method Calls and a ⚠ in the explorer). Back / Forward (Alt+Left / Alt+Right) retrace your steps.
 
@@ -129,16 +129,20 @@ The views are arranged as a workflow: **Overview → Analysis → Security & ris
 
 ### 1 · Overview
 
-| View | What it shows |
-|---|---|
-| **Overview** | What this assembly is, on one concise page: name, version, full name, culture, kind, platform, target framework, strong-name status with the **public key token**, module id (MVID), debug or release build, entry point, references and file size; the **obfuscation indicators** (evidence, never a verdict); and "At a glance" cards (types, methods, complexity, unreferenced methods, circular chains, risky API uses, vulnerabilities) that each open the matching view. **Compare with another DLL…** opens API Compatibility with this assembly already chosen as the old version. |
-
-### 2 · Analysis
+One tab with a switch at the top of the page: **Summary | Architecture | Metrics**. The cards on the Summary open the matching screen. Before any assembly is open, only Overview, Vulnerabilities and Compare Versions can be used; the other tabs are greyed out.
 
 | View | What it shows |
 |---|---|
-| **Metrics** | Size and shape: method count, cyclomatic complexity (hotspots, histogram), IL size, most-called and most-dependent methods, largest types, and private/internal methods that nothing in the assembly references. *The unreferenced list is a lead, not proof* (reflection or another assembly can call them). |
+| **Summary** | What this assembly is, on one concise page: name, version, full name, culture, kind, platform, target framework, strong-name status with the **public key token**, module id (MVID), debug or release build, entry point, references and file size; the **obfuscation indicators** (evidence, never a verdict); and "At a glance" cards (types, methods, complexity, unreferenced methods, circular chains, risky API uses, vulnerabilities) that each open the matching view. **Compare with another DLL…** opens API Compatibility with this assembly already chosen as the old version. |
 | **Architecture** | How namespaces depend on each other (built from calls and inheritance), and where namespaces or types depend on each other in a circle - each with a concrete path, clickable. Field and parameter types are not part of the analysis. |
+| **Metrics** | Size and shape: method count, cyclomatic complexity (hotspots, histogram), IL size, most-called and most-dependent methods, largest types, and private/internal methods that nothing in the assembly references. *The unreferenced list is a lead, not proof* (reflection or another assembly can call them). |
+
+### 2 · Details
+
+| View | What it shows |
+|---|---|
+| **Code Navigator** | One screen for the selected class or method, with its C# code (ICSharpCode.Decompiler, the engine behind ILSpy, with syntax highlighting) always underneath - hide it with the **C# code** button. **A class** shows its *inheritance*: a graph (or tree) of base types, interfaces and derived types, or of the whole assembly; the depth choices come from the real hierarchy. **A method** shows its *calls*: callers and callees with an adjustable depth; each method appears once at its shortest distance; constructors are included. Picking another class or method updates both the graph and the code, and the selection is never changed by moving between views. |
+| **Circular Dependencies** | Every distinct circular call chain, grouped by class; click a method to jump to its call graph. Direct recursion is not reported as a cycle. |
 
 ### 3 · Security & risk
 
@@ -147,26 +151,17 @@ The views are arranged as a workflow: **Overview → Analysis → Security & ris
 | **Risky APIs** | Calls to APIs that deserve a security review (unsafe deserializers, Process.Start, Assembly.Load, weak crypto, DllImport, disabled TLS checks, and - because static analysis is blind there - reflection and dynamic code generation) with why each is risky, what to check, and links to the calling methods. **Heuristic leads - not vulnerabilities.** |
 | **Vulnerabilities** | Known advisories for the packages the assembly depends on (levels 1-4, no manifest needed), checked against OSV.dev; summary by severity, filters, remediation, status tracking, PDF / JSON / SBOM / SARIF export. |
 
-
-### 4 · API Compatibility
-
-| View | What it shows |
-|---|---|
-| **API Compatibility** | Choose two versions of an assembly: the public API changes, with the ones that can break callers marked (removed or changed members, narrower visibility, sealed types, added abstract members...), a suggested version bump, and Markdown / JSON export. |
-
-### 5 · Detailed views
+### 4 · Compare
 
 | View | What it shows |
 |---|---|
-| **Code Navigator** | One screen for the selected class or method, with its C# code (ICSharpCode.Decompiler, the engine behind ILSpy, with syntax highlighting) always underneath - hide it with the **C# code** button. **A class** shows its *inheritance*: a graph (or tree) of base types, interfaces and derived types, or of the whole assembly; the depth choices come from the real hierarchy. **A method** shows its *calls*: callers and callees with an adjustable depth; each method appears once at its shortest distance; constructors are included. Picking another class or method updates both the graph and the code, and the selection is never changed by moving between views. |
-| **Circular Dependencies** | Every distinct circular call chain, grouped by class; click a method to jump to its call graph. Direct recursion is not reported as a cycle. |
-
+| **Compare Versions** | Choose two versions of an assembly: the public API changes, with the ones that can break callers marked (removed or changed members, narrower visibility, sealed types, added abstract members...), a suggested version bump, and Markdown / JSON export. |
 
 ### How much to trust each result
 
 | Kind | Where | Meaning |
 |---|---|---|
-| **Structure** | Overview, Metrics, Architecture, Code Navigator, Circular Dependencies | Facts read from the assembly's metadata and IL, within the limits below. A cycle is a design smell, not a vulnerability. |
+| **Structure** | Overview (Summary, Architecture, Metrics), Code Navigator, Circular Dependencies | Facts read from the assembly's metadata and IL, within the limits below. A cycle is a design smell, not a vulnerability. |
 | **Heuristic** | Risky APIs, unreferenced methods | A pattern that deserves a look. The tool never calls these vulnerabilities. |
 | **Confirmed** | Vulnerabilities | The exact package version is known and lies inside an advisory's affected range. |
 | **Potential** | Vulnerabilities | The version was estimated (no manifest) or could not be verified against the advisory's ranges. |

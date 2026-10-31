@@ -692,3 +692,8 @@ body { font-size: 14px; }
 #btnInhCode.active { background: #e7f1ff; border-color: #9ec5fe; }
 #viewCalls #callCanvasWrap { flex: 1 1 50%; min-height: 0; }
 #btnCallCode.active { background: #e7f1ff; border-color: #9ec5fe; }
+
+/* Overview switch (Summary | Architecture | Metrics) and tabs that need an assembly */
+.ov-switch { display: flex; align-items: center; padding: 6px 14px; border-bottom: 1px solid #dee2e6; background: #f8f9fa; }
+.tab.disabled { opacity: .45; cursor: not-allowed; }
+.tab.disabled:hover { background: transparent; }

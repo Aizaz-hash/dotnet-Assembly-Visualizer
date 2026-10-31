@@ -21,7 +21,15 @@ function compareWithAnother() {
 function renderOverview() {
     const root = byId('overviewScroll');
     root.innerHTML = '';
-    if (!hasAssembly) { root.appendChild(el('div', 'empty-note', 'Open a .NET assembly (.dll or .exe), a folder or a NuGet package to see what it is.')); return; }
+    if (!hasAssembly) {
+        root.appendChild(el('div', 'empty-note', 'Open a .NET assembly (.dll or .exe), a folder or a NuGet package to see what it is.'));
+        const cmp = el('button', 'tb-btn', 'Compare two versions of a DLL…');
+        cmp.id = 'btnOverviewCompare';
+        cmp.title = 'Compare the public API of two versions of an assembly - no assembly needs to be open';
+        cmp.onclick = () => navigate({ view: 'compare' });
+        root.appendChild(cmp);
+        return;
+    }
 
     const a = rawAssemblyData.assembly;
     const head = el('div', 'ov-head');

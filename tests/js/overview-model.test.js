@@ -36,7 +36,7 @@ const card = (s, key) => M.glanceCards(s).find(c => c.key === key);
 test('every glance card leads to a view that exists', () => {
     const V = require('../../wwwroot/js/views.js');
     for (const vuln of [{ state: 'none' }, { state: 'scanning' }, { state: 'done', open: 2, urgent: 1 }])
-        for (const c of M.glanceCards({ ...base, vuln })) assert.ok(V.get(c.view), c.key + ' -> ' + c.view);
+        for (const c of M.glanceCards({ ...base, vuln })) assert.ok(V.get(V.resolve(c.view).view), c.key + ' -> ' + c.view);
 });
 
 test('the vulnerability card follows the background scan: not scanned, scanning, result', () => {

@@ -238,7 +238,7 @@ function vulnAskConsent() {
 
 function updateVulnBadge() {
     const badge = byId('vulnBadge');
-    if (state.view === 'overview') renderOverview();         // its Vulnerabilities card follows the scan
+    if (state.view === 'overview' && state.ovTab === 'summary') renderOverview();         // its Vulnerabilities card follows the scan
     if (vulnIsBusy()) { badge.className = 'tab-badge scanning'; badge.textContent = ''; badge.title = 'Scanning the dependencies for known vulnerabilities…'; return; }
     if (!vulnReport) { setTabBadge(badge, 0, 'Not scanned yet'); return; }
     const open = vulnReport.findings.filter(f => vulnStatusOf(f) === 'Open');

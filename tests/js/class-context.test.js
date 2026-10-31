@@ -115,3 +115,27 @@ test('only a failed request is reported as a network problem; a script error kee
     assert.match(app, /Object\.assign\(new Error\('network error'\), \{ network: true \}\)/);
     assert.match(app, /const reason = err && err\.network/);
 });
+
+test('the Overview tab holds Summary, Architecture and Metrics; links to the old names still land there', () => {
+    const V = require('../../wwwroot/js/views.js');
+    assert.deepEqual(V.OVERVIEW_TABS.map(t => t.key), ['summary', 'architecture', 'metrics']);
+    assert.deepEqual(V.resolve('architecture'), { view: 'overview', tab: 'architecture' });
+    assert.deepEqual(V.resolve('metrics'), { view: 'overview', tab: 'metrics' });
+    assert.deepEqual(V.resolve('cycles'), { view: 'cycles' });
+    assert.deepEqual(V.resolve('overview'), { view: 'overview' });
+    const html = read('index.html');
+    assert.ok(!html.includes('tabMetrics') && !html.includes('tabArchitecture'), 'no separate tabs any more');
+    assert.ok(html.includes('id="viewArchitecture"') && html.includes('id="viewMetrics"') && html.includes('id="overviewSwitch"'));
+});
+
+test('before an assembly is open only the views that bring their own input stay enabled', () => {
+    const V = require('../../wwwroot/js/views.js');
+    assert.deepEqual(V.ids().filter(v => V.isStandalone(v)), ['overview', 'vulns', 'compare']);
+    assert.match(read('js', 'app.js'), /tab\.classList\.toggle\('disabled', off\)/);
+});
+
+test('the order is Overview, Details, Security & risk, Compare', () => {
+    const V = require('../../wwwroot/js/views.js');
+    assert.deepEqual(V.GROUPS.map(g => g.label), ['Overview', 'Details', 'Security & risk', 'Compare']);
+    assert.equal(V.get('compare').label, 'Compare Versions');
+});

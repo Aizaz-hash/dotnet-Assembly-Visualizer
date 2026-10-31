@@ -59,16 +59,16 @@
             <!-- The views follow one workflow: what is in the assembly -> how its parts relate -> what is risky about it. -->
             <div class="tab-strip" id="tabStrip" role="tablist">
                 <div class="tab-group" id="groupSummary">
-                    <div class="tab-group-label" title="Start here: what this assembly is">Overview</div>
+                    <div class="tab-group-label" title="Start here: what this assembly is, how its namespaces depend on each other and how big and complex it is">Overview</div>
                     <div class="tab-row">
-                        <button class="tab" id="tabOverview" data-view="overview" title="Identity, framework, signing and a first look at what the assembly contains">Overview</button>
+                        <button class="tab" id="tabOverview" data-view="overview" title="Identity, framework and signing, the namespace architecture and the code metrics (switch at the top of the page)">Overview</button>
                     </div>
                 </div>
-                <div class="tab-group" id="groupAnalysis">
-                    <div class="tab-group-label" title="The size of the assembly and how its namespaces depend on each other">Analysis</div>
+                <div class="tab-group" id="groupDetail">
+                    <div class="tab-group-label" title="Pick a class to see what it derives from; pick a method to see who calls it, what it calls and its C# code">Details</div>
                     <div class="tab-row">
-                        <button class="tab" id="tabMetrics" data-view="metrics" title="Size, complexity, most-called and unreferenced methods">Metrics</button>
-                        <button class="tab" id="tabArchitecture" data-view="architecture" title="Namespace dependencies and cycles between namespaces and types">Architecture</button>
+                        <button class="tab" id="tabNavigator" data-view="navigator" title="The selected class with its inheritance, or the selected method with its callers and callees - and the C# code of either">Code Navigator</button>
+                        <button class="tab" id="tabCycles" data-view="cycles" title="Groups of methods that call each other in a circle">Circular Dependencies <span id="cycleCount" class="tab-badge">-</span></button>
                     </div>
                 </div>
                 <div class="tab-group" id="groupSecurity">
@@ -78,17 +78,10 @@
                         <button class="tab" id="tabVulns" data-view="vulns" title="Known vulnerabilities in the packages the assembly depends on">Vulnerabilities <span id="vulnBadge" class="tab-badge">-</span></button>
                     </div>
                 </div>
-                <div class="tab-group" id="groupCompatibility">
-                    <div class="tab-group-label" title="What changed in the public API between two versions, and what can break callers">Compatibility</div>
+                <div class="tab-group" id="groupCompare">
+                    <div class="tab-group-label" title="What changed in the public API between two versions, and what can break callers">Compare</div>
                     <div class="tab-row">
-                        <button class="tab" id="tabCompare" data-view="compare" title="Compare two versions of an assembly: what changed in the public API and what can break callers">API Compatibility</button>
-                    </div>
-                </div>
-                <div class="tab-group" id="groupDetail">
-                    <div class="tab-group-label" title="Pick a class to see what it derives from; pick a method to see who calls it, what it calls and its C# code">Detailed views</div>
-                    <div class="tab-row">
-                        <button class="tab" id="tabNavigator" data-view="navigator" title="The selected class with its inheritance, or the selected method with its callers and callees - and the C# code of either">Code Navigator</button>
-                        <button class="tab" id="tabCycles" data-view="cycles" title="Groups of methods that call each other in a circle">Circular Dependencies <span id="cycleCount" class="tab-badge">-</span></button>
+                        <button class="tab" id="tabCompare" data-view="compare" title="Compare two versions of an assembly: what changed in the public API and what can break callers">Compare Versions</button>
                     </div>
                 </div>
             </div>
@@ -97,6 +90,7 @@
             <div id="contextBar" class="context-bar" aria-live="polite"></div>
 
             <div id="viewTitle" class="view-title"></div>
+            <div id="overviewSwitch" class="ov-switch" style="display:none;"></div>
 
             <section id="viewOverview" class="view">
                 <div id="overviewScroll" class="scroll-body"></div>

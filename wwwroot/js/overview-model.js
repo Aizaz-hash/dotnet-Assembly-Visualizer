@@ -57,6 +57,7 @@
         if (v.state === 'scanning') cards.push({ key: 'vulns', num: '…', label: 'Vulnerabilities', view: 'vulns', hint: 'scanning in the background', tone: 'busy' });
         else if (v.state === 'done') cards.push({ key: 'vulns', num: v.open, label: 'Vulnerabilities', view: 'vulns', hint: v.urgent ? v.urgent + ' critical / high - open Vulnerabilities' : 'open Vulnerabilities', tone: v.urgent ? 'bad' : '' });
         else cards.push({ key: 'vulns', num: '-', label: 'Vulnerabilities', view: 'vulns', hint: 'not scanned yet - open Vulnerabilities' });
+        cards.push({ key: 'compare', num: '⇄', label: 'Compare versions', view: 'compare', hint: 'what changed in the public API between two versions' });
         return cards;
     }
 

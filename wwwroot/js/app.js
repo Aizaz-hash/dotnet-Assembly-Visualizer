@@ -34,7 +34,7 @@ let cyclesOfMethod = new Map();    // methodId -> [cycle index]
 let cyclicEdges = new Set();       // "from\u0001to"
 
 // Navigation state
-let state = { view: 'overview', type: null, method: null, cycleAll: false, cycleIdx: 0, inhMode: 'selected', inhFormat: 'graph' };
+let state = { view: 'overview', ovTab: 'summary', type: null, method: null, cycleAll: false, cycleIdx: 0, inhMode: 'selected', inhFormat: 'graph' };
 let history = [];
 let historyIdx = -1;
 
@@ -453,11 +453,13 @@ function renderSearchResults(query) {
 // ============================================================================
 
 function sameState(a, b) {
-    return a.view === b.view && a.type === b.type && a.method === b.method &&
+    return a.view === b.view && a.ovTab === b.ovTab && a.type === b.type && a.method === b.method &&
         a.cycleAll === b.cycleAll && a.cycleIdx === b.cycleIdx && a.inhMode === b.inhMode && a.inhFormat === b.inhFormat;
 }
 
 function navigate(patch, push = true) {
+    // 'architecture' and 'metrics' are screens of the Overview tab
+    if (patch.view) { const r = ViewRegistry.resolve(patch.view); if (r.tab) patch = { ...patch, view: r.view, ovTab: r.tab }; }
     const next = { ...state, ...patch };
     // picking another class or method means "show me that one": a "show all chains" choice made for the previous selection ends here
     if (('type' in patch || 'method' in patch) && !('cycleAll' in patch)) next.cycleAll = false;
@@ -488,12 +490,41 @@ function updateNavButtons() {
 function navMode() { return state.method ? 'calls' : 'inheritance'; }
 function inMode(mode) { return state.view === 'navigator' && navMode() === mode; }
 
+// The Overview tab has three screens, chosen with the switch at the top of the page.
+function renderOverviewTab() {
+    if (state.ovTab === 'architecture') renderArchitecture();
+    else if (state.ovTab === 'metrics') renderMetrics();
+    else renderOverview();
+}
+
+function renderOverviewSwitch() {
+    const bar = byId('overviewSwitch');
+    bar.innerHTML = '';
+    bar.style.display = state.view === 'overview' && hasAssembly ? 'flex' : 'none';
+    const seg = el('div', 'seg');
+    ViewRegistry.OVERVIEW_TABS.forEach(t => {
+        const b = el('button', 'seg-btn' + (state.ovTab === t.key ? ' active' : ''), t.label);
+        b.id = 'ovTab' + t.key.charAt(0).toUpperCase() + t.key.slice(1);
+        b.onclick = () => navigate({ view: 'overview', ovTab: t.key });
+        seg.appendChild(b);
+    });
+    bar.appendChild(seg);
+}
+
 function applyState() {
-    const activeSection = state.view === 'navigator' ? (navMode() === 'calls' ? 'viewCalls' : 'viewInheritance') : ViewRegistry.sections(state.view)[0];
+    const activeSection = state.view === 'navigator' ? (navMode() === 'calls' ? 'viewCalls' : 'viewInheritance')
+        : state.view === 'overview' ? ViewRegistry.overviewSection(state.ovTab) : ViewRegistry.sections(state.view)[0];
     ViewRegistry.ids().forEach(v => {
         ViewRegistry.sections(v).forEach(sec => byId(sec).classList.toggle('active', sec === activeSection));
-        byId(ViewRegistry.tabId(v)).classList.toggle('active', state.view === v);
+        const tab = byId(ViewRegistry.tabId(v));
+        tab.classList.toggle('active', state.view === v);
+        // without an assembly only the views that bring their own input are usable: the others are greyed out, with the reason
+        const off = !hasAssembly && !ViewRegistry.isStandalone(v);
+        tab.classList.toggle('disabled', off);
+        if (tab.dataset.title === undefined) tab.dataset.title = tab.title;
+        tab.title = off ? 'Open an assembly first' : tab.dataset.title;
     });
+    renderOverviewSwitch();
     byId('inhModeSelected').classList.toggle('active', state.inhMode === 'selected');
     byId('inhModeAll').classList.toggle('active', state.inhMode === 'all');
     byId('inhFmtGraph').classList.toggle('active', state.inhFormat === 'graph');
@@ -507,9 +538,7 @@ function applyState() {
     else if (inMode('calls')) renderCalls();
     else if (state.view === 'vulns') renderVulns();
     else if (state.view === 'risky') renderRisky();
-    else if (state.view === 'overview') renderOverview();
-    else if (state.view === 'metrics') renderMetrics();
-    else if (state.view === 'architecture') renderArchitecture();
+    else if (state.view === 'overview') renderOverviewTab();
     else if (state.view === 'compare') renderCompare();
     else renderCycles();
     updateNavButtons();
@@ -593,23 +622,23 @@ function renderContextBar() {
 function renderTitle() {
     const t = byId('viewTitle');
     t.innerHTML = '';
-    if (state.view === 'overview') {
+    if (state.view === 'overview' && state.ovTab === 'summary') {
         const v = ViewRegistry.get('overview');
         t.appendChild(el('span', 'vt-name', v.title));
         t.appendChild(el('span', 'vt-sub', v.subtitle));
         return;
     }
     if (state.view === 'compare') {
-        t.appendChild(el('span', 'vt-name', 'API Compatibility'));
+        t.appendChild(el('span', 'vt-name', 'Compare Versions'));
         t.appendChild(el('span', 'vt-sub', 'Compare two versions of an assembly: what changed in the public API and what can break callers'));
         return;
     }
-    if (state.view === 'architecture') {
+    if (state.view === 'overview' && state.ovTab === 'architecture') {
         t.appendChild(el('span', 'vt-name', 'Architecture'));
         t.appendChild(el('span', 'vt-sub', 'How the namespaces of the loaded assembly depend on each other, and where they depend on each other in a circle'));
         return;
     }
-    if (state.view === 'metrics') {
+    if (state.view === 'overview' && state.ovTab === 'metrics') {
         t.appendChild(el('span', 'vt-name', 'Code Metrics'));
         t.appendChild(el('span', 'vt-sub', 'Complexity, size, callers and unreferenced methods of the loaded assembly'));
         return;
@@ -1333,7 +1362,7 @@ function clearAssembly() {
     rawAssemblyData = { classes: [], inheritance: { nodes: [], edges: [] }, methodGraph: { nodes: [], edges: [] }, deadlocks: [] };
     buildIndexes();
     // a newly opened assembly starts at the overview; picking a class or method then opens Inheritance / Method Calls
-    state = { view: 'overview', type: null, method: null, cycleAll: false, cycleIdx: 0, inhMode: state.inhMode, inhFormat: state.inhFormat };
+    state = { view: 'overview', ovTab: 'summary', type: null, method: null, cycleAll: false, cycleIdx: 0, inhMode: state.inhMode, inhFormat: state.inhFormat };
     history = [{ ...state }];
     historyIdx = 0;
     byId('currentDllName').textContent = 'No assembly loaded';
@@ -1396,7 +1425,7 @@ function activateAssembly(name) {
     setTabBadge(badge, cycles.length, cycles.length + ' circular call chain' + (cycles.length === 1 ? '' : 's'));
 
     // a newly opened assembly starts at the overview; picking a class or method then opens Inheritance / Method Calls
-    state = { view: 'overview', type: null, method: null, cycleAll: false, cycleIdx: 0, inhMode: state.inhMode, inhFormat: state.inhFormat };
+    state = { view: 'overview', ovTab: 'summary', type: null, method: null, cycleAll: false, cycleIdx: 0, inhMode: state.inhMode, inhFormat: state.inhFormat };
     history = [{ ...state }];
     historyIdx = 0;
     buildExplorer();
