@@ -140,16 +140,18 @@ test('the order is Overview, Details, Security & risk, Compare', () => {
     assert.equal(V.get('compare').label, 'Compare Versions');
 });
 
-test('the Compare buttons on the Overview are real buttons (bordered, white), not toolbar text', () => {
+test('the Overview has one Compare hint (a link in a neutral line of text), no extra Compare button', () => {
     const ov = read('js', 'overview.js');
-    assert.ok(!/el\('button', 'tb-btn', /.test(ov), 'plain tb-btn has no background or border and reads as text');
-    assert.equal((ov.match(/el\('button', 'tb-btn small', 'Compare/g) || []).length, 2);
+    assert.ok(!/btnOverviewCompare|Compare with another DLL|Compare two versions of a DLL/.test(ov));
+    assert.ok(!/ⓘ/.test(ov), 'no warning-style icon on the hint');
 });
 
-test('the Overview has the same kind of one-line note as the method view, linking to Compare Versions', () => {
+
+test('the Overview has a one-line hint linking to Compare Versions, neutral in colour, and the method view keeps its own note', () => {
     const ov = read('js', 'overview.js'), css = read('css', 'styles.css'), app = read('js', 'app.js');
     assert.match(ov, /root\.appendChild\(compareNote\(hasAssembly\)\)/);
     assert.match(ov, /el\('a', 'mn-link', 'Compare Versions'\)/);
     assert.match(css, /\.info-note \{/);
+    assert.ok(!/\.info-note \{[^}]*#fff3cd/.test(css), 'not the yellow warning colour');
     assert.match(app, /function renderMethodNote\(\)/, 'the method view keeps its own note');
 });

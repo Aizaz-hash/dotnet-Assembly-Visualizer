@@ -674,7 +674,6 @@ body { font-size: 14px; }
 .ov-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
 .ov-name { font-size: 20px; font-weight: 600; }
 .ov-version { color: #868e96; font-size: 14px; }
-.ov-actions { margin-left: auto; }
 .ov-grid { margin-bottom: 14px; }
 .asm-v.mono { font-family: Consolas, "Courier New", monospace; font-size: 12px; }
 .ov-section { font-weight: 600; margin: 16px 0 8px; }
@@ -698,7 +697,6 @@ body { font-size: 14px; }
 .tab.disabled { opacity: .45; cursor: not-allowed; }
 .tab.disabled:hover { background: transparent; }
 
-/* a one-line note with a link, like the one in the method view */
-.info-note { padding: 7px 14px; font-size: 13.5px; line-height: 1.5; background: #fff3cd; color: #856404; border: 1px solid #ffeeba; border-radius: 3px; margin-bottom: 12px; }
-.info-note .mn-icon { font-size: 13px; margin-right: 6px; }
-.info-note .mn-link { color: #007bff; font-weight: 600; }
+/* a one-line hint with a link: neutral, not a warning */
+.info-note { padding: 7px 14px; font-size: 13.5px; line-height: 1.5; background: #f1f3f5; color: #495057; border: 1px solid #dee2e6; border-left: 3px solid #4dabf7; border-radius: 3px; margin-bottom: 12px; }
+.info-note .mn-link { color: #0b5ed7; font-weight: 600; }

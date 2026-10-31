@@ -18,18 +18,17 @@ function compareWithAnother() {
     navigate({ view: 'compare' });
 }
 
-// The same kind of one-line note the method view uses: says what can be done here and links to it.
+// A one-line hint that links to Compare Versions: helpful text, not a warning.
 function compareNote(withAssembly) {
     const note = el('div', 'info-note');
     note.id = 'overviewCompareNote';
-    note.appendChild(el('span', 'mn-icon', 'ⓘ'));
-    note.appendChild(document.createTextNode(withAssembly ? 'Have another version of this assembly? Click ' : 'Have two versions of an assembly? Click '));
+    note.appendChild(document.createTextNode(withAssembly ? 'Have another version of this assembly? Use ' : 'Have two versions of an assembly? Use '));
     const link = el('a', 'mn-link', 'Compare Versions');
     link.href = '#';
     link.title = 'See what changed in the public API and what can break callers';
     link.onclick = (e) => { e.preventDefault(); if (withAssembly) compareWithAnother(); else navigate({ view: 'compare' }); };
     note.appendChild(link);
-    note.appendChild(document.createTextNode(' to see what changed in its public API and what can break callers.'));
+    note.appendChild(document.createTextNode(' to see what changed in its public API and what can break callers of it.'));
     return note;
 }
 
@@ -39,11 +38,6 @@ function renderOverview() {
     root.appendChild(compareNote(hasAssembly));
     if (!hasAssembly) {
         root.appendChild(el('div', 'empty-note', 'Open a .NET assembly (.dll or .exe), a folder or a NuGet package to see what it is.'));
-        const cmp = el('button', 'tb-btn small', 'Compare two versions of a DLL…');
-        cmp.id = 'btnOverviewCompare';
-        cmp.title = 'Compare the public API of two versions of an assembly - no assembly needs to be open';
-        cmp.onclick = () => navigate({ view: 'compare' });
-        root.appendChild(cmp);
         return;
     }
 
@@ -51,13 +45,6 @@ function renderOverview() {
     const head = el('div', 'ov-head');
     head.appendChild(el('div', 'ov-name', a ? a.name : currentAssemblyName));
     if (a && a.version) head.appendChild(el('span', 'ov-version', a.version));
-    const actions = el('div', 'ov-actions');
-    const cmp = el('button', 'tb-btn small', 'Compare with another DLL…');
-    cmp.id = 'btnOverviewCompare';
-    cmp.title = 'Open API Compatibility with this assembly as the old version: what changed in the public API and what can break callers';
-    cmp.onclick = compareWithAnother;
-    actions.appendChild(cmp);
-    head.appendChild(actions);
     root.appendChild(head);
 
     if (a) {

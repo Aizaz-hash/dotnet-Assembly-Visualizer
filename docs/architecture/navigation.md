@@ -15,7 +15,7 @@ open a DLL → Overview → Details → Security & risk → Compare
 | Security & risk | Risky APIs, Vulnerabilities | What deserves a security review, and which dependencies have known advisories? |
 | Compare | Compare Versions | What changed in the public API between two versions? |
 
-**Compare Versions** (the former *API Compatibility*) is a view of its own. The Overview's **Compare with another DLL…** button opens it with the current assembly already chosen as the old version, so it is discoverable from the page the user starts on without adding to the analysis navigation. It lives in its own group because it answers a different question than Security & risk (it needs two files, and a finding is a changed signature, not a vulnerability).
+**Compare Versions** (the former *API Compatibility*) is a view of its own. The hint at the top of the Overview opens it with the current assembly already chosen as the old version, so it is discoverable from the page the user starts on without adding to the analysis navigation. It lives in its own group because it answers a different question than Security & risk (it needs two files, and a finding is a changed signature, not a vulnerability).
 
 ## One list of views
 

@@ -64,9 +64,9 @@ test('Compare Versions is its own category and not part of Security & risk', () 
     assert.deepEqual(V.inGroup('groupSecurity').map(v => v.id), ['risky', 'vulns']);
 });
 
-test('the Overview offers a Compare action that opens API Compatibility with the open DLL preselected', () => {
+test('the Overview hint opens Compare Versions with the open DLL preselected', () => {
     const ov = read('js', 'overview.js');
-    assert.match(ov, /Compare with another DLL/);
+    assert.match(ov, /Have another version of this assembly\?/);
     assert.match(ov, /compareState\.oldFile = file/);
     assert.match(ov, /navigate\(\{ view: 'compare' \}\)/);
 });
