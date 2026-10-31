@@ -54,10 +54,10 @@ test('cyclic edges are marked so the graphs can draw them red', () => {
 
 // ------------------------------------------------------------------------------------------ navigation rules
 
-test('selecting a class opens Inheritance and selecting a method opens Method Calls', () => {
-    assert.equal(Model.viewForSelection('type'), 'inheritance');
-    assert.equal(Model.viewForSelection('class'), 'inheritance');
-    assert.equal(Model.viewForSelection('method'), 'calls');
+test('selecting a class or a method opens the Code Navigator', () => {
+    assert.equal(Model.viewForSelection('type'), 'navigator');
+    assert.equal(Model.viewForSelection('class'), 'navigator');
+    assert.equal(Model.viewForSelection('method'), 'navigator');
 });
 
 // ------------------------------------------------------------------------------------------ Architecture from real data

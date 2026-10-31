@@ -18,22 +18,64 @@ function compareWithAnother() {
     navigate({ view: 'compare' });
 }
 
+// A one-line hint that links to Compare Versions: helpful text, not a warning.
+function compareNote() {
+    const note = el('div', 'info-note');
+    note.id = 'overviewCompareNote';
+    note.appendChild(document.createTextNode('Have another version of this assembly? Use '));
+    const link = el('a', 'mn-link', 'Compare Versions');
+    link.href = '#';
+    link.title = 'See what changed in the public API and what can break callers';
+    link.onclick = (e) => { e.preventDefault(); compareWithAnother(); };
+    note.appendChild(link);
+    note.appendChild(document.createTextNode(' to see what changed in its public API and what can break callers of it.'));
+    return note;
+}
+
+// What the page shows before anything is open: what the tool does and the two ways to start.
+function renderOverviewIntro(root) {
+    const intro = el('div', 'ov-intro');
+    intro.appendChild(el('div', 'ov-intro-title', 'Understand a .NET assembly without running it'));
+    intro.appendChild(el('p', 'ov-intro-text', 'Open a .dll or .exe - or a folder, a NuGet package or a zip - and the tool reads its metadata and IL: what the assembly is, how its parts depend on each other, who calls what, what looks risky and which dependencies have known vulnerabilities. Nothing is executed and your files are not kept.'));
+
+    const starts = [
+        { key: 'open', title: 'Open an assembly', text: 'Click Open, or drop a .dll / .exe, a folder or a .nupkg onto this page. It starts at this Overview.', cta: 'Open an assembly…', go: () => byId('dllFile').click() },
+        { key: 'compare', title: 'Compare two versions', text: 'Pick two versions of a DLL to list what changed in the public API and what can break the code that uses it.', cta: 'Open Compare Versions', go: () => navigate({ view: 'compare' }) }
+    ];
+    const cards = el('div', 'ov-start');
+    starts.forEach(c => {
+        const card = el('div', 'ov-start-card');
+        card.id = 'ovStart' + c.key.charAt(0).toUpperCase() + c.key.slice(1);
+        card.appendChild(el('div', 'ov-start-title', c.title));
+        card.appendChild(el('div', 'ov-start-text', c.text));
+        const b = el('button', 'tb-btn small', c.cta);
+        b.onclick = c.go;
+        card.appendChild(b);
+        cards.appendChild(card);
+    });
+    intro.appendChild(cards);
+
+    intro.appendChild(el('div', 'ov-section', 'What you get once an assembly is open'));
+    const ul = el('ul', 'ov-list');
+    [
+        ['Overview', 'identity, framework and signing, the namespace architecture and the code metrics'],
+        ['Details', 'pick a class for its inheritance, or a method for its callers and callees - each with its C# code - and every circular call chain'],
+        ['Security & risk', 'risky API calls to review, and known vulnerabilities in the dependencies (scanned in the background)']
+    ].forEach(([h, t]) => { const li = el('li'); li.appendChild(el('strong', null, h + ': ')); li.appendChild(document.createTextNode(t)); ul.appendChild(li); });
+    intro.appendChild(ul);
+    root.appendChild(intro);
+}
+
 function renderOverview() {
     const root = byId('overviewScroll');
     root.innerHTML = '';
-    if (!hasAssembly) { root.appendChild(el('div', 'empty-note', 'Open a .NET assembly (.dll or .exe), a folder or a NuGet package to see what it is.')); return; }
+    if (!hasAssembly) { renderOverviewIntro(root); return; }
+    root.appendChild(compareNote());
 
     const a = rawAssemblyData.assembly;
     const head = el('div', 'ov-head');
     head.appendChild(el('div', 'ov-name', a ? a.name : currentAssemblyName));
     if (a && a.version) head.appendChild(el('span', 'ov-version', a.version));
-    const actions = el('div', 'ov-actions');
-    const cmp = el('button', 'tb-btn', 'Compare with another DLL…');
-    cmp.id = 'btnOverviewCompare';
-    cmp.title = 'Open API Compatibility with this assembly as the old version: what changed in the public API and what can break callers';
-    cmp.onclick = compareWithAnother;
-    actions.appendChild(cmp);
-    head.appendChild(actions);
     root.appendChild(head);
 
     if (a) {

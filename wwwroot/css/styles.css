@@ -650,6 +650,12 @@ body { font-size: 14px; }
 .context-bar .cb-sep { color: #adb5bd; }
 .context-bar .cb-cycle { background: #ffe3e3; color: #a61e1e; border-radius: 10px; padding: 0 8px; cursor: pointer; }
 .context-bar .cb-hint { color: #868e96; }
+.context-bar .cb-open { display: inline-flex; align-items: center; gap: 8px; margin-left: 12px; padding-left: 12px; border-left: 1px solid #dee2e6; }
+.context-bar .cb-view { color: #0b5ed7; cursor: pointer; }
+.context-bar .cb-view:hover { text-decoration: underline; }
+.context-bar .cb-view.current { color: #212529; font-weight: 600; cursor: default; text-decoration: none; }
+.context-bar .cb-view.disabled { color: #adb5bd; cursor: default; text-decoration: none; }
+.filter-chip .filter-only { margin-left: 2px; }
 .context-bar .cb-clear { margin-left: auto; color: #868e96; cursor: pointer; }
 .context-bar .cb-clear:hover { color: #212529; }
 
@@ -668,7 +674,6 @@ body { font-size: 14px; }
 .ov-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
 .ov-name { font-size: 20px; font-weight: 600; }
 .ov-version { color: #868e96; font-size: 14px; }
-.ov-actions { margin-left: auto; }
 .ov-grid { margin-bottom: 14px; }
 .asm-v.mono { font-family: Consolas, "Courier New", monospace; font-size: 12px; }
 .ov-section { font-weight: 600; margin: 16px 0 8px; }
@@ -677,3 +682,32 @@ body { font-size: 14px; }
 .ov-card.warn .rcn-num { color: #e8590c; }
 .ov-card.bad .rcn-num { color: #c92a2a; }
 .ov-hint { font-size: 11px; color: #868e96; margin-top: 2px; }
+
+/* Inheritance + C# code: the graph (or tree) on top, the code of the selected class below */
+#viewInheritance .inh-row, #viewInheritance #inheritanceBody { flex: 1 1 50%; min-height: 0; }
+.inh-code { flex: 1 1 50%; min-height: 0; flex-direction: column; border-top: 2px solid #dee2e6; }
+.inh-code .scroll-body { padding: 8px 14px; }
+.inh-code .src-code { max-height: none; }
+#btnInhCode.active { background: #e7f1ff; border-color: #9ec5fe; }
+#viewCalls #callCanvasWrap { flex: 1 1 50%; min-height: 0; }
+#btnCallCode.active { background: #e7f1ff; border-color: #9ec5fe; }
+
+/* Overview switch (Summary | Architecture | Metrics) and tabs that need an assembly */
+.ov-switch { display: flex; align-items: center; padding: 6px 14px; border-bottom: 1px solid #dee2e6; background: #f8f9fa; }
+.tab.disabled { opacity: .45; cursor: not-allowed; }
+.tab.disabled:hover { background: transparent; }
+
+/* a one-line hint with a link: neutral, not a warning */
+.info-note { padding: 7px 14px; font-size: 13.5px; line-height: 1.5; background: #f1f3f5; color: #495057; border: 1px solid #dee2e6; border-left: 3px solid #4dabf7; border-radius: 3px; margin-bottom: 12px; }
+.info-note .mn-link { color: #0b5ed7; font-weight: 600; }
+
+/* Overview before anything is open */
+.ov-intro { max-width: 880px; }
+.ov-intro-title { font-size: 20px; font-weight: 600; margin-bottom: 6px; }
+.ov-intro-text { color: #495057; line-height: 1.55; margin: 0 0 14px; }
+.ov-start { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.ov-start-card { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; background: #fff; border: 1px solid #dee2e6; border-radius: 4px; }
+.ov-start-title { font-weight: 600; }
+.ov-start-text { color: #495057; font-size: 13px; line-height: 1.5; flex: 1; }
+.ov-start-card .tb-btn { align-self: flex-start; margin-top: 4px; }
+.ov-list { margin: 6px 0 0 18px; padding: 0; line-height: 1.7; color: #495057; }

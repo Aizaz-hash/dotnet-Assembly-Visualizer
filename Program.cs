@@ -70,7 +70,9 @@ builder.Services.AddSingleton<IVulnerabilityScanner>(sp => new VulnerabilityScan
 var app = builder.Build();
 
 app.UseDefaultFiles();
-app.UseStaticFiles();
+// The scripts change between versions and are loaded without a version in their URL: the browser must ask the server (a cheap 304) instead of
+// reusing an old copy, otherwise a new app.js can run next to an old views.js.
+app.UseStaticFiles(new StaticFileOptions { OnPrepareResponse = ctx => ctx.Context.Response.Headers["Cache-Control"] = "no-cache" });
 
 app.UseRouting();
 app.UseAntiforgery();

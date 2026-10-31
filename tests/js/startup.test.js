@@ -9,8 +9,8 @@ const root = path.join(__dirname, '..', '..', 'wwwroot');
 const read = (...p) => fs.readFileSync(path.join(root, ...p), 'utf8').replace(/\r\n/g, '\n');
 
 const RENDERERS = {
-    inheritance: 'renderInheritance', calls: 'renderCalls', cycles: 'renderCycles', architecture: 'renderArchitecture', source: 'renderSource',
-    compare: 'renderCompare', metrics: 'renderMetrics', risky: 'renderRisky', vulns: 'renderVulns', overview: 'renderOverview'
+    navigator: ['renderInheritance', 'renderCalls'], cycles: 'renderCycles',
+    compare: 'renderCompare', risky: 'renderRisky', vulns: 'renderVulns', overview: ['renderOverview', 'renderArchitecture', 'renderMetrics']
 };
 
 test('the first render waits for all scripts: app.js never calls a view renderer while it is still loading', () => {
@@ -29,22 +29,21 @@ test('every view in the tab bar has a section in the page and a renderer defined
 
     assert.deepEqual([...views].sort(), Object.keys(RENDERERS).sort(), 'the tab bar and this test must list the same views');
     for (const v of views) {
-        assert.match(sources, new RegExp('function ' + RENDERERS[v] + '\\('), v + ': renderer defined');
-        assert.ok(html.includes('id="view' + v[0].toUpperCase() + v.slice(1) + '"'), v + ': has a view section');
+        for (const r of [].concat(RENDERERS[v])) assert.match(sources, new RegExp('function ' + r + '\\('), v + ': ' + r + ' defined');
+        for (const sec of require('../../wwwroot/js/views.js').sections(v)) assert.ok(html.includes('id="' + sec + '"'), v + ': has the section ' + sec);
         assert.ok(html.includes('id="tab' + v[0].toUpperCase() + v.slice(1) + '"'), v + ': has a tab with the id the router expects');
     }
 });
 
-test('the tab bar follows the workflow: overview, analysis, security and risk, API compatibility, then the detailed views', () => {
+test('the tab bar follows the workflow: overview, details, security and risk, then compare', () => {
     const html = read('index.html');
     const groups = [...html.matchAll(/<div class="tab-group" id="(\w+)">([\s\S]*?)<\/div>\s*<\/div>/g)]
         .map(m => ({ id: m[1], views: [...m[2].matchAll(/data-view="(\w+)"/g)].map(v => v[1]) }));
     assert.deepEqual(groups, [
         { id: 'groupSummary', views: ['overview'] },
-        { id: 'groupAnalysis', views: ['metrics', 'architecture'] },
+        { id: 'groupDetail', views: ['navigator', 'cycles'] },
         { id: 'groupSecurity', views: ['risky', 'vulns'] },
-        { id: 'groupCompatibility', views: ['compare'] },
-        { id: 'groupDetail', views: ['inheritance', 'calls', 'cycles', 'source'] }
+        { id: 'groupCompare', views: ['compare'] }
     ]);
 });
 
@@ -59,15 +58,15 @@ test('the view registry and the page agree: same groups, same views, same order'
     assert.equal(new Set(V.ids()).size, V.ids().length, 'no view listed twice');
 });
 
-test('API Compatibility is its own category and no longer part of Security & risk', () => {
+test('Compare Versions is its own category and not part of Security & risk', () => {
     const V = require('../../wwwroot/js/views.js');
-    assert.equal(V.get('compare').group, 'groupCompatibility');
+    assert.equal(V.get('compare').group, 'groupCompare');
     assert.deepEqual(V.inGroup('groupSecurity').map(v => v.id), ['risky', 'vulns']);
 });
 
-test('the Overview offers a Compare action that opens API Compatibility with the open DLL preselected', () => {
+test('the Overview hint opens Compare Versions with the open DLL preselected', () => {
     const ov = read('js', 'overview.js');
-    assert.match(ov, /Compare with another DLL/);
+    assert.match(ov, /Have another version of this assembly\?/);
     assert.match(ov, /compareState\.oldFile = file/);
     assert.match(ov, /navigate\(\{ view: 'compare' \}\)/);
 });
@@ -82,8 +81,8 @@ test('a newly opened assembly starts at the overview and selecting a class or me
     const resets = app.split('\n').filter(l => /^\s+state = \{ view: '/.test(l));
     assert.equal(resets.length, 2);                     // closing everything, and opening an assembly
     assert.ok(resets.every(l => l.includes("view: 'overview'")), 'every place that resets the state starts at the overview');
-    assert.match(app, /navigate\(\{ view: 'inheritance', type: ref\.id, method: null \}\)/);          // a class opens Inheritance
-    assert.match(app, /navigate\(\{ view: 'calls', type: m\.parentClass, method: m\.id \}\)/);       // a method opens Method Calls
+    assert.match(app, /function selectClass/);                          // a class opens Inheritance (or stays in a view that shows it)
+    assert.match(app, /function selectMethod/);                         // a method opens Method Calls (or stays in a view that shows it)
 });
 
 test('the obfuscation notice names what is verified and what is not, and can be dismissed', () => {

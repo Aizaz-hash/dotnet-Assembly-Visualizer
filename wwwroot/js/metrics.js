@@ -19,7 +19,7 @@ function methodLinkCell(row) {
     const td = el('td');
     const a = el('a', 'rc-caller', (row.parentClass || '').split('.').pop() + '.' + row.name);
     a.href = '#'; a.title = row.id;
-    a.onclick = (e) => { e.preventDefault(); navigate({ view: 'calls', type: row.parentClass, method: row.id }); };
+    a.onclick = (e) => { e.preventDefault(); navigate({ view: 'navigator', type: row.parentClass, method: row.id }); };
     td.appendChild(a);
     return td;
 }

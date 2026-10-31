@@ -5,18 +5,17 @@ How the screens are organised, where each one is declared, and how the planned *
 ## The workflow
 
 ```
-open a DLL → Overview → Analysis → Security & risk → API Compatibility → Detailed views
+open a DLL → Overview → Details → Security & risk → Compare
 ```
 
 | Group | Views | Question it answers |
 |---|---|---|
-| Overview | Overview | What is this assembly? (identity, framework, signing, a first look) |
-| Analysis | Metrics, Architecture | How big and how complex is it, and how do its namespaces depend on each other? |
+| Overview | Overview (Summary, Architecture, Metrics) | What is this assembly, how do its namespaces depend on each other, and how big and complex is it? |
+| Details | Code Navigator, Circular Dependencies | The class- and method-level detail behind the summaries. |
 | Security & risk | Risky APIs, Vulnerabilities | What deserves a security review, and which dependencies have known advisories? |
-| Compatibility | API Compatibility | What changed in the public API between two versions? |
-| Detailed views | Inheritance, Method Calls, Circular Dependencies, C# Source | The class- and method-level detail behind the summaries. |
+| Compare | Compare Versions | What changed in the public API between two versions? |
 
-**Compare** is not a separate screen: it is the *API Compatibility* view. The Overview's **Compare with another DLL…** button opens it with the current assembly already chosen as the old version, so it is discoverable from the page the user starts on without adding to the analysis navigation. API Compatibility lives in its own group because it answers a different question than Security & risk (it needs two files, and a finding is a changed signature, not a vulnerability).
+**Compare Versions** (the former *API Compatibility*) is a view of its own. The hint at the top of the Overview opens it with the current assembly already chosen as the old version, so it is discoverable from the page the user starts on without adding to the analysis navigation. It lives in its own group because it answers a different question than Security & risk (it needs two files, and a finding is a changed signature, not a vulnerability).
 
 ## One list of views
 
@@ -32,7 +31,11 @@ Adding a view = one entry in `views.js`, one tab button, one `<section id="view�
 
 All views render from the same analysis result (`rawAssemblyData`) and the same indexes built once in `buildIndexes()`; none of them fetches or computes the facts again. That is what makes merging views cheap: a view is a function from that shared state to DOM.
 
-## Planned: view consolidation
+## Done: the Code Navigator
+
+Inheritance, Method Calls and C# Source are one tab. The selection decides the screen (`navMode()` in `app.js`): a selected method shows the call graph, otherwise the selected class shows its inheritance, and each has the C# code of the selection in a panel below (one shared `renderSource`, one switch to hide it). The registry entry lists the two page sections it owns (`sections`), so the tab bar, the activation logic and the tests still read one list. Circular Dependencies stays separate: it has its own list-and-chain layout.
+
+## Planned: further view consolidation
 
 Idea: one vertically scrollable *analysis screen* with the C# code, the method view and the dependencies as stacked panels, instead of one tab each. Nothing has to be rewritten for it:
 
@@ -53,3 +56,7 @@ State today: the UI colours are plain values in `styles.css`; the notification t
 4. Store the choice in `localStorage` with a try/catch (it must work without storage), toggle in the toolbar.
 
 Because components never name a colour after step 2, a later theme (high contrast, for example) is another token block.
+
+## The Overview tab and disabled tabs
+
+Overview is one tab with three screens (Summary, Architecture, Metrics) chosen with a switch at the top of the page (`state.ovTab`). `ViewRegistry.resolve` maps the old names `architecture` and `metrics` to those screens, so every existing link keeps working. Without an assembly, only views marked `standalone` in the registry (Overview and Compare Versions) are usable; the other tabs are greyed out with the tooltip "Open an assembly first".
