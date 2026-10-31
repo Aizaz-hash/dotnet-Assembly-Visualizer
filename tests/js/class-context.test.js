@@ -139,3 +139,9 @@ test('the order is Overview, Details, Security & risk, Compare', () => {
     assert.deepEqual(V.GROUPS.map(g => g.label), ['Overview', 'Details', 'Security & risk', 'Compare']);
     assert.equal(V.get('compare').label, 'Compare Versions');
 });
+
+test('the Compare buttons on the Overview are real buttons (bordered, white), not toolbar text', () => {
+    const ov = read('js', 'overview.js');
+    assert.ok(!/el\('button', 'tb-btn', /.test(ov), 'plain tb-btn has no background or border and reads as text');
+    assert.equal((ov.match(/el\('button', 'tb-btn small', 'Compare/g) || []).length, 2);
+});

@@ -23,7 +23,7 @@ function renderOverview() {
     root.innerHTML = '';
     if (!hasAssembly) {
         root.appendChild(el('div', 'empty-note', 'Open a .NET assembly (.dll or .exe), a folder or a NuGet package to see what it is.'));
-        const cmp = el('button', 'tb-btn', 'Compare two versions of a DLL…');
+        const cmp = el('button', 'tb-btn small', 'Compare two versions of a DLL…');
         cmp.id = 'btnOverviewCompare';
         cmp.title = 'Compare the public API of two versions of an assembly - no assembly needs to be open';
         cmp.onclick = () => navigate({ view: 'compare' });
@@ -36,7 +36,7 @@ function renderOverview() {
     head.appendChild(el('div', 'ov-name', a ? a.name : currentAssemblyName));
     if (a && a.version) head.appendChild(el('span', 'ov-version', a.version));
     const actions = el('div', 'ov-actions');
-    const cmp = el('button', 'tb-btn', 'Compare with another DLL…');
+    const cmp = el('button', 'tb-btn small', 'Compare with another DLL…');
     cmp.id = 'btnOverviewCompare';
     cmp.title = 'Open API Compatibility with this assembly as the old version: what changed in the public API and what can break callers';
     cmp.onclick = compareWithAnother;
