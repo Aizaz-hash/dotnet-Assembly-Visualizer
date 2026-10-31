@@ -145,10 +145,3 @@ test('the Compare buttons on the Overview are real buttons (bordered, white), no
     assert.ok(!/el\('button', 'tb-btn', /.test(ov), 'plain tb-btn has no background or border and reads as text');
     assert.equal((ov.match(/el\('button', 'tb-btn small', 'Compare/g) || []).length, 2);
 });
-
-test('the method view has no "may have a circular dependency" text line: the selection bar badge and the graph chips say it', () => {
-    const all = read('index.html') + read('js', 'app.js') + read('css', 'styles.css');
-    assert.ok(!/methodNote|renderMethodNote|may have a circular dependency/.test(all));
-    assert.match(read('js', 'app.js'), /'cb-cycle', '⚠ circular dependency'/);
-    assert.match(read('js', 'app.js'), /'⚠ Circular Dependency Detected'/);
-});

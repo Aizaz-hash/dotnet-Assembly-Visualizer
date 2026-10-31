@@ -257,6 +257,12 @@ body.dragging #dropOverlay { display: flex; }
 #inhMembersList { flex: 1; overflow: auto; }
 .crumb { color: var(--accent); cursor: pointer; }
 .crumb:hover { text-decoration: underline; }
+.method-note {
+    display: none; padding: 4px 10px; font-size: 11.5px; line-height: 1.5;
+    background: #fff8e1; color: #6b5a14; border-bottom: 1px solid #f0dc9a;
+}
+.method-note .mn-icon { font-size: 13px; margin-right: 6px; }
+.method-note .mn-link { color: var(--accent); font-weight: 600; }
 
 /* ==========================================================================
    Colour scheme of the main branch (dark #212529 header, #343a40 tab bar,
@@ -356,6 +362,8 @@ body { background: #f8f9fa; color: #212529; }
 .cyc-chip { background: #ffebeb; color: #721c24; border-color: #f5c6cb; }
 .cyc-chip:hover { background: #f8d7da; }
 .cycle-link { color: #721c24; background: #ffebeb; border-color: #f5c6cb; }
+.method-note { background: #fff3cd; color: #856404; border-bottom: 1px solid #ffeeba; }
+.method-note .mn-link { color: #007bff; }
 .cyc-group-head { background: #f1f3f5; color: #495057; border-bottom: 1px solid #dee2e6; }
 .cyc-item .ci-top { color: #dc3545; }
 .cyc-item:hover { background: #e9ecef; }
@@ -422,6 +430,7 @@ body { font-size: 14px; }
 .canvas-message-btn { font-size: 14px; padding: 7px 18px; }
 .cyc-chip { font-size: 12.5px; line-height: 19px; padding: 0 8px; }
 .cyc-chip.main { font-size: 13px; }
+.method-note { font-size: 13.5px; padding: 7px 14px; }
 
 #inhMembers { width: 320px; }
 #cycleList { width: 360px; }

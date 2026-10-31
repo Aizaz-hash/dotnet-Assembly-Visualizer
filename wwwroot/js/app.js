@@ -1048,6 +1048,23 @@ function buildCallGraph(center, depth, wantCallers, wantCallees) {
     return { nodes, edges, truncated, reached };
 }
 
+// Shown only when the dependency analysis found this method in a circular call chain.
+function renderMethodNote() {
+    const note = byId('methodNote');
+    note.innerHTML = '';
+    const n = inMode('calls') ? (cyclesOfMethod.get(state.method) || []).length : 0;
+    if (!n) { note.style.display = 'none'; return; }
+    note.appendChild(el('span', 'mn-icon', 'ⓘ'));
+    note.appendChild(document.createTextNode('This method may have a circular dependency. Click '));
+    const link = el('a', 'mn-link', 'Circular Dependency View');
+    link.href = '#';
+    link.title = 'Show the ' + n + ' circular call chain' + (n === 1 ? '' : 's') + ' through this method';
+    link.onclick = (e) => { e.preventDefault(); navigate({ view: 'cycles', cycleIdx: 0 }); };
+    note.appendChild(link);
+    note.appendChild(document.createTextNode(' to investigate.'));
+    note.style.display = 'block';
+}
+
 function renderCalls() {
     renderCallsGraph();
     renderCallsCode();
@@ -1056,6 +1073,7 @@ function renderCalls() {
 function renderCallsGraph() {
     destroyCallNetwork();
     hideLoader();
+    renderMethodNote();
     const canvas = byId('callCanvas');
     canvas.innerHTML = '';
     byId('callStats').textContent = '';
