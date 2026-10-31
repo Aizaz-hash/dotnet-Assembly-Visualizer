@@ -108,3 +108,10 @@ test('the three former views are one Code Navigator tab: a method shows calls, a
     assert.match(app, /function navMode\(\) \{ return state\.method \? 'calls' : 'inheritance'; \}/);
     assert.ok(!/view: '(inheritance|calls|source)'/.test(app + read('js', 'metrics.js') + read('js', 'risky.js') + read('js', 'architecture.js')), 'every link opens the navigator');
 });
+
+test('only a failed request is reported as a network problem; a script error keeps its own message', () => {
+    const app = read('js', 'app.js');
+    assert.ok(!/instanceof TypeError/.test(app), 'a TypeError thrown while drawing a view is not "the server did not answer"');
+    assert.match(app, /Object\.assign\(new Error\('network error'\), \{ network: true \}\)/);
+    assert.match(app, /const reason = err && err\.network/);
+});

@@ -1449,9 +1449,9 @@ function postFile(url, formData, onUploadProgress) {
         xhr.upload.onprogress = (e) => { if (e.lengthComputable) onUploadProgress(e.loaded / e.total); };
         xhr.upload.onload = () => onUploadProgress(1);
         xhr.onload = () => resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, text: xhr.responseText });
-        xhr.onerror = () => reject(new TypeError('network error'));
-        xhr.ontimeout = () => reject(new TypeError('timeout'));
-        xhr.onabort = () => reject(new TypeError('aborted'));
+        xhr.onerror = () => reject(Object.assign(new Error('network error'), { network: true }));
+        xhr.ontimeout = () => reject(Object.assign(new Error('timeout'), { network: true }));
+        xhr.onabort = () => reject(Object.assign(new Error('aborted'), { network: true }));
         xhr.send(formData);
     });
 }
@@ -1536,7 +1536,8 @@ async function loadFile(file, opts = {}) {
             (dropped ? ` The oldest assembly ("${dropped}") was removed from the list (limit ${MAX_LOADED_ASSEMBLIES}).` : ''), 'success');
         return true;
     } catch (err) {
-        const reason = err instanceof TypeError
+        if (!(err && err.network)) console.error(err);          // a real script error keeps its stack in the console and its own text in the message
+        const reason = err && err.network
             ? (opts.reload
                 ? 'the file could not be read again (moved, renamed or changed?). Use Open to choose it again.'
                 : (maxUploadMb && file.size > maxUploadMb * 1048576
