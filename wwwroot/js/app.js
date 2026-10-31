@@ -1539,7 +1539,9 @@ async function loadFile(file, opts = {}) {
         const reason = err instanceof TypeError
             ? (opts.reload
                 ? 'the file could not be read again (moved, renamed or changed?). Use Open to choose it again.'
-                : `the connection was closed - the file may exceed the server's upload limit${maxUploadMb ? ` (${maxUploadMb} MB)` : ''}.`)
+                : (maxUploadMb && file.size > maxUploadMb * 1048576
+                    ? `the file (${(file.size / 1048576).toFixed(0)} MB) exceeds the server's upload limit (${maxUploadMb} MB).`
+                    : 'the server did not answer - it may have stopped or restarted. Check that the app is still running, reload this page and open the file again.'))
             : err.message;
         showMessage(`Could not ${opts.reload ? 'reload' : 'analyse'} "${file.name}": ${reason}`, 'error');
         setStatus('Ready');
