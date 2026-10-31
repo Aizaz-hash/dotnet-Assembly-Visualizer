@@ -30,6 +30,22 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
         return Analyze(upload);
     }
 
+    // The .exe that sits next to a .NET Core / .NET 5+ application is a small native program that starts the runtime (the "apphost"): the code is in the
+    // .dll beside it. It always references the host resolver (hostfxr), which a general native file does not.
+    private static bool LooksLikeDotNetLauncher(Stream upload)
+    {
+        if (!upload.CanSeek) return false;
+        try
+        {
+            upload.Position = 0;
+            var buffer = new byte[(int)Math.Min(upload.Length, 4 * 1024 * 1024)];
+            int read = 0, n;
+            while (read < buffer.Length && (n = upload.Read(buffer, read, buffer.Length - read)) > 0) read += n;
+            return buffer.AsSpan(0, read).IndexOf("hostfxr"u8) >= 0;
+        }
+        catch (IOException) { return false; }
+    }
+
     public object Analyze(Stream upload)
     {
         var timer = new PipelineTimer();
@@ -68,7 +84,9 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
         using var peReader = new PEReader(upload);
 
         if (!peReader.HasMetadata)
-            throw new InvalidDataException("This file is not a .NET assembly: it has no .NET metadata (a native / unmanaged library or another kind of file).");
+            throw new InvalidDataException(LooksLikeDotNetLauncher(upload)
+                ? "This is the native launcher that \"dotnet build\" and \"dotnet publish\" put next to a .NET application, not the .NET code itself. Open the .dll with the same name from the same folder instead."
+                : "This file is not a .NET assembly: it has no .NET metadata (a native / unmanaged library or another kind of file).");
 
         timer.Mark("load PE image");
 
