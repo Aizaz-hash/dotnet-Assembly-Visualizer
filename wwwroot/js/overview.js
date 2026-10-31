@@ -18,9 +18,25 @@ function compareWithAnother() {
     navigate({ view: 'compare' });
 }
 
+// The same kind of one-line note the method view uses: says what can be done here and links to it.
+function compareNote(withAssembly) {
+    const note = el('div', 'info-note');
+    note.id = 'overviewCompareNote';
+    note.appendChild(el('span', 'mn-icon', 'ⓘ'));
+    note.appendChild(document.createTextNode(withAssembly ? 'Have another version of this assembly? Click ' : 'Have two versions of an assembly? Click '));
+    const link = el('a', 'mn-link', 'Compare Versions');
+    link.href = '#';
+    link.title = 'See what changed in the public API and what can break callers';
+    link.onclick = (e) => { e.preventDefault(); if (withAssembly) compareWithAnother(); else navigate({ view: 'compare' }); };
+    note.appendChild(link);
+    note.appendChild(document.createTextNode(' to see what changed in its public API and what can break callers.'));
+    return note;
+}
+
 function renderOverview() {
     const root = byId('overviewScroll');
     root.innerHTML = '';
+    root.appendChild(compareNote(hasAssembly));
     if (!hasAssembly) {
         root.appendChild(el('div', 'empty-note', 'Open a .NET assembly (.dll or .exe), a folder or a NuGet package to see what it is.'));
         const cmp = el('button', 'tb-btn small', 'Compare two versions of a DLL…');

@@ -697,3 +697,8 @@ body { font-size: 14px; }
 .ov-switch { display: flex; align-items: center; padding: 6px 14px; border-bottom: 1px solid #dee2e6; background: #f8f9fa; }
 .tab.disabled { opacity: .45; cursor: not-allowed; }
 .tab.disabled:hover { background: transparent; }
+
+/* a one-line note with a link, like the one in the method view */
+.info-note { padding: 7px 14px; font-size: 13.5px; line-height: 1.5; background: #fff3cd; color: #856404; border: 1px solid #ffeeba; border-radius: 3px; margin-bottom: 12px; }
+.info-note .mn-icon { font-size: 13px; margin-right: 6px; }
+.info-note .mn-link { color: #007bff; font-weight: 600; }

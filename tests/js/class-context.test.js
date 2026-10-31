@@ -145,3 +145,11 @@ test('the Compare buttons on the Overview are real buttons (bordered, white), no
     assert.ok(!/el\('button', 'tb-btn', /.test(ov), 'plain tb-btn has no background or border and reads as text');
     assert.equal((ov.match(/el\('button', 'tb-btn small', 'Compare/g) || []).length, 2);
 });
+
+test('the Overview has the same kind of one-line note as the method view, linking to Compare Versions', () => {
+    const ov = read('js', 'overview.js'), css = read('css', 'styles.css'), app = read('js', 'app.js');
+    assert.match(ov, /root\.appendChild\(compareNote\(hasAssembly\)\)/);
+    assert.match(ov, /el\('a', 'mn-link', 'Compare Versions'\)/);
+    assert.match(css, /\.info-note \{/);
+    assert.match(app, /function renderMethodNote\(\)/, 'the method view keeps its own note');
+});
