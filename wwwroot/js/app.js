@@ -484,9 +484,14 @@ function updateNavButtons() {
     byId('btnForward').disabled = historyIdx >= history.length - 1;
 }
 
+// The Code Navigator is one tab with two screens: a selected method shows its calls, otherwise the selected class shows its inheritance.
+function navMode() { return state.method ? 'calls' : 'inheritance'; }
+function inMode(mode) { return state.view === 'navigator' && navMode() === mode; }
+
 function applyState() {
+    const activeSection = state.view === 'navigator' ? (navMode() === 'calls' ? 'viewCalls' : 'viewInheritance') : ViewRegistry.sections(state.view)[0];
     ViewRegistry.ids().forEach(v => {
-        byId(ViewRegistry.sectionId(v)).classList.toggle('active', state.view === v);
+        ViewRegistry.sections(v).forEach(sec => byId(sec).classList.toggle('active', sec === activeSection));
         byId(ViewRegistry.tabId(v)).classList.toggle('active', state.view === v);
     });
     byId('inhModeSelected').classList.toggle('active', state.inhMode === 'selected');
@@ -498,15 +503,14 @@ function applyState() {
     renderTitle();
     renderContextBar();
 
-    if (state.view === 'inheritance') renderInheritance();
-    else if (state.view === 'calls') renderCalls();
+    if (inMode('inheritance')) renderInheritance();
+    else if (inMode('calls')) renderCalls();
     else if (state.view === 'vulns') renderVulns();
     else if (state.view === 'risky') renderRisky();
     else if (state.view === 'overview') renderOverview();
     else if (state.view === 'metrics') renderMetrics();
     else if (state.view === 'architecture') renderArchitecture();
     else if (state.view === 'compare') renderCompare();
-    else if (state.view === 'source') renderSource();
     else renderCycles();
     updateNavButtons();
 }
@@ -538,8 +542,8 @@ function renderContextBar() {
 
     const t = typeNodes.get(typeId);
     const typeLink = el('a', 'cb-link', t ? t.name : shortName(typeId));
-    typeLink.title = typeId + ' - show its inheritance';
-    typeLink.onclick = () => { if (t) navigate({ view: 'inheritance', type: typeId, method: null }); };
+    typeLink.title = typeId + ' - show its inheritance and code';
+    typeLink.onclick = () => { if (t) navigate({ view: 'navigator', type: typeId, method: null }); };
     bar.appendChild(typeLink);
     const ns = nsOf.get(typeId);
     if (ns) bar.appendChild(el('span', 'cb-hint', 'in ' + ns));
@@ -548,7 +552,7 @@ function renderContextBar() {
         bar.appendChild(el('span', 'cb-sep', '›'));
         const mLink = el('a', 'cb-link', method.name);
         mLink.title = method.id + ' - show its callers and callees';
-        mLink.onclick = () => navigate({ view: 'calls', type: method.parentClass, method: method.id });
+        mLink.onclick = () => navigate({ view: 'navigator', type: method.parentClass, method: method.id });
         bar.appendChild(mLink);
         const info = AnalysisModel.cycleInfo({ cyclesOfMethod }, method.id);
         if (info) {
@@ -570,7 +574,7 @@ function renderContextBar() {
 
     // the same selection in the other views: one click, nothing else changes
     const hasType = !!typeNodes.get(typeId);
-    const targets = [['inheritance', 'Inheritance', hasType], ['calls', 'Methods', hasType || !!method], ['cycles', 'Cycles', true], ['source', 'C# code', hasType || !!method]];
+    const targets = [['navigator', 'Code Navigator', hasType || !!method], ['cycles', 'Cycles', true]];
     const open = el('span', 'cb-open');
     open.appendChild(el('span', 'cb-label', 'Open in'));
     targets.forEach(([view, label, enabled]) => {
@@ -593,11 +597,6 @@ function renderTitle() {
         const v = ViewRegistry.get('overview');
         t.appendChild(el('span', 'vt-name', v.title));
         t.appendChild(el('span', 'vt-sub', v.subtitle));
-        return;
-    }
-    if (state.view === 'source') {
-        t.appendChild(el('span', 'vt-name', 'C# Source'));
-        t.appendChild(el('span', 'vt-sub', 'Decompiled C# of the selected type or method'));
         return;
     }
     if (state.view === 'compare') {
@@ -632,9 +631,9 @@ function renderTitle() {
         t.appendChild(el('span', 'vt-sub', `${cycles.length} distinct circular call chain${cycles.length === 1 ? '' : 's'} in ${currentAssemblyName}`));
         return;
     }
-    if (state.view === 'calls' && state.method) {
+    if (inMode('calls')) {
         const info = methodInfo(state.method);
-        const toInheritance = () => { if (typeNodes.has(info.className)) navigate({ view: 'inheritance', type: info.className, method: null }); };
+        const toInheritance = () => { if (typeNodes.has(info.className)) navigate({ view: 'navigator', type: info.className, method: null }); };
         const back = el('span', 'crumb', '◀ Inheritance');
         back.title = 'Back to the inheritance view of ' + info.className;
         back.onclick = toInheritance;
@@ -843,7 +842,7 @@ function renderInheritanceGraph() {
         if (!p.nodes.length) return;
         const id = p.nodes[0];
         if (!typeNodes.has(id)) { showMessage('That type is outside the analysed assembly.', 'info'); return; }
-        navigate({ view: 'inheritance', inhMode: 'selected', type: id, method: null });
+        navigate({ view: 'navigator', inhMode: 'selected', type: id, method: null });
     });
 }
 
@@ -1024,7 +1023,7 @@ function buildCallGraph(center, depth, wantCallers, wantCallees) {
 function renderMethodNote() {
     const note = byId('methodNote');
     note.innerHTML = '';
-    const n = (state.view === 'calls' && state.method) ? (cyclesOfMethod.get(state.method) || []).length : 0;
+    const n = inMode('calls') ? (cyclesOfMethod.get(state.method) || []).length : 0;
     if (!n) { note.style.display = 'none'; return; }
     note.appendChild(el('span', 'mn-icon', 'ⓘ'));
     note.appendChild(document.createTextNode('This method may have a circular dependency. Click '));
@@ -1090,7 +1089,7 @@ function renderCallsGraph() {
     canvas.innerHTML = '';
     if (g.nodes.length > 1) showLoader(`Laying out ${g.nodes.length} methods…`);
     setTimeout(() => {
-        if (state.view !== 'calls' || !state.method) { hideLoader(); return; }
+        if (!inMode('calls')) { hideLoader(); return; }
         callNetwork = new vis.Network(canvas, { nodes: g.nodes, edges: g.edges }, options);
         callNetwork.once('afterDrawing', () => { hideLoader(); callNetwork && callNetwork.fit({ animation: false, maxZoomLevel: 1.2 }); });
         layoutTimeout = setTimeout(hideLoader, 8000);
@@ -1129,19 +1128,19 @@ function renderCallsGraph() {
                 const id = p.nodes[0];
                 const info = methodInfo(id);
                 if (info.external) { showMessage('That method is outside the analysed assembly.', 'info'); return; }
-                navigate({ view: 'calls', type: info.className, method: id });
+                navigate({ view: 'navigator', type: info.className, method: id });
             }
         });
     }, 30);
 }
 
 function fitCallGraph() {
-    const net = state.view === 'cycles' ? cycleNetwork : (state.view === 'inheritance' ? inhNetwork : callNetwork);
+    const net = state.view === 'cycles' ? cycleNetwork : (inMode('inheritance') ? inhNetwork : callNetwork);
     if (net) net.fit({ animation: { duration: 300 }, maxZoomLevel: 1.2 });
 }
 
 function exportGraphPng() {
-    const canvas = document.querySelector(state.view === 'cycles' ? '#cycleCanvas canvas' : (state.view === 'inheritance' ? '#inhCanvas canvas' : '#callCanvas canvas'));
+    const canvas = document.querySelector(state.view === 'cycles' ? '#cycleCanvas canvas' : (inMode('inheritance') ? '#inhCanvas canvas' : '#callCanvas canvas'));
     if (!canvas) { showMessage('Nothing to export yet - draw a graph first.', 'info'); return; }
     const out = document.createElement('canvas');
     out.width = canvas.width; out.height = canvas.height;
@@ -1178,7 +1177,7 @@ function methodToken(id, cls) {
     span.title = `${info.className}.${info.name}\nClick to open in Method Calls`;
     span.onclick = () => {
         if (info.external) { showMessage('That method is outside the analysed assembly.', 'info'); return; }
-        navigate({ view: 'calls', type: info.className, method: id });
+        navigate({ view: 'navigator', type: info.className, method: id });
     };
     return span;
 }
@@ -1291,7 +1290,7 @@ function renderCycleDetail(body, chain, canvas) {
     cycleNetwork.on('doubleClick', (p) => {
         if (!p.nodes.length) return;
         const info = methodInfo(p.nodes[0]);
-        if (!info.external) navigate({ view: 'calls', type: info.className, method: p.nodes[0] });
+        if (!info.external) navigate({ view: 'navigator', type: info.className, method: p.nodes[0] });
     });
 }
 
@@ -1653,7 +1652,7 @@ byId('inhModeSelected').onclick = () => navigate({ inhMode: 'selected' });
 byId('inhModeAll').onclick = () => navigate({ inhMode: 'all' });
 byId('inhFmtGraph').onclick = () => navigate({ inhFormat: 'graph' });
 byId('inhFmtTree').onclick = () => navigate({ inhFormat: 'tree' });
-byId('inhDepth').addEventListener('change', () => { inhDepthPref = byId('inhDepth').value === 'all' ? 'all' : parseInt(byId('inhDepth').value, 10); if (state.view === 'inheritance') renderInheritance(); });
+byId('inhDepth').addEventListener('change', () => { inhDepthPref = byId('inhDepth').value === 'all' ? 'all' : parseInt(byId('inhDepth').value, 10); if (inMode('inheritance')) renderInheritance(); });
 byId('btnFitInh').onclick = fitCallGraph;
 byId('btnExportInh').onclick = exportGraphPng;
 
@@ -1664,8 +1663,8 @@ window.addEventListener('keydown', (e) => {
     if (e.altKey && e.key === 'ArrowRight') { e.preventDefault(); goHistory(+1); }
 });
 
-byId('callDepth').addEventListener('change', () => { callDepthPref = byId('callDepth').value === 'all' ? 'all' : parseInt(byId('callDepth').value, 10); if (state.view === 'calls') renderCalls(); });
-['optCallers', 'optCallees'].forEach(id => byId(id).addEventListener('change', () => { if (state.view === 'calls') renderCalls(); }));
+byId('callDepth').addEventListener('change', () => { callDepthPref = byId('callDepth').value === 'all' ? 'all' : parseInt(byId('callDepth').value, 10); if (inMode('calls')) renderCalls(); });
+['optCallers', 'optCallees'].forEach(id => byId(id).addEventListener('change', () => { if (inMode('calls')) renderCalls(); }));
 byId('btnFit').onclick = fitCallGraph;
 byId('btnExport').onclick = exportGraphPng;
 

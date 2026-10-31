@@ -28,7 +28,7 @@ I built this tool because I was tired of staring at massive, unreadable dependen
 
 ### Assembly explorer and inheritance view
 
-An ILSpy-style explorer on the left (assembly → namespaces → types → base types, derived types and methods) with search and Back / Forward navigation. The **Inheritance** tab draws the selected type's base types, interfaces and derived types as an interactive **graph** (bases above, derived types below, dashed lines for interface implementations). Use *Depth* to control how many levels are shown, double-click a type to centre the graph on it, and use *Fit* or *PNG* to zoom or export. A **Tree** toggle switches to an expandable list of the same relationships if you prefer it.
+An ILSpy-style explorer on the left (assembly → namespaces → types → base types, derived types and methods) with search and Back / Forward navigation. The **Code Navigator** draws, for a selected class, the selected type's base types, interfaces and derived types as an interactive **graph** (bases above, derived types below, dashed lines for interface implementations). Use *Depth* to control how many levels are shown, double-click a type to centre the graph on it, and use *Fit* or *PNG* to zoom or export. A **Tree** toggle switches to an expandable list of the same relationships if you prefer it.
 
 ![Inheritance graph for a type](docs/images/v2-inheritance.png)
 
@@ -120,7 +120,7 @@ Then open **http://localhost:8080**. (To run the `v2` line, `git checkout v2` fi
 
 The views are arranged as a workflow: **Overview → Analysis → Security & risk → API Compatibility → Detailed views.** Start at the left of the tab bar and move right; a newly opened assembly starts at **Overview**. The groups and views are listed in one place (`wwwroot/js/views.js`); see [docs/architecture/navigation.md](docs/architecture/navigation.md).
 
-**Selecting things (ILSpy-style).** Pick a **class** in the explorer and the **Inheritance** view opens; expand the class to see its methods; pick a **method** and **Method Calls** opens. The class and method you chose stay visible in the **Selected** bar under the tabs in every view, each part is a link back to its view, and a method that is part of a circular call chain carries a red **⚠ circular dependency** link to that cycle (also shown as a note in Method Calls and a ⚠ in the explorer). Back / Forward (Alt+Left / Alt+Right) retrace your steps.
+**Selecting things (ILSpy-style).** Pick a **class** in the explorer and the **Code Navigator** opens with its inheritance and its C# code; expand the class to see its methods; pick a **method** and the Code Navigator shows its callers and callees with the method's C# code. The class and method you chose stay visible in the **Selected** bar under the tabs in every view, each part is a link back to its view, and a method that is part of a circular call chain carries a red **⚠ circular dependency** link to that cycle (also shown as a note in Method Calls and a ⚠ in the explorer). Back / Forward (Alt+Left / Alt+Right) retrace your steps.
 
 | Area | What it does |
 |---|---|
@@ -158,17 +158,15 @@ The views are arranged as a workflow: **Overview → Analysis → Security & ris
 
 | View | What it shows |
 |---|---|
-| **Inheritance** | Graph (or tree) of base types, interfaces and derived types of the selected class, or of the whole assembly; the depth choices come from the real hierarchy. |
-| **Method Calls** | Callers and callees of the selected method; adjustable depth; each method appears once at its shortest distance; constructors are included. |
+| **Code Navigator** | One screen for the selected class or method, with its C# code (ICSharpCode.Decompiler, the engine behind ILSpy, with syntax highlighting) always underneath - hide it with the **C# code** button. **A class** shows its *inheritance*: a graph (or tree) of base types, interfaces and derived types, or of the whole assembly; the depth choices come from the real hierarchy. **A method** shows its *calls*: callers and callees with an adjustable depth; each method appears once at its shortest distance; constructors are included. Picking another class or method updates both the graph and the code, and the selection is never changed by moving between views. |
 | **Circular Dependencies** | Every distinct circular call chain, grouped by class; click a method to jump to its call graph. Direct recursion is not reported as a cycle. |
-| **C# Source** | The decompiled C# of the selected class or method (ICSharpCode.Decompiler, the engine behind ILSpy), with syntax highlighting; also reachable with the **C#** button in Method Calls. |
 
 
 ### How much to trust each result
 
 | Kind | Where | Meaning |
 |---|---|---|
-| **Structure** | Overview, Metrics, Architecture, Inheritance, Method Calls, Circular Dependencies | Facts read from the assembly's metadata and IL, within the limits below. A cycle is a design smell, not a vulnerability. |
+| **Structure** | Overview, Metrics, Architecture, Code Navigator, Circular Dependencies | Facts read from the assembly's metadata and IL, within the limits below. A cycle is a design smell, not a vulnerability. |
 | **Heuristic** | Risky APIs, unreferenced methods | A pattern that deserves a look. The tool never calls these vulnerabilities. |
 | **Confirmed** | Vulnerabilities | The exact package version is known and lies inside an advisory's affected range. |
 | **Potential** | Vulnerabilities | The version was estimated (no manifest) or could not be verified against the advisory's ranges. |
@@ -194,7 +192,7 @@ The views are arranged as a workflow: **Overview → Analysis → Security & ris
 | `Vulnerability:NuGetBaseUrl` | `https://api.nuget.org/v3-flatcontainer/` | NuGet flat container used to find packages and their dependencies. |
 | `Vulnerability:TimeoutSeconds` | `20` | Timeout for each database request. |
 
-Third-party: the **C# Source** tab uses [ICSharpCode.Decompiler](https://github.com/icsharpcode/ILSpy) (MIT licence) and the graphs use vis-network.
+Third-party: the **Code Navigator** uses [ICSharpCode.Decompiler](https://github.com/icsharpcode/ILSpy) (MIT licence) and the graphs use vis-network.
 
 Endpoints: `POST /api/analysis/analyze` (analyse an uploaded assembly), `POST /api/analysis/diff` (public API changes between two versions), `POST /api/decompile` + `GET /api/decompile/{id}?token=` (C# source), `GET /api/analysis/limits`, `POST /api/vulnerabilities/scan`, `GET /api/vulnerabilities/status`, `GET /healthz`.
 

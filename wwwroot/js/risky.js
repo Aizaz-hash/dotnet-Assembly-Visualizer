@@ -76,7 +76,7 @@ function renderRiskyItems() {
             const info = methodInfo(id);
             const a = el('a', 'rc-caller', info.className.split('.').pop() + '.' + info.name);
             a.href = '#'; a.title = id;
-            a.onclick = (e) => { e.preventDefault(); navigate({ view: 'calls', type: info.className, method: id }); };
+            a.onclick = (e) => { e.preventDefault(); navigate({ view: 'navigator', type: info.className, method: id }); };
             callers.appendChild(a);
         });
         card.appendChild(callers);

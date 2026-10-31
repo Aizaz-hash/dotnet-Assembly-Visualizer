@@ -14,7 +14,7 @@ open a DLL → Overview → Analysis → Security & risk → API Compatibility �
 | Analysis | Metrics, Architecture | How big and how complex is it, and how do its namespaces depend on each other? |
 | Security & risk | Risky APIs, Vulnerabilities | What deserves a security review, and which dependencies have known advisories? |
 | Compatibility | API Compatibility | What changed in the public API between two versions? |
-| Detailed views | Inheritance, Method Calls, Circular Dependencies, C# Source | The class- and method-level detail behind the summaries. |
+| Detailed views | Code Navigator, Circular Dependencies | The class- and method-level detail behind the summaries. |
 
 **Compare** is not a separate screen: it is the *API Compatibility* view. The Overview's **Compare with another DLL…** button opens it with the current assembly already chosen as the old version, so it is discoverable from the page the user starts on without adding to the analysis navigation. API Compatibility lives in its own group because it answers a different question than Security & risk (it needs two files, and a finding is a changed signature, not a vulnerability).
 
@@ -32,7 +32,11 @@ Adding a view = one entry in `views.js`, one tab button, one `<section id="view�
 
 All views render from the same analysis result (`rawAssemblyData`) and the same indexes built once in `buildIndexes()`; none of them fetches or computes the facts again. That is what makes merging views cheap: a view is a function from that shared state to DOM.
 
-## Planned: view consolidation
+## Done: the Code Navigator
+
+Inheritance, Method Calls and C# Source are one tab. The selection decides the screen (`navMode()` in `app.js`): a selected method shows the call graph, otherwise the selected class shows its inheritance, and each has the C# code of the selection in a panel below (one shared `renderSource`, one switch to hide it). The registry entry lists the two page sections it owns (`sections`), so the tab bar, the activation logic and the tests still read one list. Circular Dependencies stays separate: it has its own list-and-chain layout.
+
+## Planned: further view consolidation
 
 Idea: one vertically scrollable *analysis screen* with the C# code, the method view and the dependencies as stacked panels, instead of one tab each. Nothing has to be rewritten for it:
 

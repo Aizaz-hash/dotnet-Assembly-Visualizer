@@ -87,10 +87,8 @@
                 <div class="tab-group" id="groupDetail">
                     <div class="tab-group-label" title="Pick a class to see what it derives from; pick a method to see who calls it, what it calls and its C# code">Detailed views</div>
                     <div class="tab-row">
-                        <button class="tab" id="tabInheritance" data-view="inheritance" title="Base classes, derived classes and interfaces of the selected class">Inheritance</button>
-                        <button class="tab" id="tabCalls" data-view="calls" title="Callers and callees of the selected method">Method Calls</button>
+                        <button class="tab" id="tabNavigator" data-view="navigator" title="The selected class with its inheritance, or the selected method with its callers and callees - and the C# code of either">Code Navigator</button>
                         <button class="tab" id="tabCycles" data-view="cycles" title="Groups of methods that call each other in a circle">Circular Dependencies <span id="cycleCount" class="tab-badge">-</span></button>
-                        <button class="tab" id="tabSource" data-view="source" title="Decompiled C# of the selected class or method">C# Source</button>
                     </div>
                 </div>
             </div>
@@ -172,10 +170,6 @@
                         <div id="cycleCanvas" class="canvas-wrap"></div>
                     </div>
                 </div>
-            </section>
-
-            <section id="viewSource" class="view">
-                <div id="sourceScroll" class="scroll-body"></div>
             </section>
 
             <section id="viewCompare" class="view">

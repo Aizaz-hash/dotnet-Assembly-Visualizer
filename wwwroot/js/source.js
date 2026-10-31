@@ -1,4 +1,4 @@
-// C# Source tab: the decompiled C# of the selected type or method (ICSharpCode.Decompiler, the engine behind ILSpy).
+// The decompiled C# of the selected type or method (ICSharpCode.Decompiler, the engine behind ILSpy), shown under the Code Navigator graph.
 // The assembly stays on this server for a few minutes after the first request so moving between methods is quick.
 'use strict';
 
@@ -51,8 +51,8 @@ function sourceTarget(mode) {
     return null;
 }
 
-// `root` is the C# Source view, or the code panel under the Inheritance / Method Calls graph (`mode` fixes what it shows).
-function renderSource(root = byId('sourceScroll'), mode) {
+// `root` is the code panel under the Code Navigator graph; `mode` fixes what it shows ('type' or 'method').
+function renderSource(root, mode) {
     root.innerHTML = '';
     if (!hasAssembly) { root.appendChild(el('div', 'empty-note', 'Open a .NET assembly, then pick a type or method in the explorer.')); return; }
 

@@ -116,15 +116,15 @@
         return { count: list.length, first: list[0], others: list.slice(1) };
     }
 
-    /** The ILSpy-style rule: choosing a class shows its inheritance, choosing a method shows its call graph. */
+    /** Choosing a class or a method opens the Code Navigator (it shows the class's inheritance or the method's calls, with the code). */
     function viewForSelection(kind) {
-        return kind === 'method' ? 'calls' : 'inheritance';
+        return 'navigator';
     }
 
     // Views that show the selected class / method. Choosing another class or method while one of these is open keeps that view, so the
     // user can walk through classes in the C# code, in the cycles or in the method list without being thrown back to Inheritance.
-    const CLASS_VIEWS = ['inheritance', 'cycles', 'source'];       // Method Calls is about one method: a class opens its Inheritance (with its code)
-    const METHOD_VIEWS = ['calls', 'cycles', 'source'];
+    const CLASS_VIEWS = ['navigator', 'cycles'];
+    const METHOD_VIEWS = ['navigator', 'cycles'];
 
     /** Which view to show after the user picks a class ('type') or a method in the explorer or in a graph. */
     function viewAfterSelect(currentView, kind) {

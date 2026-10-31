@@ -3,7 +3,7 @@
  * so a view is added, moved to another group or merged into another screen here instead of in several files.
  *
  * The groups follow the workflow: open a DLL -> Overview -> Analysis -> Security & risk -> API Compatibility -> Detailed views.
- * `section` is the id of the tab and the element that shows it (tab<Section>, view<Section>).
+ * the id names the tab and, unless the view lists `sections`, the element that shows it (tab<Id>, view<Id>).
  */
 (function (root, factory) {
     if (typeof module === 'object' && module.exports) module.exports = factory();
@@ -27,10 +27,9 @@
         { id: 'risky', group: 'groupSecurity', label: 'Risky APIs', title: 'Risky APIs', subtitle: 'Calls to APIs that deserve a security review (deserialization, processes, code loading, weak crypto, native code, TLS checks)' },
         { id: 'vulns', group: 'groupSecurity', label: 'Vulnerabilities', title: 'Vulnerabilities', subtitle: 'Known vulnerabilities (CVE) in the dependencies of the loaded assembly - Critical and High first', standalone: true },
         { id: 'compare', group: 'groupCompatibility', label: 'API Compatibility', title: 'API Compatibility', subtitle: 'Compare two versions of an assembly: what changed in the public API and what can break callers', standalone: true },
-        { id: 'inheritance', group: 'groupDetail', label: 'Inheritance', title: 'Inheritance', subtitle: 'Base classes, derived classes and interfaces of the selected class' },
-        { id: 'calls', group: 'groupDetail', label: 'Method Calls', title: 'Method Calls', subtitle: 'Callers and callees of the selected method' },
-        { id: 'cycles', group: 'groupDetail', label: 'Circular Dependencies', title: 'Circular Dependencies', subtitle: 'Groups of methods that call each other in a circle' },
-        { id: 'source', group: 'groupDetail', label: 'C# Source', title: 'C# Source', subtitle: 'Decompiled C# of the selected type or method' }
+        // one tab, two screens: a selected class shows its inheritance, a selected method shows its calls - each with its C# code below
+        { id: 'navigator', group: 'groupDetail', label: 'Code Navigator', title: 'Code Navigator', subtitle: 'The selected class (inheritance) or method (callers and callees) with its C# code', sections: ['viewInheritance', 'viewCalls'] },
+        { id: 'cycles', group: 'groupDetail', label: 'Circular Dependencies', title: 'Circular Dependencies', subtitle: 'Groups of methods that call each other in a circle' }
     ];
 
     const cap = (id) => id.charAt(0).toUpperCase() + id.slice(1);
@@ -44,6 +43,8 @@
         /** DOM ids for a view: the tab button and the section that shows it. */
         tabId: (id) => 'tab' + cap(id),
         sectionId: (id) => 'view' + cap(id),
+        /** Every page section a view owns (most views have exactly one). */
+        sections: (id) => { const v = VIEWS.find(x => x.id === id); return v && v.sections ? v.sections : ['view' + cap(id)]; },
         /** A view that can be opened before any assembly is loaded. */
         isStandalone: (id) => !!(VIEWS.find(v => v.id === id) || {}).standalone
     };

@@ -163,7 +163,7 @@ function drawTypeCycle(canvas, m, cycle) {
     }));
     byId('archHint').textContent = `${nodes.length} types in one cycle · ${edges.length} dependencies · double-click a type to open its methods`;
     const net = archDraw(canvas, nodes, edges);
-    net.on('doubleClick', (p) => { if (p.nodes.length) navigate({ view: 'inheritance', type: p.nodes[0], method: null }); });
+    net.on('doubleClick', (p) => { if (p.nodes.length) navigate({ view: 'navigator', type: p.nodes[0], method: null }); });
 }
 
 byId('btnArchBack').onclick = () => { archState.typeView = null; renderArchitecture(); };

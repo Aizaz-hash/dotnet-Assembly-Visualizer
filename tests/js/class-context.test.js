@@ -11,14 +11,14 @@ const ctx = { cycles: m.cycles, methodsByClass: m.methodsByClass };
 const chains = (sel) => Model.cycleChains({ type: null, method: null, cycleAll: false, ...sel }, ctx);
 const idOf = (cls, name) => m.methodsByClass.get(cls).find(x => x.name.startsWith(name + '(')).id;
 
-test('picking a class keeps a view that shows the class; Method Calls and the other views go to Inheritance', () => {
-    for (const v of ['inheritance', 'cycles', 'source']) assert.equal(Model.viewAfterSelect(v, 'type'), v);
-    for (const v of ['calls', 'overview', 'metrics', 'architecture', 'risky', 'vulns', 'compare']) assert.equal(Model.viewAfterSelect(v, 'type'), 'inheritance');
+test('picking a class keeps the Code Navigator or Cycles open; every other view opens the Code Navigator', () => {
+    for (const v of ['navigator', 'cycles']) assert.equal(Model.viewAfterSelect(v, 'type'), v);
+    for (const v of ['overview', 'metrics', 'architecture', 'risky', 'vulns', 'compare']) assert.equal(Model.viewAfterSelect(v, 'type'), 'navigator');
 });
 
-test('picking a method keeps Methods, Cycles and C# code; Inheritance and the summaries go to Methods', () => {
-    for (const v of ['calls', 'cycles', 'source']) assert.equal(Model.viewAfterSelect(v, 'method'), v);
-    for (const v of ['inheritance', 'overview', 'metrics', 'architecture']) assert.equal(Model.viewAfterSelect(v, 'method'), 'calls');
+test('picking a method keeps the Code Navigator or Cycles open; the summaries open the Code Navigator', () => {
+    for (const v of ['navigator', 'cycles']) assert.equal(Model.viewAfterSelect(v, 'method'), v);
+    for (const v of ['overview', 'metrics', 'architecture']) assert.equal(Model.viewAfterSelect(v, 'method'), 'navigator');
 });
 
 test('nothing selected, or "show all": every chain, unchanged', () => {
@@ -73,16 +73,16 @@ test('wiring: every explorer / graph selection goes through selectClass / select
 
 test('wiring: the selection bar opens the same selection in the other views, and a method keeps its class', () => {
     const app = read('js', 'app.js');
-    for (const v of ['inheritance', 'calls', 'cycles', 'source']) assert.match(app, new RegExp("\\['" + v + "', '"));
+    for (const v of ['navigator', 'cycles']) assert.match(app, new RegExp("\\['" + v + "', '"));
     assert.match(read('js', 'source.js'), /sourceScopeFor/, 'the "whole type" choice does not leak to the next method');
 });
 
-test('the Inheritance view carries the C# code of the selected class, using the same renderer as the C# Source view', () => {
+test('the Inheritance view carries the C# code of the selected class, using the shared code renderer', () => {
     const html = read('index.html');
     assert.ok(html.includes('id="inhCodeScroll"') && html.includes('id="btnInhCode"'));
     const app = read('js', 'app.js');
     assert.match(app, /renderSource\(byId\('inhCodeScroll'\), 'type'\)/);
-    assert.match(read('js', 'source.js'), /function renderSource\(root = byId\('sourceScroll'\), mode\)/);
+    assert.match(read('js', 'source.js'), /function renderSource\(root, mode\)/);
     assert.match(app, /function renderInheritance\(\)[\s\S]*?renderInheritanceCode\(\);\n\}/, 'every redraw of the view refreshes the code too');
 });
 
@@ -97,4 +97,14 @@ test('one switch hides or shows the code panel in both views', () => {
     const app = read('js', 'app.js');
     assert.match(app, /byId\('btnInhCode'\)\.onclick = toggleCodePanel/);
     assert.match(app, /byId\('btnCallCode'\)\.onclick = toggleCodePanel/);
+});
+
+test('the three former views are one Code Navigator tab: a method shows calls, a class shows inheritance, both with code', () => {
+    const V = require('../../wwwroot/js/views.js');
+    const html = read('index.html'), app = read('js', 'app.js');
+    assert.deepEqual(V.inGroup('groupDetail').map(v => v.id), ['navigator', 'cycles']);
+    assert.deepEqual(V.sections('navigator'), ['viewInheritance', 'viewCalls']);
+    for (const old of ['tabInheritance', 'tabCalls', 'tabSource', 'viewSource', 'sourceScroll']) assert.ok(!html.includes(old), old + ' is gone');
+    assert.match(app, /function navMode\(\) \{ return state\.method \? 'calls' : 'inheritance'; \}/);
+    assert.ok(!/view: '(inheritance|calls|source)'/.test(app + read('js', 'metrics.js') + read('js', 'risky.js') + read('js', 'architecture.js')), 'every link opens the navigator');
 });

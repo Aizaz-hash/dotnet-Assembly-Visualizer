@@ -9,7 +9,7 @@ const root = path.join(__dirname, '..', '..', 'wwwroot');
 const read = (...p) => fs.readFileSync(path.join(root, ...p), 'utf8').replace(/\r\n/g, '\n');
 
 const RENDERERS = {
-    inheritance: 'renderInheritance', calls: 'renderCalls', cycles: 'renderCycles', architecture: 'renderArchitecture', source: 'renderSource',
+    navigator: ['renderInheritance', 'renderCalls'], cycles: 'renderCycles', architecture: 'renderArchitecture',
     compare: 'renderCompare', metrics: 'renderMetrics', risky: 'renderRisky', vulns: 'renderVulns', overview: 'renderOverview'
 };
 
@@ -29,8 +29,8 @@ test('every view in the tab bar has a section in the page and a renderer defined
 
     assert.deepEqual([...views].sort(), Object.keys(RENDERERS).sort(), 'the tab bar and this test must list the same views');
     for (const v of views) {
-        assert.match(sources, new RegExp('function ' + RENDERERS[v] + '\\('), v + ': renderer defined');
-        assert.ok(html.includes('id="view' + v[0].toUpperCase() + v.slice(1) + '"'), v + ': has a view section');
+        for (const r of [].concat(RENDERERS[v])) assert.match(sources, new RegExp('function ' + r + '\\('), v + ': ' + r + ' defined');
+        for (const sec of require('../../wwwroot/js/views.js').sections(v)) assert.ok(html.includes('id="' + sec + '"'), v + ': has the section ' + sec);
         assert.ok(html.includes('id="tab' + v[0].toUpperCase() + v.slice(1) + '"'), v + ': has a tab with the id the router expects');
     }
 });
@@ -44,7 +44,7 @@ test('the tab bar follows the workflow: overview, analysis, security and risk, A
         { id: 'groupAnalysis', views: ['metrics', 'architecture'] },
         { id: 'groupSecurity', views: ['risky', 'vulns'] },
         { id: 'groupCompatibility', views: ['compare'] },
-        { id: 'groupDetail', views: ['inheritance', 'calls', 'cycles', 'source'] }
+        { id: 'groupDetail', views: ['navigator', 'cycles'] }
     ]);
 });
 
