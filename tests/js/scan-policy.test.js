@@ -78,7 +78,7 @@ const read = (...p) => fs.readFileSync(path.join(root, ...p), 'utf8').replace(/\
 
 test('one scan function serves both the button and the automatic start, and an assembly change schedules a scan', () => {
     const vuln = read('js', 'vuln.js');
-    assert.equal((vuln.match(/fetch\('\/api\/vulnerabilities\/scan'/g) || []).length, 1, 'only one place sends a scan request');
+    assert.equal((vuln.match(/fetch\('\/api\/vulnerabilities\/scan'/g) || []).length, 2, 'two places send a scan request: an assembly and a dependency file on its own');
     assert.match(vuln, /await scanAssembly\(currentAssemblyName, \{ auto: false \}\)/);
     assert.match(vuln, /scanAssembly\(name, \{ auto: true \}\)/);
     assert.match(vuln, /function vulnOnAssemblyChanged\(\)[\s\S]*?vulnScheduleAutoScan\(\);\n\}/);

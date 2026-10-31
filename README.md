@@ -129,7 +129,7 @@ The views are arranged as a workflow: **Overview → Details → Security & risk
 
 ### 1 · Overview
 
-One tab with a switch at the top of the page: **Summary | Architecture | Metrics**. The cards on the Summary open the matching screen. Before any assembly is open, only Overview, Vulnerabilities and Compare Versions can be used; the other tabs are greyed out.
+One tab with a switch at the top of the page: **Summary | Architecture | Metrics**. The cards on the Summary open the matching screen. Before any assembly is open, only Overview, Vulnerabilities and Compare Versions can be used; the other tabs are greyed out. The Overview then is an introduction with three ways to start: open an assembly, scan for vulnerabilities, or compare two versions.
 
 | View | What it shows |
 |---|---|
@@ -149,7 +149,7 @@ One tab with a switch at the top of the page: **Summary | Architecture | Metrics
 | View | What it shows |
 |---|---|
 | **Risky APIs** | Calls to APIs that deserve a security review (unsafe deserializers, Process.Start, Assembly.Load, weak crypto, DllImport, disabled TLS checks, and - because static analysis is blind there - reflection and dynamic code generation) with why each is risky, what to check, and links to the calling methods. **Heuristic leads - not vulnerabilities.** |
-| **Vulnerabilities** | Known advisories for the packages the assembly depends on (levels 1-4, no manifest needed), checked against OSV.dev; summary by severity, filters, remediation, status tracking, PDF / JSON / SBOM / SARIF export. |
+| **Vulnerabilities** | Known advisories for the packages the assembly depends on (levels 1-4, no manifest needed), checked against OSV.dev. **Without any assembly open** you can still choose a .deps.json, project.assets.json or packages.lock.json and scan that on its own; summary by severity, filters, remediation, status tracking, PDF / JSON / SBOM / SARIF export. |
 
 ### 4 · Compare
 

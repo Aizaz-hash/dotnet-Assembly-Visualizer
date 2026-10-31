@@ -149,9 +149,25 @@ test('the Overview has one Compare hint (a link in a neutral line of text), no e
 
 test('the Overview has a one-line hint linking to Compare Versions, neutral in colour, and the method view keeps its own note', () => {
     const ov = read('js', 'overview.js'), css = read('css', 'styles.css'), app = read('js', 'app.js');
-    assert.match(ov, /root\.appendChild\(compareNote\(hasAssembly\)\)/);
+    assert.match(ov, /root\.appendChild\(compareNote\(\)\)/);
     assert.match(ov, /el\('a', 'mn-link', 'Compare Versions'\)/);
     assert.match(css, /\.info-note \{/);
     assert.ok(!/\.info-note \{[^}]*#fff3cd/.test(css), 'not the yellow warning colour');
     assert.match(app, /function renderMethodNote\(\)/, 'the method view keeps its own note');
+});
+
+test('before anything is open the Overview is an introduction with three ways to start, not an empty page', () => {
+    const ov = read('js', 'overview.js');
+    assert.match(ov, /if \(!hasAssembly\) \{ renderOverviewIntro\(root\); return; \}/);
+    for (const label of ['Open an assembly', 'Scan for known vulnerabilities', 'Compare two versions', 'What you get once an assembly is open']) assert.ok(ov.includes(label), label);
+    assert.match(ov, /byId\('dllFile'\)\.click\(\)/);
+});
+
+test('the vulnerability scanner works without an assembly: it scans a dependency file on its own', () => {
+    const vuln = read('js', 'vuln.js');
+    assert.match(vuln, /async function scanManifest\(\)/);
+    assert.match(vuln, /form\.append\('includeApplication', 'false'\)/);
+    assert.match(vuln, /if \(!vulnManifest\.file\) \{ byId\('vulnDepsFile'\)\.click\(\); return; \}/);
+    assert.equal((vuln.match(/fetch\('\/api\/vulnerabilities\/scan'/g) || []).length, 2, 'one request for an assembly, one for a dependency file');
+    assert.ok(!/Open an assembly first/.test(vuln), 'no dead end on the Vulnerabilities tab');
 });
