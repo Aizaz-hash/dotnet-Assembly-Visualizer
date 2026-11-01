@@ -6,7 +6,7 @@ I built this tool because I was tired of staring at massive, unreadable dependen
 
 ![The Code Navigator: the calls of a method that is part of a circular call chain, with its C# code below](docs/images/v3-navigator-method.png)
 
-*The screenshots on this page show small sample assemblies, in the light and the dark theme. This is the v3 interface; the stable v2 line is described in its own branch.*
+*The screenshots on this page show small sample assemblies, in the light and the dark theme. This is the v3 interface (see the [release notes](docs/release/release-notes-v3.0.0.md)); the v2 line stays available on its own branch.*
 
 ---
 
@@ -145,7 +145,7 @@ cd dotnet-Assembly-Visualizer
 dotnet run
 ```
 
-Then open **http://localhost:8080**. This branch is the **v3** line; the released, stable line is **v2** (`git checkout v2` to run it). The Docker image and the prebuilt downloads are built from the latest release.
+Then open **http://localhost:8080**. This branch is the **v3** line, the current release. The earlier **v2** line stays available on its own branch (`git checkout v2`). The Docker image and the prebuilt downloads are built from the latest release.
 
 ### Windows service
 
@@ -268,7 +268,7 @@ Exit codes: `0` ok, `1` findings at/above `--fail-on`, `2` bad arguments or unre
 A GitHub Action wraps it (`action.yml` in this repository):
 
 ```yaml
-- uses: Aizaz-hash/dotnet-Assembly-Visualizer@v2
+- uses: Aizaz-hash/dotnet-Assembly-Visualizer@v3
   with:
     assembly: src/MyApp/bin/Release/net8.0/MyApp.dll
     fail-on: high
@@ -327,7 +327,7 @@ The tests call no external service (OSV.dev and NuGet are faked), but building t
 
 ## Releasing
 
-Releases are built by the *Release* workflow and always use the **current tip of the release branch** (`main` for `0.x`, `v<major>` for everything else - `v2` for `2.x`, `v3` for `3.x`). The latest release is **v2.0.2**; v3 has not been released yet. The *Latest* badge and the Docker `latest` tag follow the **v3** branch (`LATEST_BRANCH` in the workflow), so they stay on v2.0.2 until the first v3 release is published and then move to it; a v2 patch release no longer takes them over:
+Releases are built by the *Release* workflow and always use the **current tip of the release branch** (`main` for `0.x`, `v<major>` for everything else - `v2` for `2.x`, `v3` for `3.x`). The latest release is **v3.0.0** ([notes](docs/release/release-notes-v3.0.0.md)). The *Latest* badge and the Docker `latest` tag follow the **v3** branch (`LATEST_BRANCH` in the workflow), so a v2 patch release does not take them over:
 
 1. Merge everything for the release into the release branch.
 2. GitHub → *Actions* → *Release* → *Run workflow*, choose the branch and enter the version (e.g. `2.0.1`). The workflow builds that branch's latest commit, publishes the GHCR image and the archives, and creates or moves the tag `v<version>` onto exactly that commit.
@@ -349,6 +349,7 @@ The MIT License is a permissive, free-software license. Under its terms you may 
 Bug reports, ideas and pull requests are welcome - open an issue or a PR on [GitHub](https://github.com/Aizaz-hash/dotnet-Assembly-Visualizer). I'd love to hear how you're using it.
 
 - **GitHub:** [aizaz-hash](https://github.com/aizaz-hash)
+- **Blog:** [articles about the project](docs/blog/README.md)
 - **Email:** [send2aizaz@gmail.com](mailto:send2aizaz@gmail.com?subject=Assembly%20Visualizer)
 
 *Built by [Aizaz](https://github.com/aizaz-hash) - happy coding!*
