@@ -321,13 +321,13 @@ node --test tests/ui/*.test.mjs                                                 
 * **The screenshots** in `docs/images/v3-*.png` are retaken from the real app with `node scripts/screenshots.mjs` (same requirements as the UI test); the vulnerability screenshots need the network and are kept from v2.
 * **The UI test** (`tests/ui`) is one end-to-end test of the whole interface. It starts the app, opens a headless Edge / Chrome through the DevTools protocol (no extra packages), loads the sample assemblies and a large real library through the file input and then clicks like a user: start-up (no flash of a half-built page), every class and method of every sample (view, graph highlight, the right C# code), circular dependencies (warnings, chains, direction, no false cycles), navigation sequences with Back and Forward, search, bad files, Light / Dark / System (including the system theme changing live), readability of all text in both themes, layout from desktop to phone width, and speed on a big assembly. It needs the app and the samples built (run `dotnet test` once) and a Chromium browser; without them it is skipped and says why. Options: `UI_TEST_URL` (use a running app), `UI_BROWSER`, `UI_SAMPLES`, `UI_TEST_BUILD=1`.
 
-The tests call no external service (OSV.dev and NuGet are faked), but building the sample assemblies restores their NuGet packages once, so the first build needs internet access. CI runs everything on every pull request.
+The tests call no external service (OSV.dev and NuGet are faked), but building the sample assemblies restores their NuGet packages once, so the first build needs internet access. CI runs everything on every pull request, including the UI test in headless Chrome.
 
 ---
 
 ## Releasing
 
-Releases are built by the *Release* workflow and always use the **current tip of the release branch** (`main` for `0.x`, `v<major>` for everything else - `v2` for `2.x`, `v3` for `3.x`). The latest release is **v2.0.2**; v3 has not been released yet:
+Releases are built by the *Release* workflow and always use the **current tip of the release branch** (`main` for `0.x`, `v<major>` for everything else - `v2` for `2.x`, `v3` for `3.x`). The latest release is **v2.0.2**; v3 has not been released yet. The *Latest* badge and the Docker `latest` tag follow the **v3** branch (`LATEST_BRANCH` in the workflow), so they stay on v2.0.2 until the first v3 release is published and then move to it; a v2 patch release no longer takes them over:
 
 1. Merge everything for the release into the release branch.
 2. GitHub → *Actions* → *Release* → *Run workflow*, choose the branch and enter the version (e.g. `2.0.1`). The workflow builds that branch's latest commit, publishes the GHCR image and the archives, and creates or moves the tag `v<version>` onto exactly that commit.

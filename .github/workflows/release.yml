@@ -2,7 +2,7 @@ name: Release
 
 # Two ways to release - both always build the CURRENT tip of the release branch:
 #
-#  1. Actions -> Release -> "Run workflow": pick the branch (main for v0.x, v2 for v2.x) and enter the
+#  1. Actions -> Release -> "Run workflow": pick the branch (main for v0.x, v2 for v2.x, v3 for v3.x) and enter the
 #     version (e.g. 2.0.0). The workflow builds that branch's latest commit, then creates or moves the
 #     tag v<version> onto exactly that commit.
 #  2. Push a tag v<version>. The workflow refuses to build if the tag is not the tip of its release
@@ -29,7 +29,7 @@ concurrency:
 
 env:
   # The Docker tag "latest" and GitHub's "Latest release" badge follow this branch.
-  LATEST_BRANCH: v2
+  LATEST_BRANCH: v3
 
 jobs:
   prepare:
@@ -54,7 +54,7 @@ jobs:
 
           if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
             if [ "$GITHUB_REF_TYPE" != "branch" ]; then
-              echo "::error::Run this workflow from a branch (main or v2), not from a tag."
+              echo "::error::Run this workflow from a branch (main, v2 or v3), not from a tag."
               exit 1
             fi
             VERSION="${INPUT_VERSION#v}"
