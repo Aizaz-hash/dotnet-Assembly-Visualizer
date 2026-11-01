@@ -180,3 +180,11 @@ test('the Folder button uses the directory picker where there is one, and falls 
     assert.match(app, /err\.name === 'AbortError'\) return;/, 'closing the dialog is not an error');
     assert.match(app, /async function openEntries\(entries\)/, 'a folder, a package and a picked folder share one way of opening');
 });
+
+test('rows of cards and the tab groups wrap on a narrow window instead of forcing sideways scrolling', () => {
+    const css = read('css', 'styles.css');
+    assert.match(css, /^\.risky-counts \{ display: flex; flex-wrap: wrap;/m, 'count / card rows (Overview, Metrics, Risky APIs, Compare)');
+    assert.match(css, /^\.tab-row \{ display: flex; flex-wrap: wrap;/m);
+    assert.match(css, /^\.tab-group \{[^}]*max-width: 100%;/m);
+    assert.match(css, /^\.ov-card \{[^}]*flex: 1 1 130px;/m);
+});
