@@ -10,6 +10,8 @@ import net from 'node:net';
 const here = dirname(fileURLToPath(import.meta.url));
 export const root = join(here, '..', '..');
 const pageScript = readFileSync(join(here, 'page.js'), 'utf8');
+/** The build configuration of the app that is started (UI_TEST_CONFIG, default Debug). */
+export const config = process.env.UI_TEST_CONFIG || 'Debug';
 
 export function findBrowser() {
     const env = process.env.UI_BROWSER; if (env && existsSync(env)) return env;
@@ -31,10 +33,10 @@ async function waitFor(fn, ms, what) { const t0 = Date.now(); let last; while (D
 export async function startApp() {
     if (process.env.UI_TEST_URL) return { url: process.env.UI_TEST_URL.replace(/\/$/, ''), stop() { } };
     const port = await freePort(), url = `http://127.0.0.1:${port}`;
-    const out = join(root, 'bin', 'Debug', 'net8.0');
+    const out = join(root, 'bin', config, 'net8.0');
     // use the existing build when it is complete; otherwise (or with UI_TEST_BUILD=1) let dotnet run build it
     const built = existsSync(join(out, 'dotnet-Assembly-Visualizer.dll')) && existsSync(join(out, 'dotnet-Assembly-Visualizer.runtimeconfig.json')) && process.env.UI_TEST_BUILD !== '1';
-    const args = ['run', ...(built ? ['--no-build'] : []), '--no-launch-profile', '--urls', url];
+    const args = ['run', '-c', config, ...(built ? ['--no-build'] : []), '--no-launch-profile', '--urls', url];
     // scanning is switched off so the test never needs the network
     const child = spawn('dotnet', args, { cwd: root, env: { ...process.env, ASPNETCORE_ENVIRONMENT: 'Production', Vulnerability__Enabled: 'false' }, stdio: ['ignore', 'pipe', 'pipe'] });
     let log = ''; child.stdout.on('data', d => log += d); child.stderr.on('data', d => log += d);

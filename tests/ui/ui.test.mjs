@@ -18,7 +18,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { root, browserPath, startApp, startBrowser } from './browser.mjs';
+import { root, config, browserPath, startApp, startBrowser } from './browser.mjs';
 
 // ---------------------------------------------------------------- what is needed
 
@@ -133,8 +133,9 @@ test('the whole user interface, in a real browser', { skip: skipReason || false,
         await b.openAssembly(FILES.Inheritance());
         const inh = readFileSync(FILES.Inheritance());
         const files = { 'notes.dll': Buffer.from('not a dll, just text\n'), 'empty.dll': Buffer.alloc(0), 'broken.dll': inh.subarray(0, 3000), 'readme.txt': Buffer.from('text') };
-        const launcher = [join(root, 'bin', 'Debug', 'net8.0', 'dotnet-Assembly-Visualizer.exe'), join(root, 'bin', 'Debug', 'net8.0', 'dotnet-Assembly-Visualizer')].find(existsSync);
-        if (launcher) files['dotnet-Assembly-Visualizer.exe'] = readFileSync(launcher);
+        // the native launcher next to a .NET app: a Windows .exe has a PE header, the Linux / macOS one is a different kind of file
+        const launcher = join(root, 'bin', config, 'net8.0', 'dotnet-Assembly-Visualizer.exe');
+        if (process.platform === 'win32' && existsSync(launcher)) files['dotnet-Assembly-Visualizer.exe'] = readFileSync(launcher);
         const expected = { 'notes.dll': /not a valid \.NET assembly/, 'empty.dll': /empty/, 'broken.dll': /not a valid \.NET assembly/, 'readme.txt': /No \.NET assembly/, 'dotnet-Assembly-Visualizer.exe': /native launcher/ };
         for (const [name, bytes] of Object.entries(files)) {
             const p = join(scratch, name); writeFileSync(p, bytes);
@@ -143,6 +144,48 @@ test('the whole user interface, in a real browser', { skip: skipReason || false,
             assert.match(r.toast, expected[name], name + ': ' + r.toast);
             assert.equal(r.keptAssembly, true, name + ' replaced or damaged the loaded assembly'); assert.equal(r.loaderStuck, false, name + ' left the loader on screen');
         }
+    });
+
+    await t.test('Folder button: reads only the assemblies and the .deps.json, survives cancel, falls back without the picker', async () => {
+        await fresh();
+        const dll = readFileSync(FILES.Inheritance()).toString('base64');
+        // The OS folder dialog cannot be opened by a script, so showDirectoryPicker is replaced by a function that returns a REAL browser directory handle (the
+        // origin-private file system) holding the files of a build folder; every getFile() call on it is recorded. Everything after the dialog is the real code.
+        const r = await b.evaluate(`(async () => {
+            const bytes = Uint8Array.from(atob(${JSON.stringify(dll)}), c => c.charCodeAt(0));
+            const root = await navigator.storage.getDirectory();
+            const dir = await root.getDirectoryHandle('build-' + Date.now(), { create: true });
+            const put = async (name, data) => { const w = await (await dir.getFileHandle(name, { create: true })).createWritable(); await w.write(data); await w.close(); };
+            await put('Inheritance.dll', bytes); await put('Inheritance.pdb', new Uint8Array([1, 2, 3, 4]));
+            await put('Inheritance.deps.json', JSON.stringify({ runtimeTarget: { name: '.NETCoreApp,Version=v8.0' }, targets: { '.NETCoreApp,Version=v8.0': { 'Inheritance/1.0.0': {} } }, libraries: { 'Inheritance/1.0.0': { type: 'project', serviceable: false, sha512: '' } } }));
+            const reads = [];
+            const spy = { kind: 'directory', name: dir.name, async *values() { for await (const h of dir.values()) yield h.kind === 'file' ? { kind: 'file', name: h.name, getFile: () => { reads.push(h.name); return h.getFile(); } } : h; } };
+            const out = {};
+            // 1. a folder is chosen
+            window.showDirectoryPicker = async (opts) => { out.mode = opts && opts.mode; return spy; };
+            document.getElementById('btnOpenFolder').click();
+            await UI.until(() => hasAssembly && currentAssemblyName === 'Inheritance.dll', 20000);
+            out.loaded = currentAssemblyName; out.reads = reads.slice().sort(); out.depsKept = !!vulnDepsFiles.get('Inheritance.dll'); out.toast = UI.snap().toasts.join(' | ');
+            // 2. the dialog is closed without choosing
+            const before = UI.snap(); document.querySelectorAll('#toastHost .toast').forEach(x => x.remove());
+            window.showDirectoryPicker = async () => { throw new DOMException('closed', 'AbortError'); };
+            document.getElementById('btnOpenFolder').click(); await UI.w(500);
+            out.cancelQuiet = UI.snap().toasts.length === 0 && UI.snap().type === before.type && currentAssemblyName === 'Inheritance.dll';
+            // 3. no picker (Firefox, Safari), and a folder the picker refuses: the classic folder input is used
+            let inputClicks = 0; const input = document.getElementById('dirFile'); input.addEventListener('click', (e) => { inputClicks++; e.preventDefault(); }, true);
+            window.showDirectoryPicker = undefined; document.getElementById('btnOpenFolder').click(); await UI.w(200);
+            window.showDirectoryPicker = async () => { throw new DOMException('not allowed', 'SecurityError'); };
+            document.getElementById('btnOpenFolder').click(); await UI.w(300);
+            out.inputClicks = inputClicks; out.errors = UI.errors;
+            return out;
+        })()`);
+        assert.equal(r.loaded, 'Inheritance.dll', 'the assembly of the chosen folder is opened');
+        assert.equal(r.mode, 'read', 'the browser is asked for read access only');
+        assert.deepEqual(r.reads, ['Inheritance.deps.json', 'Inheritance.dll'], 'only the assembly and its .deps.json are read - never the .pdb: ' + r.reads);
+        assert.equal(r.depsKept, true, 'the .deps.json is kept for the vulnerability scan');
+        assert.equal(r.cancelQuiet, true, 'closing the dialog is not an error and changes nothing');
+        assert.equal(r.inputClicks, 2, 'without the picker, and when it refuses a folder, the classic folder input opens');
+        expectNone(r.errors, 'script errors');
     });
 
     await t.test('themes: switching keeps the view, selection and code, and redraws the graph', async () => {

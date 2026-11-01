@@ -31,6 +31,24 @@ jobs:
           node-version: '20'
       - run: node --test tests/js/*.test.js
 
+  # the whole interface in a real browser (tests/ui): starts the app, drives headless Chrome through the DevTools protocol, no extra packages
+  ui-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # builds the app and the sample assemblies (they are copied next to the test project)
+      - run: dotnet build tests/DotNetVisualizer.Web.Tests -c Release
+      - run: google-chrome --version
+      - run: node --test tests/ui/*.test.mjs
+        env:
+          UI_TEST_CONFIG: Release
+
   smoke-test:
     runs-on: ubuntu-latest
     steps:
