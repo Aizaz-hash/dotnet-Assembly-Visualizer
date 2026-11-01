@@ -1,12 +1,12 @@
 # .NET Assembly Visualizer
 
-Explore the architecture of a .NET assembly in seconds - inheritance graphs, method call graphs, circular call chains and known vulnerabilities in its dependencies - without loading or running the assembly.
+Understand a .NET assembly in seconds - what it is, how its parts depend on each other, who calls what (with the decompiled C# next to it), what looks risky, what changed between two versions and which of its dependencies have known vulnerabilities - without loading or running it.
 
 I built this tool because I was tired of staring at massive, unreadable dependency graphs when trying to understand how the parts of a complex .NET assembly talk to each other. It reads the DLL binary directly (`System.Reflection.Metadata` plus IL scanning), so there is no runtime overhead and no slow loading.
 
-![Method calls with circular dependency markers](docs/images/v2-calls.png)
+![The Code Navigator: the calls of a method that is part of a circular call chain, with its C# code below](docs/images/v3-navigator-method.png)
 
-*The screenshots on this page show a small sample assembly.*
+*The screenshots on this page show small sample assemblies, in the light and the dark theme. This is the v3 interface; the stable v2 line is described in its own branch.*
 
 ---
 
@@ -17,7 +17,9 @@ I built this tool because I was tired of staring at massive, unreadable dependen
 - [Using the UI](#using-the-ui)
 - [Configuration](#configuration)
 - [How it works](#how-it-works)
+- [Command line and CI](#command-line-and-ci)
 - [Project structure](#project-structure)
+- [Testing](#testing)
 - [Releasing](#releasing)
 - [License](#license)
 - [Contributing and contact](#contributing-and-contact)
@@ -26,25 +28,60 @@ I built this tool because I was tired of staring at massive, unreadable dependen
 
 ## Features
 
-### Assembly explorer and inheritance view
+- **Overview** of the assembly: identity, target framework, signing, obfuscation indicators, the **architecture** of its namespaces and its code **metrics**.
+- **Code Navigator**: pick a class for its **inheritance**, a method for its **callers and callees** - each with the **decompiled C#** underneath.
+- **Circular dependencies**: every distinct circular call chain, with the exact path.
+- **Risky APIs** (leads for a security review) and **Vulnerabilities** (known CVEs in the dependencies, scanned in the background).
+- **Compare Versions**: what changed in the public API between two versions, and what can break callers.
+- **Light, Dark and System** themes.
+- Opens a DLL or EXE, a folder, a NuGet package or a zip; works offline (except the optional vulnerability lookup); runs headless in CI.
 
-An ILSpy-style explorer on the left (assembly → namespaces → types → base types, derived types and methods) with search and Back / Forward navigation. The **Code Navigator** draws, for a selected class, the selected type's base types, interfaces and derived types as an interactive **graph** (bases above, derived types below, dashed lines for interface implementations). Use *Depth* to control how many levels are shown, double-click a type to centre the graph on it, and use *Fit* or *PNG* to zoom or export. A **Tree** toggle switches to an expandable list of the same relationships if you prefer it.
+### Overview, architecture and metrics
 
-![Inheritance graph for a type](docs/images/v2-inheritance.png)
+The first screen after you open an assembly. **Summary** says what the assembly is - name, version, full name, target framework, strong-name status with its public key token, module id, debug or release build, references - shows the **obfuscation indicators** (evidence, never a verdict, with a standing warning about what the analysis cannot do on obfuscated code) and "At a glance" cards that each open the matching view. **Architecture** draws how the namespaces depend on each other and where they depend on each other in a circle. **Metrics** lists complexity hotspots, the most-called and most-dependent methods, the largest types and the methods nothing references.
 
-The **Whole assembly** mode draws every type hierarchy of the assembly in one graph (capped at 300 types for readability; the tree view lists all of them and expands lazily).
+![The Overview of an assembly](docs/images/v3-overview.png)
 
-![Whole-assembly inheritance graph](docs/images/v2-all.png)
+![Namespace architecture](docs/images/v3-architecture.png)
 
-### Method calls
+![Code metrics](docs/images/v3-metrics.png)
 
-Pick a method to see its callers and callees (depth 1-4). Each method appears **once**, however many paths lead to it; repeated calls are merged into a single `×N` edge. Double-click a node to re-centre the graph on it.
+Before anything is open, the Overview is an introduction with the two ways to start: open an assembly or compare two versions.
+
+![The start page](docs/images/v3-start.png)
+
+### Assembly explorer and Code Navigator
+
+An ILSpy-style explorer on the left (assembly → namespaces → types → base types, derived types and methods) with search and Back / Forward navigation. What you pick decides what the **Code Navigator** shows - and the C# of it is always underneath:
+
+- **A class** shows its **inheritance** as an interactive graph (bases above, derived types below, dashed lines for interface implementations), or as a tree, or for the **whole assembly** (capped at 300 types for readability; the tree lists all of them). *Depth* controls how many levels are shown; double-click a type to centre the graph on it; *Fit* and *PNG* zoom and export.
+- **A method** shows its **callers and callees** (depth 1-4). Each method appears once, however many paths lead to it; repeated calls are merged into a single `×N` edge. A property getter or setter shows its property declaration.
+
+![Inheritance of a class, with its C# code](docs/images/v3-navigator-class.png)
+
+The selection never changes by itself: moving between the Navigator and the Circular Dependencies view keeps the same class or method, and the **Selected** bar above every view links to the others.
 
 ### Circular dependency detection
 
-Methods that take part in a circular call chain are marked in the explorer and get a clickable **⚠ Circular Dependency Detected** marker above them in the call graph (see the first screenshot). Clicking it opens the dedicated view: every distinct chain through that method, e.g. `A() → B() → C() → A()`, with the start and the loop-back marked. Click any method in a chain to jump back to its call graph.
+Methods that take part in a circular call chain are marked in the explorer and get a clickable **⚠ Circular Dependency Detected** marker in the call graph; a class shows how many chains run through it. The **Circular Dependencies** view lists every distinct chain, e.g. `A() → B() → C() → A()`, with the start and the loop-back marked, filtered to the selected class or method (or all chains). Click any method in a chain to open it in the Code Navigator.
 
-![Circular dependency view](docs/images/v2-cycles.png)
+![Circular dependency view](docs/images/v3-cycles.png)
+
+### Risky APIs
+
+Calls to APIs that deserve a security review - unsafe deserializers, `Process.Start`, `Assembly.Load`, weak crypto, `DllImport`, disabled TLS checks and, because static analysis is blind there, reflection and dynamic code generation - with why each is risky, what to check, and links to the calling methods. These are **heuristic leads, not vulnerabilities**.
+
+![Risky API calls](docs/images/v3-risky.png)
+
+### Compare Versions
+
+Choose two versions of an assembly (or start from the Overview with the open one as the old version) to list the changes in the public API, with the ones that can break callers marked - removed or changed members, narrower visibility, sealed types, added abstract members and so on - a suggested version bump, and Markdown / JSON export. Only metadata is read; nothing runs. It works without any assembly open.
+
+### Light, dark and system themes
+
+The **Theme** switch in the toolbar offers **System** (follows the operating system or browser setting, live), **Light** and **Dark**. The choice is remembered in the browser and applied before the page is painted. The graphs and the C# viewer follow the theme, and the text is readable (WCAG AA) in both.
+
+![The dark theme](docs/images/v3-dark.png)
 
 ### Vulnerabilities Scan
 
@@ -68,7 +105,7 @@ The **Vulnerabilities** view checks the dependencies of the assembly you have lo
 
 ### More
 
-- Open an assembly with the **Open** button or by dragging a `.dll` / `.exe` onto the page; several assemblies can be loaded at once. You can also open a **NuGet package (`.nupkg`)**, a **`.zip`** or a whole **folder** (the **Folder** button, or drop a folder): the best `lib/<framework>` assembly of a package, or the application assemblies of a publish folder, are opened (copies of the .NET framework are skipped, up to 8 at once) and the `.deps.json` that comes with them is used automatically for exact package versions in the Vulnerabilities Scan. They are listed in the explorer; click one to switch, and right-click it (or use the ✕ on hover) to **Reload** or **Remove** it.
+- Open an assembly with the **Open** button or by dragging a `.dll` / `.exe` onto the page; several assemblies can be loaded at once. You can also open a **NuGet package (`.nupkg`)**, a **`.zip`** or a whole **folder** (the **Folder** button, or drop a folder; in Chrome and Edge the button uses the browser's directory picker, which only asks to let the page *view* the folder, and then only the assemblies and the `.deps.json` are read - the `.pdb` and everything else is left alone; other browsers show their own "upload N files" prompt, which counts the whole folder): the best `lib/<framework>` assembly of a package, or the application assemblies of a publish folder, are opened (copies of the .NET framework are skipped, up to 8 at once) and the `.deps.json` that comes with them is used automatically for exact package versions in the Vulnerabilities Scan. They are listed in the explorer; click one to switch, and right-click it (or use the ✕ on hover) to **Reload** or **Remove** it.
 - **Fit** and **PNG** export for graphs; the UI works offline (`vis-network` is bundled).
 - Helpful errors for native or corrupt DLLs and a configurable upload limit; notifications are small toasts at the top right that disappear after a few seconds.
 - Fully offline UI (except the optional vulnerability lookup).
@@ -108,7 +145,7 @@ cd dotnet-Assembly-Visualizer
 dotnet run
 ```
 
-Then open **http://localhost:8080**. (To run the `v2` line, `git checkout v2` first.)
+Then open **http://localhost:8080**. This branch is the **v3** line; the released, stable line is **v2** (`git checkout v2` to run it). The Docker image and the prebuilt downloads are built from the latest release.
 
 ### Windows service
 
@@ -200,7 +237,9 @@ Endpoints: `POST /api/analysis/analyze` (analyse an uploaded assembly), `POST /a
 - **Engine:** reads the PE metadata and scans IL bytes for `call` and `callvirt` opcodes to build the inheritance and call graphs; lambdas and compiler-generated methods are resolved back to the source methods that contain them.
 - **Circular chains:** detected with a depth-first search over the call graph; the UI merges rotations of the same cycle so each chain is listed once.
 - **Backend:** ASP.NET Core with a modular structure (`Controllers`, `Services`, `Interfaces`); `IAssemblyAnalyzer` and `ICircularDependencyDetector` are registered through dependency injection.
-- **Frontend:** plain HTML, CSS and JavaScript with [vis-network](https://visjs.github.io/vis-network/) for graphs.
+- **C# code:** [ICSharpCode.Decompiler](https://github.com/icsharpcode/ILSpy) decompiles the selected type or method on demand; the server keeps the assembly in memory for a few minutes so clicking through methods is quick. Nothing is executed.
+- **Metrics, risky APIs and API changes:** cyclomatic complexity and size come from the same IL scan as the call graph; the risky-API rules and the public API differ read metadata only.
+- **Frontend:** plain HTML, CSS and JavaScript (no bundler) with [vis-network](https://visjs.github.io/vis-network/) for graphs. The views are declared once in `wwwroot/js/views.js`; every colour is a theme token in `wwwroot/css/theme.css`. See [docs/architecture/navigation.md](docs/architecture/navigation.md).
 
 ---
 
@@ -246,17 +285,20 @@ In the web UI, **Export SBOM** and **Export SARIF** produce the same files from 
 ## Project structure
 
 ```
-Controllers/     HTTP API (AnalysisController)
-Services/        AssemblyAnalyzerService, CircularDependencyDetectorService
-Interfaces/      IAssemblyAnalyzer, ICircularDependencyDetector
+Controllers/     HTTP API (analysis, decompile, vulnerabilities)
+Services/        AssemblyAnalyzerService, CircularDependencyDetectorService, AssemblyInsights (identity, obfuscation indicators), RiskyApiRules
+Services/ApiDiff/           public API differ (Compare Versions)
+Services/Decompilation/     C# decompiler service
 Services/Vulnerabilities/   OSV + NuGet clients, dependency resolver (levels 1-4), CVSS calculator, version ranges, scanner
+Services/Cli/               the command line (scan, SBOM, SARIF)
+Interfaces/      IAssemblyAnalyzer, ICircularDependencyDetector
 util/            shared helpers
-wwwroot/         index.html, css/, js/, lib/ (bundled vis-network)
-tests/           automated tests: Unit/ (one component, fakes for the network), Integration/ (the real analyzer, scanner and API on the sample assemblies), Support/, and js/ (node --test)
+wwwroot/         index.html, css/ (styles.css, theme.css = every colour per theme), js/ (views.js = the list of views, one script per area), lib/ (bundled vis-network)
+tests/           automated tests: Unit/ (one component, fakes for the network), Integration/ (the real analyzer, scanner and API on the sample assemblies), Support/, js/ (node --test) and ui/ (the whole interface in a real browser)
 tools/PerfPoc/   per-stage timing benchmark for the analyzer (see docs/performance/PERFORMANCE_REPORT.md)
 samples/         sample assemblies to open and explore - one folder per scenario, documented in samples/README.md (they are inputs, not tests)
-scripts/win/     Windows service installer
-docs/images/     screenshots used in this README
+scripts/         Windows service installer (win/), JS fixture generator, screenshots.mjs (retakes the screenshots in docs/images)
+docs/            architecture/ (navigation, views and themes), images/ (screenshots used in this README), qa/, release/, performance/
 .github/         CI and release workflows
 ```
 
@@ -269,11 +311,15 @@ dotnet test tests/DotNetVisualizer.Web.Tests -c Release                         
 dotnet test tests/DotNetVisualizer.Web.Tests -c Release --filter "FullyQualifiedName~Tests.Unit"          # unit tests only
 dotnet test tests/DotNetVisualizer.Web.Tests -c Release --filter "FullyQualifiedName~Tests.Integration"   # integration tests only
 node --test tests/js/*.test.js                                                             # browser-side logic
+node --test tests/ui/*.test.mjs                                                            # the whole interface in a real browser (about 5 minutes)
 ```
 
 * **Unit tests** check one component at a time (CVSS and version ranges, the scanner and resolver with a fake OSV / NuGet, the exporters, the command line, the decompiler service, the API differ, the metrics and risky-API rules).
 * **Integration tests** run the real analyzer, scanner, API differ and command line on the real [sample assemblies](samples/README.md): every "EXPECTED" statement in a sample's source header is asserted. Only OSV.dev and NuGet are replaced by fakes.
 * **JavaScript tests** cover the depth model, the layout, the architecture analysis, the click and loader logic, and (from real analyzer output for three samples, `tests/js/fixtures`) the model behind the Method View -> Circular Dependency link. `scripts/update-js-fixtures` regenerates the fixtures and an integration test fails if they are stale.
+
+* **The screenshots** in `docs/images/v3-*.png` are retaken from the real app with `node scripts/screenshots.mjs` (same requirements as the UI test); the vulnerability screenshots need the network and are kept from v2.
+* **The UI test** (`tests/ui`) is one end-to-end test of the whole interface. It starts the app, opens a headless Edge / Chrome through the DevTools protocol (no extra packages), loads the sample assemblies and a large real library through the file input and then clicks like a user: start-up (no flash of a half-built page), every class and method of every sample (view, graph highlight, the right C# code), circular dependencies (warnings, chains, direction, no false cycles), navigation sequences with Back and Forward, search, bad files, Light / Dark / System (including the system theme changing live), readability of all text in both themes, layout from desktop to phone width, and speed on a big assembly. It needs the app and the samples built (run `dotnet test` once) and a Chromium browser; without them it is skipped and says why. Options: `UI_TEST_URL` (use a running app), `UI_BROWSER`, `UI_SAMPLES`, `UI_TEST_BUILD=1`.
 
 The tests call no external service (OSV.dev and NuGet are faked), but building the sample assemblies restores their NuGet packages once, so the first build needs internet access. CI runs everything on every pull request.
 
@@ -281,7 +327,7 @@ The tests call no external service (OSV.dev and NuGet are faked), but building t
 
 ## Releasing
 
-Releases are built by the *Release* workflow and always use the **current tip of the release branch** (`main` for `0.x`, `v2` for `2.x`):
+Releases are built by the *Release* workflow and always use the **current tip of the release branch** (`main` for `0.x`, `v<major>` for everything else - `v2` for `2.x`, `v3` for `3.x`). The latest release is **v2.0.2**; v3 has not been released yet:
 
 1. Merge everything for the release into the release branch.
 2. GitHub → *Actions* → *Release* → *Run workflow*, choose the branch and enter the version (e.g. `2.0.1`). The workflow builds that branch's latest commit, publishes the GHCR image and the archives, and creates or moves the tag `v<version>` onto exactly that commit.

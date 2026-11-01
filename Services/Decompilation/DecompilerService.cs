@@ -92,7 +92,9 @@ public sealed class DecompilerService : IDecompilerService
             string code;
             try
             {
-                code = await Task.Run(() => entry.Decompiler.DecompileAsString(handle), ct).WaitAsync(Budget, ct);
+                // the body of a getter on its own is just "{ return 3; }": show the property it belongs to, with its declaration
+                var target = AccessorOwner(metadata, handle) ?? handle;
+                code = await Task.Run(() => entry.Decompiler.DecompileAsString(target), ct).WaitAsync(Budget, ct);
             }
             catch (TimeoutException)
             {
@@ -108,6 +110,25 @@ public sealed class DecompilerService : IDecompilerService
             return new DecompiledSource(code, truncated, Kind(handle), "");
         }
         finally { entry.Gate.Release(); }
+    }
+
+    /// <summary>The property or event a get/set/add/remove/raise method belongs to, or null when the method is an ordinary one.</summary>
+    internal static System.Reflection.Metadata.EntityHandle? AccessorOwner(System.Reflection.Metadata.MetadataReader metadata, System.Reflection.Metadata.EntityHandle handle)
+    {
+        if (handle.Kind != System.Reflection.Metadata.HandleKind.MethodDefinition) return null;
+        var method = (System.Reflection.Metadata.MethodDefinitionHandle)handle;
+        var type = metadata.GetTypeDefinition(metadata.GetMethodDefinition(method).GetDeclaringType());
+        foreach (var ph in type.GetProperties())
+        {
+            var a = metadata.GetPropertyDefinition(ph).GetAccessors();
+            if (a.Getter == method || a.Setter == method) return ph;
+        }
+        foreach (var eh in type.GetEvents())
+        {
+            var a = metadata.GetEventDefinition(eh).GetAccessors();
+            if (a.Adder == method || a.Remover == method || a.Raiser == method) return eh;
+        }
+        return null;
     }
 
     private static string Kind(System.Reflection.Metadata.EntityHandle h) => h.Kind == System.Reflection.Metadata.HandleKind.TypeDefinition ? "type" : "method";

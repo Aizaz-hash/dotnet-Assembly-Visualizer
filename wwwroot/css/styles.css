@@ -554,7 +554,7 @@ body { font-size: 14px; }
 /* Risky APIs tab */
 #viewRisky .scroll-body { padding: 14px 18px; }
 .risky-intro p { margin: 0 0 12px; color: var(--fg-495057); font-size: 13px; line-height: 1.5; max-width: 900px; }
-.risky-counts { display: flex; gap: 10px; margin-bottom: 12px; }
+.risky-counts { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
 .risky-count { cursor: pointer; border: 1px solid var(--bd-dee2e6); border-left-width: 4px; border-radius: 4px; padding: 6px 16px; background: var(--bg-ffffff); min-width: 90px; }
 .risky-count.active { box-shadow: 0 0 0 2px color-mix(in srgb, var(--fg-0a58ca) 33%, transparent); }
 .risky-count.sev-high { border-left-color: var(--bd-dc3545); } .risky-count.sev-medium { border-left-color: var(--bd-fd7e14); } .risky-count.sev-low { border-left-color: var(--bd-0d6efd); }
@@ -611,10 +611,10 @@ body { font-size: 14px; }
 
 /* grouped navigation: Assembly overview | Structure & relationships | Security & risk */
 .tab-strip { align-items: flex-end; gap: 0; flex-wrap: wrap; padding: 4px 4px 0 4px; }      /* wraps on a narrow window, so no tab is ever hidden off-screen */
-.tab-group { display: flex; flex-direction: column; padding: 0 10px 0 8px; border-left: 1px solid var(--bd-495057); flex: 0 0 auto; }
+.tab-group { display: flex; flex-direction: column; padding: 0 10px 0 8px; border-left: 1px solid var(--bd-495057); flex: 0 0 auto; max-width: 100%; }
 .tab-group:first-child { border-left: none; padding-left: 4px; }
 .tab-group-label { font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--fg-adb5bd); padding: 1px 6px 3px; white-space: nowrap; cursor: default; }
-.tab-row { display: flex; gap: 2px; }
+.tab-row { display: flex; flex-wrap: wrap; gap: 2px; }
 .tab { white-space: nowrap; }
 .tab:focus-visible { outline: 2px solid var(--bd-74c0fc); outline-offset: -2px; }
 
@@ -649,7 +649,7 @@ body { font-size: 14px; }
 .ov-grid { margin-bottom: 14px; }
 .asm-v.mono { font-family: Consolas, "Courier New", monospace; font-size: 12px; }
 .ov-section { font-weight: 600; margin: 16px 0 8px; }
-.ov-card { cursor: pointer; }
+.ov-card { cursor: pointer; flex: 1 1 130px; max-width: 220px; }
 .ov-card:hover { border-color: var(--bd-4dabf7); }
 .ov-card.warn .rcn-num { color: var(--fg-e8590c); }
 .ov-card.bad .rcn-num { color: var(--fg-c92a2a); }
@@ -688,3 +688,8 @@ body { font-size: 14px; }
 .theme-switch { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--fg-f1f3f5); }
 .theme-switch select { background: var(--bg-343a40); color: var(--fg-ffffff); border: 1px solid var(--bd-495057); border-radius: 3px; padding: 2px 4px; }
 .theme-switch select:focus { outline: 2px solid var(--fg-0a58ca); outline-offset: 1px; }
+
+/* Until the scripts have drawn the first screen the workspace is not painted: otherwise the bare markup (a tab bar with nothing selected, empty panes)
+   shows for a moment and is then replaced. If the scripts never finish (an error), the workspace appears after 3 seconds anyway. */
+body:not(.app-ready) #workspace { visibility: hidden; animation: reveal-late 0s linear 3s forwards; }
+@keyframes reveal-late { to { visibility: visible; } }

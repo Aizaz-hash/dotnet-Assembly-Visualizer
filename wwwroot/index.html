@@ -29,7 +29,7 @@
                 <input type="file" id="dllFile" accept=".dll,.exe,.nupkg,.zip,.json" multiple />
                 <input type="file" id="dirFile" webkitdirectory style="display:none" />
             </div>
-            <button id="btnOpenFolder" class="tb-btn" title="Open a folder (for example a publish folder): loads its assemblies and picks up the .deps.json">📁 Folder</button>
+            <button id="btnOpenFolder" class="tb-btn" title="Open a folder (for example a publish folder): loads its assemblies and picks up the .deps.json. Only those files are read - the .pdb and the rest are left alone.">📁 Folder</button>
             <span id="currentDllName" class="dll-name-display">No assembly loaded</span>
             <span id="uploadHint" class="upload-hint"></span>
         </div>
@@ -41,6 +41,7 @@
                 <option value="dark">Dark</option>
             </select>
         </label>
+        <script>(function () { var s = document.getElementById('themeSelect'), p = document.documentElement.dataset.themePref; if (s && p) s.value = p; })();</script>
         <h1 class="app-title">dotnet Assembly Visualizer</h1>
     </header>
 
