@@ -3,6 +3,15 @@ using Xunit;
 
 namespace DotNetVisualizer.Web.Tests.Unit
 {
+    // Members analysed by the accessor tests below (never executed).
+    public class AccessorSubject
+    {
+        public int Fixed => 7;
+        public int Both { get; set; }
+        public event EventHandler? Changed;
+        public void Raise() => Changed?.Invoke(this, EventArgs.Empty);
+    }
+
     public class DecompilerServiceTests
     {
         private static readonly byte[] Bytes = File.ReadAllBytes(typeof(DecompilerServiceTests).Assembly.Location);
@@ -45,6 +54,35 @@ namespace DotNetVisualizer.Web.Tests.Unit
             Assert.Contains("int Simple()", result.Code);
             Assert.Contains("return 1;", result.Code);
             Assert.DoesNotContain("Branchy", result.Code);
+        }
+
+        private static async Task<string> CodeOf(int token)
+        {
+            var service = new DecompilerService();
+            return (await service.DecompileAsync(service.Open(Bytes), token, default))!.Code;
+        }
+
+        [Fact]
+        public async Task A_getter_shows_the_property_it_belongs_to_not_a_bare_body()
+        {
+            var code = await CodeOf(typeof(AccessorSubject).GetProperty(nameof(AccessorSubject.Fixed))!.GetMethod!.MetadataToken);
+            Assert.Contains("int Fixed", code);
+            Assert.Contains("7", code);
+        }
+
+        [Fact]
+        public async Task A_setter_and_an_event_accessor_also_show_their_declaration()
+        {
+            Assert.Contains("int Both", await CodeOf(typeof(AccessorSubject).GetProperty(nameof(AccessorSubject.Both))!.SetMethod!.MetadataToken));
+            Assert.Contains("Changed", await CodeOf(typeof(AccessorSubject).GetEvent(nameof(AccessorSubject.Changed))!.AddMethod!.MetadataToken));
+        }
+
+        [Fact]
+        public async Task An_ordinary_method_next_to_a_property_is_unchanged()
+        {
+            var code = await CodeOf(typeof(AccessorSubject).GetMethod(nameof(AccessorSubject.Raise))!.MetadataToken);
+            Assert.Contains("Raise", code);
+            Assert.DoesNotContain("int Fixed", code);
         }
 
         [Fact]
