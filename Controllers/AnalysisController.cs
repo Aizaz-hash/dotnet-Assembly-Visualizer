@@ -42,8 +42,10 @@ namespace DotNetVisualizer.Web.Controllers
         [HttpPost("analyze")]
         public IActionResult AnalyzeAssembly(IFormFile file)
         {
-            if (file == null || file.Length == 0)
-                return BadRequest("No DLL uploaded.");
+            if (file == null)
+                return BadRequest("No file was uploaded.");
+            if (file.Length == 0)
+                return BadRequest("The file is empty (0 bytes), so there is nothing to analyse.");
 
             try
             {

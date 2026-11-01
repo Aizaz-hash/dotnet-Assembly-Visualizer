@@ -16,7 +16,8 @@ namespace DotNetVisualizer.Web.Controllers
         [HttpPost]
         public async Task<IActionResult> Open(IFormFile file, CancellationToken ct)
         {
-            if (file == null || file.Length == 0) return BadRequest("No DLL uploaded.");
+            if (file == null) return BadRequest("No file was uploaded.");
+            if (file.Length == 0) return BadRequest("The file is empty (0 bytes), so there is nothing to decompile.");
             try
             {
                 using var ms = new MemoryStream((int)Math.Min(file.Length, int.MaxValue));

@@ -119,6 +119,18 @@ namespace DotNetVisualizer.Web.Tests.Integration
         }
 
         [Fact]
+        public async Task An_empty_file_is_called_empty_not_missing()
+        {
+            var client = _factory.CreateClient();
+            var empty = await client.PostAsync("/api/analysis/analyze", new MultipartFormDataContent { { new ByteArrayContent(Array.Empty<byte>()), "file", "empty.dll" } });
+            var none = await client.PostAsync("/api/analysis/analyze", new MultipartFormDataContent());
+
+            Assert.Equal(HttpStatusCode.BadRequest, empty.StatusCode);
+            Assert.Contains("empty", await empty.Content.ReadAsStringAsync());
+            Assert.Equal(HttpStatusCode.BadRequest, none.StatusCode);
+        }
+
+        [Fact]
         public async Task Existing_analysis_endpoint_is_untouched_and_the_limits_endpoint_works()
         {
             var client = _factory.CreateClient();
