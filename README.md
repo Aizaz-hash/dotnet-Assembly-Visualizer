@@ -280,6 +280,20 @@ A GitHub Action wraps it (`action.yml` in this repository):
 
 In the web UI, **Export SBOM** and **Export SARIF** produce the same files from the scan on screen.
 
+### The Dav PowerShell module
+
+The same checks are also a PowerShell module, **Dav**, for PowerShell 7 (Windows, Linux, macOS) and Windows PowerShell 5.1: risky APIs, vulnerabilities, version comparison and circular dependencies, with a risk threshold. Risky APIs, vulnerabilities and a too-small version bump fail the command; circular dependencies only warn.
+
+```powershell
+Import-Module ./Dav/Dav.psd1
+Invoke-DavCheck .inRelease
+et8.0MyApp.dll -FailOn high
+Compare-DavVersion .oldMyLib.dll .
+ewMyLib.dll
+```
+
+Full usage, the threshold table, exit codes for CI and `dav.json`: [docs/dav-module.md](docs/dav-module.md). Build the module with `scripts/build-module.ps1`. The container image contains PowerShell and the module too: `docker run --rm -v "$PWD:/work" --entrypoint pwsh ghcr.io/aizaz-hash/dotnet-visualizer-web:latest -NoProfile -Command "Invoke-DavCheck /work/MyApp.dll -FailOn high"`.
+
 ---
 
 ## Project structure

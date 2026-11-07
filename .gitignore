@@ -28,3 +28,6 @@ node_modules/
 
 # build output of the deliberately vulnerable sample
 samples/**/out/
+
+# build output of scripts/build-module.ps1
+artifacts/

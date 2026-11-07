@@ -1,5 +1,5 @@
 #pragma warning disable CS0169, CS0414, CS0618, IDE0051
-using DotNetVisualizer.Web.Services.ApiDiff;
+using DotNetVisualizer.Core.ApiDiff;
 using Xunit;
 
 namespace DotNetVisualizer.Web.Tests.Unit

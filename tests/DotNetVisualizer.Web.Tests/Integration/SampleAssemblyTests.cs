@@ -1,6 +1,6 @@
 using System.Text.Json;
 using DotNetVisualizer.Web.Services;
-using DotNetVisualizer.Web.Services.ApiDiff;
+using DotNetVisualizer.Core.ApiDiff;
 using Xunit;
 
 namespace DotNetVisualizer.Web.Tests.Integration

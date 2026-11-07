@@ -1,7 +1,7 @@
 using System.Text.Json.Nodes;
-using DotNetVisualizer.Web.Models;
+using DotNetVisualizer.Core.Vulnerabilities;
 using DotNetVisualizer.Web.Services.Cli;
-using DotNetVisualizer.Web.Services.Vulnerabilities;
+using DotNetVisualizer.Core.Vulnerabilities;
 using Xunit;
 using DotNetVisualizer.Web.Tests.Unit;
 

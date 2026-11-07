@@ -1,7 +1,7 @@
 using System.Net;
 using System.Text;
-using DotNetVisualizer.Web.Models;
-using DotNetVisualizer.Web.Services.Vulnerabilities;
+using DotNetVisualizer.Core.Vulnerabilities;
+using DotNetVisualizer.Core.Vulnerabilities;
 using Xunit;
 
 namespace DotNetVisualizer.Web.Tests.Unit
@@ -373,8 +373,8 @@ namespace DotNetVisualizer.Web.Tests.Unit
 
 namespace DotNetVisualizer.Web.Tests.Unit
 {
-    using DotNetVisualizer.Web.Models;
-    using DotNetVisualizer.Web.Services.Vulnerabilities;
+    using DotNetVisualizer.Core.Vulnerabilities;
+    using DotNetVisualizer.Core.Vulnerabilities;
     using System.Text;
     using Xunit;
 

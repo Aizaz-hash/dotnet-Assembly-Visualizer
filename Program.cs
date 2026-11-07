@@ -1,6 +1,6 @@
 using DotNetVisualizer.Web.Interfaces;
 using DotNetVisualizer.Web.Services;
-using DotNetVisualizer.Web.Services.Vulnerabilities;
+using DotNetVisualizer.Core.Vulnerabilities;
 using DotNetVisualizer.Web.Services.Cli;
 using DotNetVisualizer.Web.Services.Decompilation;
 using Microsoft.AspNetCore.Http.Features;
@@ -62,7 +62,7 @@ builder.Services.AddHttpClient<INuGetClient, NuGetClient>(c =>
 builder.Services.AddSingleton<IDependencyResolver>(sp => new DependencyResolver(sp.GetRequiredService<INuGetClient>()));
 builder.Services.AddSingleton<IVulnerabilityScanner>(sp => new VulnerabilityScanner(
     sp.GetRequiredService<IOsvClient>(), vulnEnabled,
-    sp.GetRequiredService<IWebHostEnvironment>().WebRootFileProvider,
+    () => sp.GetRequiredService<IWebHostEnvironment>().WebRootFileProvider.GetFileInfo("lib/vis-network.min.js") is { Exists: true } f ? f.CreateReadStream() : null,
     AppContext.BaseDirectory,
     System.Reflection.Assembly.GetEntryAssembly()?.GetName().Name ?? "dotnet-Assembly-Visualizer",
     sp.GetRequiredService<IDependencyResolver>()));

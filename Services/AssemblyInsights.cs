@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
-using DotNetVisualizer.Web.Services.Vulnerabilities;
+using DotNetVisualizer.Core.Vulnerabilities;
 
 namespace DotNetVisualizer.Web.Services;
 

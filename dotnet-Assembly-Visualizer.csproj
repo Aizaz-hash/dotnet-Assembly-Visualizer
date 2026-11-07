@@ -12,6 +12,14 @@
     <Content Remove="tests/**" />
     <EmbeddedResource Remove="tests/**" />
     <None Remove="tests/**" />
+    <Compile Remove="spikes/**" />
+    <Content Remove="spikes/**" />
+    <EmbeddedResource Remove="spikes/**" />
+    <None Remove="spikes/**" />
+    <Compile Remove="src/**" />
+    <Content Remove="src/**" />
+    <EmbeddedResource Remove="src/**" />
+    <None Remove="src/**" />
     <Compile Remove="samples/**" />
     <Compile Remove="tools/**" />
     <Content Remove="tools/**" />
@@ -20,6 +28,11 @@
     <Content Remove="samples/**" />
     <EmbeddedResource Remove="samples/**" />
     <None Remove="samples/**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="src/DotNetVisualizer.Core/DotNetVisualizer.Core.csproj" />
+    <Using Include="DotNetVisualizer.Core" />
   </ItemGroup>
 
   <ItemGroup>

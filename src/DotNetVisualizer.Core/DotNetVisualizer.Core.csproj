@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The analysis engine, without the web server and without the decompiler (see docs/plans/native-tools-plan.md).
+    netstandard2.0 so that the same code loads in .NET 8/10 and in Windows PowerShell 5.1 (.NET Framework 4.7.2+).
+    Shared libraries stay on 8.x: a newer reference cannot be satisfied on PowerShell 7.4 (spikes/dav-load/FINDINGS.md).
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>DotNetVisualizer.Core</RootNamespace>
+    <!-- code moved from the net8.0 web app: netstandard2.0 has no nullable annotations on the framework, so these flow-analysis warnings are noise there -->
+    <NoWarn>$(NoWarn);CS8600;CS8602;CS8604;CS8619;CS8620</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Reflection.Metadata" Version="8.0.1" />
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+    <PackageReference Include="System.Net.Http.Json" Version="8.0.1" />
+  </ItemGroup>
+
+</Project>

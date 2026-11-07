@@ -1,4 +1,4 @@
-using DotNetVisualizer.Web.Services.Vulnerabilities;
+using DotNetVisualizer.Core.Vulnerabilities;
 using Xunit;
 
 namespace DotNetVisualizer.Web.Tests.Unit

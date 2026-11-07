@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Dav PowerShell module (docs/plans/native-tools-plan.md): cmdlets on top of DotNetVisualizer.Core.
+    One netstandard2.0 build runs in PowerShell 7 (Windows, Linux, macOS) and in Windows PowerShell 5.1 (spikes/dav-load/FINDINGS.md).
+    Build the module folder with scripts/build-module.ps1.
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Dav</AssemblyName>
+    <RootNamespace>Dav</RootNamespace>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Get-Help: the help of the cmdlets and about_Dav, next to Dav.dll -->
+    <None Include="en-US/**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="PowerShellStandard.Library" Version="5.1.1" PrivateAssets="all" />
+    <ProjectReference Include="../DotNetVisualizer.Core/DotNetVisualizer.Core.csproj" />
+  </ItemGroup>
+
+</Project>

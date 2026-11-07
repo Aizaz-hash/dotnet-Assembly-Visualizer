@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Packs the already assembled Dav module folder (scripts/build-module.ps1 sets ModuleDir and Version) into Dav.<version>.nupkg.
+    The package contains the module as it must appear on disk (Dav.psd1 at the root), so a NuGet feed or a local folder
+    registered with Register-PSRepository can serve it to Install-Module. Nothing is published by this project.
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <PackageId>Dav</PackageId>
+    <Version Condition="'$(Version)' == ''">0.1.0</Version>
+    <Authors>Aizaz Zaheen</Authors>
+    <Description>Checks a .NET assembly without running it: risky API calls, known vulnerabilities in its dependencies, API changes between two versions and circular dependencies. A PowerShell module for PowerShell 7 and Windows PowerShell 5.1.</Description>
+    <PackageTags>PSModule PSEdition_Desktop PSEdition_Core dotnet assembly security vulnerability</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Copyright>(c) Aizaz Zaheen. MIT License.</Copyright>
+    <PackageReleaseNotes>First release of the Dav module: risky APIs, vulnerabilities, version comparison and circular dependencies, with a risk threshold.</PackageReleaseNotes>
+    <PackageProjectUrl>https://github.com/Aizaz-hash/dotnet-Assembly-Visualizer</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Aizaz-hash/dotnet-Assembly-Visualizer</RepositoryUrl>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <NoWarn>$(NoWarn);NU5128;NU5100;NU5110;NU5111;CS2008</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(ModuleDir)' != ''">
+    <None Include="$(ModuleDir)/**" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+</Project>
