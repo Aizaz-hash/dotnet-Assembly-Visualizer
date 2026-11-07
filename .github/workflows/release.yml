@@ -176,8 +176,40 @@ jobs:
           name: package-${{ matrix.rid }}
           path: dist/*
 
+  # The Dav PowerShell module (docs/dav-module.md): the module folder as a zip and as a NuGet package, with the release's version number.
+  # Only 3.x and later releases carry it (the module does not exist on older branches).
+  module:
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Build the module
+        id: has
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          if (-not (Test-Path scripts/build-module.ps1)) { 'present=false' >> $env:GITHUB_OUTPUT; return }
+          # the pictures of the README (shown on nuget.org) are taken from this tag
+          ./scripts/build-module.ps1 -Version $env:VERSION -Output artifacts -ImageBase "https://raw.githubusercontent.com/$env:GITHUB_REPOSITORY/$env:TAG/docs/images/"
+          'present=true' >> $env:GITHUB_OUTPUT
+      - uses: actions/upload-artifact@v4
+        if: steps.has.outputs.present == 'true'
+        with:
+          name: package-module
+          path: |
+            artifacts/Dav-*.zip
+            artifacts/Dav.*.nupkg
+            artifacts/SHA256SUMS
+
   release:
-    needs: [prepare, build-artifacts, docker-image]
+    needs: [prepare, build-artifacts, docker-image, module]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -207,6 +239,7 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
           SHA: ${{ needs.prepare.outputs.sha }}
           BRANCH: ${{ needs.prepare.outputs.branch }}
+          TAG: ${{ needs.prepare.outputs.tag }}
         run: |
           IMAGE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/dotnet-visualizer-web"
           cat > RELEASE_NOTES.md <<'EOF'
@@ -230,10 +263,17 @@ jobs:
           - **Windows (x64):** `dotnet-visualizer-__VERSION__-win-x64.zip`
           - **Linux (x64):** `dotnet-visualizer-__VERSION__-linux-x64.tar.gz`
 
+          ## 🧩 Dav PowerShell module (3.x and later)
+
+          Risky APIs, vulnerabilities, version comparison and circular dependencies as PowerShell cmdlets
+          (PowerShell 7 and Windows PowerShell 5.1). Download `Dav-__VERSION__.zip`, unpack it and run
+          `Import-Module ./Dav/Dav.psd1`. `Dav.__VERSION__.nupkg` is the same module as a NuGet package and
+          `SHA256SUMS` has the checksums. Guide: [docs/dav-module.md](https://github.com/__REPO__/blob/__TAG__/docs/dav-module.md)
+
           ---
           Built from branch `__BRANCH__` at commit `__SHA__`.
           EOF
-          sed -i "s#__IMAGE__#${IMAGE}#g; s#__VERSION__#${VERSION}#g; s#__BRANCH__#${BRANCH}#g; s#__SHA__#${SHA}#g" RELEASE_NOTES.md
+          sed -i "s#__IMAGE__#${IMAGE}#g; s#__VERSION__#${VERSION}#g; s#__BRANCH__#${BRANCH}#g; s#__SHA__#${SHA}#g; s#__TAG__#${TAG}#g; s#__REPO__#${GITHUB_REPOSITORY}#g" RELEASE_NOTES.md
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2

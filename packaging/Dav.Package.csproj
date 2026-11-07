@@ -8,7 +8,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <PackageId>Dav</PackageId>
-    <Version Condition="'$(Version)' == ''">0.1.0</Version>
+    <Version Condition="'$(Version)' == ''">3.0.1</Version>
     <Authors>Aizaz Zaheen</Authors>
     <Description>Checks a .NET assembly without running it: risky API calls, known vulnerabilities in its dependencies, API changes between two versions and circular dependencies. A PowerShell module for PowerShell 7 and Windows PowerShell 5.1.</Description>
     <PackageTags>PSModule PSEdition_Desktop PSEdition_Core dotnet assembly security vulnerability</PackageTags>
