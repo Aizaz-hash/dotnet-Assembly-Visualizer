@@ -27,6 +27,17 @@ To have it available in every session, put the `Dav` folder in one of the folder
 
 `Install-Module Dav` (the PowerShell Gallery) works only after the module has been published there, which has not happened yet. The `Dav.<version>.nupkg` built by `scripts/build-module.ps1` is for a NuGet feed or a PowerShell repository you host yourself; it has not been installed through PowerShellGet in the project's own tests.
 
+### In Docker
+
+The container image of the web app also contains **PowerShell 7.4 and the Dav module**. The image still starts the web app by default; to run the checks, start PowerShell instead of it:
+
+```bash
+docker run --rm -v "$PWD:/work" --entrypoint pwsh ghcr.io/aizaz-hash/dotnet-visualizer-web:latest \
+  -NoProfile -Command "Invoke-DavCheck /work/bin/Release/net8.0/MyApp.dll -FailOn high"
+```
+
+The module is installed where PowerShell looks for modules, so `Import-Module Dav` is not needed. The exit code of the container is the exit code of PowerShell (1 when the check fails).
+
 PowerShell 7 is a separate download on Linux and macOS (<https://learn.microsoft.com/powershell/scripting/install/installing-powershell>); Windows already ships Windows PowerShell 5.1.
 
 ## Quick start

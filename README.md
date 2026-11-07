@@ -292,7 +292,7 @@ Compare-DavVersion .oldMyLib.dll .
 ewMyLib.dll
 ```
 
-Full usage, the threshold table, exit codes for CI and `dav.json`: [docs/dav-module.md](docs/dav-module.md). Build the module with `scripts/build-module.ps1`.
+Full usage, the threshold table, exit codes for CI and `dav.json`: [docs/dav-module.md](docs/dav-module.md). Build the module with `scripts/build-module.ps1`. The container image contains PowerShell and the module too: `docker run --rm -v "$PWD:/work" --entrypoint pwsh ghcr.io/aizaz-hash/dotnet-visualizer-web:latest -NoProfile -Command "Invoke-DavCheck /work/MyApp.dll -FailOn high"`.
 
 ---
 

@@ -109,6 +109,10 @@ jobs:
           docker logs dav-ci
           exit 1
 
+      - name: PowerShell and the Dav module are in the image
+        run: |
+          docker run --rm --entrypoint pwsh dotnet-visualizer:ci -NoProfile -Command 'if ((Get-Command -Module Dav).Count -ne 5) { exit 1 }; Get-DavCircularDependency /app/dotnet-Assembly-Visualizer.dll -WarningAction SilentlyContinue | Out-Null; exit 0'
+
       - name: Teardown
         if: always()
         run: docker stop dav-ci || true
