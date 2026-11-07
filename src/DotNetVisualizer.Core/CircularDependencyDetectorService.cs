@@ -27,7 +27,7 @@ public class CircularDependencyDetectorService : ICircularDependencyDetector
                     colors[dependency] = NodeColor.White;
 
         // Handle disconnected graph components.
-        foreach (var node in colors.Keys)
+        foreach (var node in colors.Keys.ToList())   // a copy: the search changes the colours, which .NET Framework does not allow while the keys are enumerated
             if (colors[node] == NodeColor.White)
                 DFS(node, adjacencyList, colors, currentPath, cycles);
 

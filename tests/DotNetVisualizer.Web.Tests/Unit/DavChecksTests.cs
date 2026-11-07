@@ -227,4 +227,42 @@ namespace DotNetVisualizer.Web.Tests.Unit
             Assert.Equal(one.OrderBy(k => k.Key).ToList(), two.OrderBy(k => k.Key).ToList());
         }
     }
+
+    public class DavConfigTests
+    {
+        private static DavConfig Load(string json)
+        {
+            var path = Path.GetTempFileName();
+            try { File.WriteAllText(path, json); return DavConfig.Load(path); }
+            finally { File.Delete(path); }
+        }
+
+        [Fact]
+        public void Ids_can_be_plain_strings_or_objects_with_a_reason()
+        {
+            var c = Load("{ \"risky\": { \"allow\": [ \"native-call\", { \"id\": \"process-start\", \"reason\": \"launches our own tool\" } ] }, \"vulns\": { \"ignore\": [ \"GHSA-1111\" ] } }");
+            Assert.True(c.AllowedRiskyRules.Contains("NATIVE-CALL"));
+            Assert.True(c.AllowedRiskyRules.Contains("process-start"));
+            Assert.True(c.IgnoredAdvisories.Contains("ghsa-1111"));
+            Assert.Equal("launches our own tool", c.Reasons["process-start"]);
+        }
+
+        [Fact]
+        public void An_empty_object_accepts_nothing()
+        {
+            var c = Load("{}");
+            Assert.Empty(c.AllowedRiskyRules);
+            Assert.Empty(c.IgnoredAdvisories);
+        }
+
+        [Theory]
+        [InlineData("{ not json")]
+        [InlineData("[]")]
+        [InlineData("{ \"risky\": { \"allow\": [ 5 ] } }")]
+        public void A_malformed_file_is_an_error_that_names_the_file(string json)
+        {
+            var ex = Assert.Throws<InvalidDataException>(() => Load(json));
+            Assert.Contains("is not valid", ex.Message);
+        }
+    }
 }

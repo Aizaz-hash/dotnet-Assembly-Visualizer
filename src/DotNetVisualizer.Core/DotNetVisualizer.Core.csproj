@@ -11,6 +11,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>DotNetVisualizer.Core</RootNamespace>
+    <!-- code moved from the net8.0 web app: netstandard2.0 has no nullable annotations on the framework, so these flow-analysis warnings are noise there -->
+    <NoWarn>$(NoWarn);CS8600;CS8602;CS8604;CS8619;CS8620</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
