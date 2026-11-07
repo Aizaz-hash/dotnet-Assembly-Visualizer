@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Throw-away spike for phase 1 of docs/plans/native-tools-plan.md: can one netstandard2.0 module read assemblies
+       with System.Reflection.Metadata in PowerShell 7 and in Windows PowerShell 5.1? Not part of the product. -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <AssemblyName>DavLoadSpike</AssemblyName>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="PowerShellStandard.Library" Version="5.1.1" PrivateAssets="all" />
+    <PackageReference Include="System.Reflection.Metadata" Version="8.0.1" />
+  </ItemGroup>
+
+</Project>
