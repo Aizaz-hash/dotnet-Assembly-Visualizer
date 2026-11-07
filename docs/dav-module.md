@@ -47,6 +47,12 @@ Get-DavCircularDependency .\MyApp.dll
 Get-DavRiskyApi .\MyApp.dll -ErrorAction SilentlyContinue | Where-Object Severity -eq High | Select-Object RuleId, Api, Callers
 ```
 
+![Get-DavRiskyApi: the leads are listed, and the command ends with an error because two are high](images/dav-risky.png)
+
+![Get-DavCircularDependency: one warning per cycle, with the classes and the methods](images/dav-cycles.png)
+
+![Compare-DavVersion: the API changed, but the version number went down, so the version check fails](images/dav-compare.png)
+
 ## The risk threshold: when does a command fail?
 
 `-FailOn` (alias `-RiskThreshold`) takes `low`, `medium` or `high`. A detected risk at **or above** the threshold fails the command.
@@ -71,6 +77,20 @@ Get-DavRiskyApi .\MyApp.dll -ErrorAction SilentlyContinue | Where-Object Severit
 | a risk at or above the threshold **and** circular dependencies | failure, and the warning is shown too |
 | an invalid threshold, a missing file, a file that is not a .NET assembly | error |
 | the vulnerability lookup could not finish (for example no network) | **failure** (`INCOMPLETE`), unless `-AllowIncomplete` |
+
+With the high lead accepted on purpose, nothing at or above `high` is left, so the command passes. An unsupported threshold is rejected before anything runs:
+
+![-Allow accepts a rule; the command passes](images/dav-threshold.png)
+
+![An unsupported -FailOn value is an argument error that lists the allowed values](images/dav-invalid.png)
+
+`Invoke-DavCheck` runs everything on one assembly. Cycles warn and the check still passes, while a risk at or above the threshold ends it with an error:
+
+![Invoke-DavCheck passes when there are only circular dependencies](images/dav-check.png)
+
+![Invoke-DavCheck fails on a high risky API](images/dav-check-fail.png)
+
+The pictures are real output, made by `scripts/dav-screenshots.mjs`.
 
 ## Using it in a script or in CI
 
