@@ -15,8 +15,9 @@ public static class CallGraphReader
     /// (nothing is loaded or run). Nothing the reader cannot read stops the rest, and nothing is dropped silently: every skipped
     /// item is counted in <see cref="CallGraph.Skipped"/>.
     /// </summary>
+    /// <param name="hashBodies">Also hash every method body (see <see cref="Checks.Fingerprints.OfMethodBody"/>), for comparing two builds.</param>
     /// <param name="mark">Called after each stage with its name (the web app uses it for its timing report).</param>
-    public static CallGraph Read(PEReader peReader, MetadataReader mdReader, Action<string>? mark = null)
+    public static CallGraph Read(PEReader peReader, MetadataReader mdReader, Action<string>? mark = null, bool hashBodies = false)
     {
         int skippedTypes = 0, skippedMethods = 0, skippedInterfaces = 0, unreadableBodies = 0;
         var inheritanceNodes = new List<InheritanceNode>();
@@ -39,6 +40,7 @@ public static class CallGraphReader
         var methodMetrics = new Dictionary<string, (int Complexity, int IlSize)>(StringComparer.OrdinalIgnoreCase);
         var methodMeta = new Dictionary<string, (MethodDefinitionHandle Handle, MethodAttributes Attributes, bool HasAttributes, string Name, string ParentClass)>(StringComparer.OrdinalIgnoreCase);
         var delegateTargets = new HashSet<int>();            // methods whose address is taken (ldftn / ldvirtftn): lambdas, method groups, events
+        var bodyHashes = hashBodies ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) : null;   // id -> hash of the body (only when asked: it costs a second pass over the IL)
         var staticInitBodies = new List<int>();              // static constructors are not graph nodes, but what they call / point to still counts as used
         var resolvedCallTargets = new Dictionary<int, (string Id, string ParentClass, bool IsInternal)>();
 
@@ -229,6 +231,7 @@ public static class CallGraphReader
             try
             {
                 MethodBodyBlock body = peReader.GetMethodBody(item.Rva);
+                if (bodyHashes != null) bodyHashes[item.CallerMethodId] = Checks.Fingerprints.OfMethodBody(body, mdReader);
 
                 BlobReader ilReader = body.GetILReader();
                 int ilSize = ilReader.Length;
@@ -407,6 +410,7 @@ public static class CallGraphReader
             MethodMeta = methodMeta,
             DelegateTargets = delegateTargets,
             StaticInitBodies = staticInitBodies,
+            MethodBodyHashes = bodyHashes ?? new Dictionary<string, string>(),
             Skipped = new SkippedItems(skippedTypes, skippedMethods, skippedInterfaces, unreadableBodies)
         };
     }

@@ -39,6 +39,8 @@ public sealed class CallGraph
     public HashSet<int> DelegateTargets { get; init; } = new();
     /// <summary>static constructors are not graph nodes, but what they call still counts as used</summary>
     public List<int> StaticInitBodies { get; init; } = new();
+    /// <summary>method id -> hash of its body; filled only when the graph was read with hashBodies</summary>
+    public Dictionary<string, string> MethodBodyHashes { get; init; } = new();
     public SkippedItems Skipped { get; init; } = new(0, 0, 0, 0);
 
     /// <summary>caller id -> callee ids, the form the cycle detector takes</summary>
