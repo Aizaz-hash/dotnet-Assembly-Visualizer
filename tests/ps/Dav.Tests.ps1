@@ -32,7 +32,9 @@ $script:failed = @()
 # Mode Stop: the script sets $ErrorActionPreference = Stop (what GitHub Actions does for pwsh); Plain: it does not; Command: pwsh -Command "<the statements>" (the way a CI step runs a command).
 function Invoke-Child([string] $Body, [string] $Dir = $work, [string] $Mode = 'Stop') {
     $file = Join-Path $work ('case-' + [guid]::NewGuid().ToString('N') + '.ps1')
-    $text = "Import-Module '$manifest' -Force`n" + $(if ($Mode -eq 'Stop') { "`$ErrorActionPreference = 'Stop'`n" } else { '' }) + $Body
+    # CI runners make PowerShell 7 colour its output (ANSI codes inside 'Name : value'); the checks read plain text
+    $plain = "if (Get-Variable PSStyle -ErrorAction SilentlyContinue) { `$PSStyle.OutputRendering = 'PlainText' }`n"
+    $text = $plain + "Import-Module '$manifest' -Force`n" + $(if ($Mode -eq 'Stop') { "`$ErrorActionPreference = 'Stop'`n" } else { '' }) + $Body
     [IO.File]::WriteAllText($file, $text, (New-Object Text.UTF8Encoding $true))
     $psi = New-Object Diagnostics.ProcessStartInfo
     $psi.FileName = $hostExe
@@ -41,6 +43,7 @@ function Invoke-Child([string] $Body, [string] $Dir = $work, [string] $Mode = 'S
     $psi.RedirectStandardOutput = $true
     $psi.RedirectStandardError = $true
     $psi.UseShellExecute = $false
+    $psi.EnvironmentVariables['NO_COLOR'] = '1'
     $psi.CreateNoWindow = $true
     $p = [Diagnostics.Process]::Start($psi)
     $stdout = $p.StandardOutput.ReadToEndAsync()
