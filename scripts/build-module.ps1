@@ -17,12 +17,15 @@
 param(
     [string] $Version,
     [string] $Configuration = 'Release',
-    [string] $Output = (Join-Path (Join-Path $PSScriptRoot '..') 'artifacts')
+    [string] $Output,   # default: artifacts at the repository root
+    # where the pictures of the guide are published: nuget.org and the PowerShell Gallery only show images from a web address
+    [string] $ImageBase = 'https://raw.githubusercontent.com/Aizaz-hash/dotnet-Assembly-Visualizer/v3/docs/images/'
 )
 
 $ErrorActionPreference = 'Stop'
 $root = Resolve-Path (Join-Path $PSScriptRoot '..')
 $manifestSource = Join-Path $root 'src/Dav/Dav.psd1'
+if (-not $Output) { $Output = Join-Path $root 'artifacts' }
 
 if (-not $Version) {
     $Version = (Import-PowerShellDataFile $manifestSource).ModuleVersion
@@ -48,7 +51,11 @@ $manifest = (Get-Content $manifestSource -Raw) -replace "ModuleVersion\s*=\s*'[^
 Set-Content -Path (Join-Path $module 'Dav.psd1') -Value $manifest -Encoding UTF8
 
 $help = Join-Path $root 'docs/dav-module.md'
-if (Test-Path $help) { Copy-Item $help (Join-Path $module 'README.md') }
+# the README of the module and of the NuGet package (shown on nuget.org): the guide, with its pictures as web addresses
+if (Test-Path $help) {
+    $readme = (Get-Content $help -Raw).Replace('](images/', '](' + $ImageBase)
+    Set-Content -Path (Join-Path $module 'README.md') -Value $readme -Encoding UTF8
+}
 Copy-Item (Join-Path $root 'LICENSE') (Join-Path $module 'LICENSE') -ErrorAction SilentlyContinue
 
 # the finished folder must be a valid module

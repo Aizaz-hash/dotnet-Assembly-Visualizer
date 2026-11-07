@@ -13,6 +13,9 @@
     <Description>Checks a .NET assembly without running it: risky API calls, known vulnerabilities in its dependencies, API changes between two versions and circular dependencies. A PowerShell module for PowerShell 7 and Windows PowerShell 5.1.</Description>
     <PackageTags>PSModule PSEdition_Desktop PSEdition_Core dotnet assembly security vulnerability</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Copyright>(c) Aizaz Zaheen. MIT License.</Copyright>
+    <PackageReleaseNotes>First release of the Dav module: risky APIs, vulnerabilities, version comparison and circular dependencies, with a risk threshold.</PackageReleaseNotes>
     <PackageProjectUrl>https://github.com/Aizaz-hash/dotnet-Assembly-Visualizer</PackageProjectUrl>
     <RepositoryUrl>https://github.com/Aizaz-hash/dotnet-Assembly-Visualizer</RepositoryUrl>
     <IncludeBuildOutput>false</IncludeBuildOutput>
