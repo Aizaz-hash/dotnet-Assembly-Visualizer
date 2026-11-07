@@ -26,6 +26,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\dotnet-Assembly-Visualizer.csproj" />
+    <Using Include="DotNetVisualizer.Core" />
 
     <!-- build the samples with the tests (their DLLs are only data for the tests, never referenced as code) -->
     <ProjectReference Include="..\..\samples\inheritance\Inheritance.csproj" ReferenceOutputAssembly="false" />

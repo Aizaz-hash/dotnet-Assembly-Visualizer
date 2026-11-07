@@ -1,6 +1,4 @@
-using DotNetVisualizer.Web.Interfaces;
-
-namespace DotNetVisualizer.Web.Services;
+namespace DotNetVisualizer.Core;
 
 public class CircularDependencyDetectorService : ICircularDependencyDetector
 {

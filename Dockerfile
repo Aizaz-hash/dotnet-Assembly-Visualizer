@@ -4,6 +4,7 @@ WORKDIR /src
 
 # Restore first (cached unless the csproj changes)
 COPY dotnet-Assembly-Visualizer.csproj .
+COPY src/DotNetVisualizer.Core/DotNetVisualizer.Core.csproj src/DotNetVisualizer.Core/
 RUN dotnet restore
 
 # Copy the rest and publish

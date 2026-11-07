@@ -1,4 +1,4 @@
-namespace DotNetVisualizer.Web.Services;
+namespace DotNetVisualizer.Core;
 
 /// <summary>
 /// An API whose use deserves a second look in a security review. These are leads, not vulnerabilities: most uses are fine,

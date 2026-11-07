@@ -45,7 +45,7 @@ namespace DotNetVisualizer.Web.Tests.Integration
         [Fact]
         public async Task The_analysis_lists_a_token_for_every_type_and_method_so_the_ui_can_ask_for_source()
         {
-            var analyzer = new DotNetVisualizer.Web.Services.AssemblyAnalyzerService(new DotNetVisualizer.Web.Services.CircularDependencyDetectorService());
+            var analyzer = new DotNetVisualizer.Web.Services.AssemblyAnalyzerService(new DotNetVisualizer.Core.CircularDependencyDetectorService());
             using var stream = File.OpenRead(typeof(DecompileApiTests).Assembly.Location);
             var json = System.Text.Json.JsonSerializer.Serialize((object)analyzer.Analyze(stream), new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
             using var doc = System.Text.Json.JsonDocument.Parse(json);

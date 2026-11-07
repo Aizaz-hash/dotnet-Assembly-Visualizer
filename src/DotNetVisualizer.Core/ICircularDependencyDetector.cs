@@ -1,4 +1,4 @@
-﻿namespace DotNetVisualizer.Web.Interfaces
+﻿namespace DotNetVisualizer.Core
 {
     public interface ICircularDependencyDetector
     {
