@@ -2,9 +2,8 @@ using System.Collections.Concurrent;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
-using DotNetVisualizer.Web.Models;
 
-namespace DotNetVisualizer.Web.Services.Vulnerabilities
+namespace DotNetVisualizer.Core.Vulnerabilities
 {
     public interface IOsvClient
     {

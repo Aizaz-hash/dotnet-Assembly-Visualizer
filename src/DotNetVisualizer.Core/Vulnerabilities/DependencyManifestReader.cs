@@ -1,7 +1,6 @@
 using System.Text.Json;
-using DotNetVisualizer.Web.Models;
 
-namespace DotNetVisualizer.Web.Services.Vulnerabilities
+namespace DotNetVisualizer.Core.Vulnerabilities
 {
     /// <summary>
     /// Reads the exact package set - and who depends on whom - from any of the manifests a .NET project produces:

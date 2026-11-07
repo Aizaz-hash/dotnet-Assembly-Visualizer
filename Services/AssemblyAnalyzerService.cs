@@ -1,6 +1,6 @@
 using DotNetVisualizer.Web.Interfaces;
 using static DotNetVisualizer.Core.MetadataNames;
-using DotNetVisualizer.Web.Services.Vulnerabilities;
+using DotNetVisualizer.Core.Vulnerabilities;
 using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;

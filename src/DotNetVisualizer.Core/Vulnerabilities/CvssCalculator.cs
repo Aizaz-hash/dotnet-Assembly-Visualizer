@@ -1,4 +1,4 @@
-namespace DotNetVisualizer.Web.Services.Vulnerabilities
+namespace DotNetVisualizer.Core.Vulnerabilities
 {
     /// <summary>Parses CVSS v3.x vectors, computes the base score (FIRST.org specification) and classifies severity.</summary>
     public static class CvssCalculator

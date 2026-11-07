@@ -1,6 +1,6 @@
 using System.Text.Json;
-using DotNetVisualizer.Web.Models;
-using DotNetVisualizer.Web.Services.Vulnerabilities;
+using DotNetVisualizer.Core.Vulnerabilities;
+using DotNetVisualizer.Core.Vulnerabilities;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DotNetVisualizer.Web.Controllers

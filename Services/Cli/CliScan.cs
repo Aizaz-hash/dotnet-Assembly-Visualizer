@@ -1,7 +1,7 @@
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
-using DotNetVisualizer.Web.Models;
-using DotNetVisualizer.Web.Services.Vulnerabilities;
+using DotNetVisualizer.Core.Vulnerabilities;
+using DotNetVisualizer.Core.Vulnerabilities;
 
 namespace DotNetVisualizer.Web.Services.Cli
 {

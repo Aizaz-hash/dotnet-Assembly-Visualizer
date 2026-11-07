@@ -1,9 +1,8 @@
 using System.Reflection.Metadata;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using DotNetVisualizer.Web.Models;
 
-namespace DotNetVisualizer.Web.Services.Vulnerabilities
+namespace DotNetVisualizer.Core.Vulnerabilities
 {
     /// <summary>Reads exact NuGet package versions from a .NET dependency manifest (*.deps.json).</summary>
     public static class DepsJsonReader

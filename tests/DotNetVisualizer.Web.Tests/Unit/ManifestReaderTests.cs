@@ -1,5 +1,5 @@
 using System.Text;
-using DotNetVisualizer.Web.Services.Vulnerabilities;
+using DotNetVisualizer.Core.Vulnerabilities;
 using Xunit;
 
 namespace DotNetVisualizer.Web.Tests.Unit
@@ -95,8 +95,8 @@ namespace DotNetVisualizer.Web.Tests.Unit
             var scanner = new VulnerabilityScanner(osv, true, null, Path.GetTempPath(), "x", new DependencyResolver(nuget, _ => false));
             var manifest = new[]
             {
-                new DotNetVisualizer.Web.Models.ScanComponent("NuGet", "PkgA", "1.0.0", "deps-file", "confirmed", null, 1, "App → PkgA"),
-                new DotNetVisualizer.Web.Models.ScanComponent("NuGet", "PkgB", "1.1.0", "deps-file", "confirmed", null, 2, "App → PkgA → PkgB"),
+                new DotNetVisualizer.Core.Vulnerabilities.ScanComponent("NuGet", "PkgA", "1.0.0", "deps-file", "confirmed", null, 1, "App → PkgA"),
+                new DotNetVisualizer.Core.Vulnerabilities.ScanComponent("NuGet", "PkgB", "1.1.0", "deps-file", "confirmed", null, 2, "App → PkgA → PkgB"),
             };
             var report = await scanner.ScanAsync(new ScanRequest
             {

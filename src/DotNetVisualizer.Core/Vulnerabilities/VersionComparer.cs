@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace DotNetVisualizer.Web.Services.Vulnerabilities
+namespace DotNetVisualizer.Core.Vulnerabilities
 {
     /// <summary>SemVer-style comparison (also fine for NuGet's 3-4 part versions) and OSV affected-range evaluation.</summary>
     public static class VersionComparer

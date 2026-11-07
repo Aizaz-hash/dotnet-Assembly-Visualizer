@@ -1,8 +1,8 @@
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
-using DotNetVisualizer.Web.Models;
+using DotNetVisualizer.Core.Vulnerabilities;
 using DotNetVisualizer.Web.Services.Cli;
-using DotNetVisualizer.Web.Services.Vulnerabilities;
+using DotNetVisualizer.Core.Vulnerabilities;
 using Xunit;
 
 namespace DotNetVisualizer.Web.Tests.Integration

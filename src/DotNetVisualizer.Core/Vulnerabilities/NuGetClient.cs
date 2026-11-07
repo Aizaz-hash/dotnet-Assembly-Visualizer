@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using System.Xml.Linq;
 
-namespace DotNetVisualizer.Web.Services.Vulnerabilities
+namespace DotNetVisualizer.Core.Vulnerabilities
 {
     public sealed record NuspecDependency(string Id, string? VersionRange);
     public sealed record NuspecDependencyGroup(string? TargetFramework, IReadOnlyList<NuspecDependency> Dependencies);

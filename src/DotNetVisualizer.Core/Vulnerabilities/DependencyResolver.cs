@@ -1,6 +1,5 @@
-using DotNetVisualizer.Web.Models;
 
-namespace DotNetVisualizer.Web.Services.Vulnerabilities
+namespace DotNetVisualizer.Core.Vulnerabilities
 {
     public sealed class DependencyRequest
     {
@@ -85,7 +84,7 @@ namespace DotNetVisualizer.Web.Services.Vulnerabilities
         public async Task<DependencyResolution> ResolveAsync(DependencyRequest request, CancellationToken ct)
         {
             var result = new DependencyResolution();
-            int maxLevel = Math.Clamp(request.MaxLevel, 1, MaxSupportedLevel);
+            int maxLevel = Math.Max(1, Math.Min(request.MaxLevel, MaxSupportedLevel));
             var tfm = NuGetVersioning.ParseTfm(request.TargetFramework);
             var gate = new SemaphoreSlim(Parallelism);
             var seen = new Dictionary<string, DependencyNode>(StringComparer.OrdinalIgnoreCase);   // "id@version" -> node

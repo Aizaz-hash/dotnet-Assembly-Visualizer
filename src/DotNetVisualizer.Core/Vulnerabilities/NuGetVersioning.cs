@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace DotNetVisualizer.Web.Services.Vulnerabilities
+namespace DotNetVisualizer.Core.Vulnerabilities
 {
     /// <summary>NuGet version-range and target-framework helpers used when walking package dependencies.</summary>
     public static class NuGetVersioning

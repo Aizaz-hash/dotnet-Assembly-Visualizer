@@ -1,8 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using DotNetVisualizer.Web.Models;
 
-namespace DotNetVisualizer.Web.Services.Vulnerabilities
+namespace DotNetVisualizer.Core.Vulnerabilities
 {
     /// <summary>Turns a <see cref="ScanReport"/> into formats other tools read: a CycloneDX SBOM and SARIF for GitHub code scanning.</summary>
     public static class ReportExporters
@@ -51,7 +50,7 @@ namespace DotNetVisualizer.Web.Services.Vulnerabilities
                 // parent = the element before this package in "root → A → B → this"; no path (flat manifest) = a direct dependency of the root
                 string parent = rootRef;
                 var parts = (p.Via ?? "").Split(" → ", StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length >= 3 && byName.TryGetValue(parts[^2], out var parentRef)) parent = parentRef;
+                if (parts.Length >= 3 && byName.TryGetValue(parts[parts.Length - 2], out var parentRef)) parent = parentRef;
                 if (!dependsOn.TryGetValue(parent, out var set)) dependsOn[parent] = set = new SortedSet<string>(StringComparer.Ordinal);
                 set.Add(purl);
                 if (!dependsOn.ContainsKey(purl)) dependsOn[purl] = new SortedSet<string>(StringComparer.Ordinal);
