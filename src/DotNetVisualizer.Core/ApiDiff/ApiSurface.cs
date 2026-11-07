@@ -1,9 +1,8 @@
 using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
-using DotNetVisualizer.Web.Services;
 
-namespace DotNetVisualizer.Web.Services.ApiDiff;
+namespace DotNetVisualizer.Core.ApiDiff;
 
 /// <summary>One member a caller outside the assembly can reach.</summary>
 public sealed record ApiMember(
@@ -36,7 +35,7 @@ public static class ApiSurfaceReader
         using var pe = new PEReader(assembly);
         if (!pe.HasMetadata) throw new InvalidDataException("The file does not contain valid .NET assembly metadata.");
         var md = pe.GetMetadataReader();
-        var provider = new AssemblyAnalyzerService.MethodSignatureTypeProvider(md);
+        var provider = new MethodSignatureTypeProvider(md);
 
         string NameOf(EntityHandle h) => h.Kind switch
         {

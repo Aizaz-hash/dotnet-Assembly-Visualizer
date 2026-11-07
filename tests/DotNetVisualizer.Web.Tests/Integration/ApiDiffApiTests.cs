@@ -1,4 +1,4 @@
-using DotNetVisualizer.Web.Services.ApiDiff;
+using DotNetVisualizer.Core.ApiDiff;
 using Xunit;
 using DotNetVisualizer.Web.Tests.Unit;
 

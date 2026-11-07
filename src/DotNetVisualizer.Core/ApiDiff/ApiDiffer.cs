@@ -1,4 +1,4 @@
-namespace DotNetVisualizer.Web.Services.ApiDiff;
+namespace DotNetVisualizer.Core.ApiDiff;
 
 /// <param name="Severity">breaking | compatible | info</param>
 /// <param name="Change">removed | added | changed</param>

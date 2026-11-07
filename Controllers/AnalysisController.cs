@@ -1,5 +1,5 @@
 ﻿using DotNetVisualizer.Web.Interfaces;
-using DotNetVisualizer.Web.Services.ApiDiff;
+using DotNetVisualizer.Core.ApiDiff;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DotNetVisualizer.Web.Controllers

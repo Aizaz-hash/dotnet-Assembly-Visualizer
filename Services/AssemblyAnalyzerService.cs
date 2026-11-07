@@ -1,4 +1,5 @@
 using DotNetVisualizer.Web.Interfaces;
+using static DotNetVisualizer.Core.MetadataNames;
 using DotNetVisualizer.Web.Services.Vulnerabilities;
 using Microsoft.AspNetCore.Http;
 using System;
@@ -775,44 +776,6 @@ public class AssemblyAnalyzerService : IAssemblyAnalyzer
 private static string? FindCanonicalMethodId(Dictionary<string, List<string>> methodIdsByClass, string parentClass, string methodSignature)    {        if (!methodIdsByClass.TryGetValue(parentClass, out var ids))            return null;        string suffix = "." + methodSignature;        foreach (string id in ids)        {            if (id.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))                return id;        }        return null;    }
 
     // METADATA HELPERS
-    private static string GetStringFromEntityHandle(MetadataReader reader, EntityHandle handle)
-    {
-        try
-        {
-            if (handle.IsNil)
-                return string.Empty;
-
-            if (handle.Kind == HandleKind.TypeDefinition)
-            {
-                return GetTypeDefinitionFullName(reader, (TypeDefinitionHandle)handle);
-            }
-
-            if (handle.Kind == HandleKind.TypeReference)
-            {
-                var tr = reader.GetTypeReference((TypeReferenceHandle)handle);
-
-                string ns = reader.GetString(tr.Namespace);
-
-                string name = reader.GetString(tr.Name);
-
-                return string.IsNullOrEmpty(ns) ? name : $"{ns}.{name}";
-            }
-
-            if (handle.Kind == HandleKind.TypeSpecification)
-            {
-                // A generic instantiation (Repository<User>, IComparable<Square>): name the generic type itself, so the edge
-                // points at a real type instead of a placeholder. The type arguments are not part of the identity.
-                string decoded = reader.GetTypeSpecification((TypeSpecificationHandle)handle).DecodeSignature(new MethodSignatureTypeProvider(reader), null!);
-                int open = decoded.IndexOf('<');
-                return open > 0 ? decoded.Substring(0, open) : decoded;
-            }
-        }
-        catch
-        {
-        }
-
-        return string.Empty;
-    }
 
     private static bool IsCompilerGeneratedName(string name)
     {
@@ -824,21 +787,6 @@ private static string? FindCanonicalMethodId(Dictionary<string, List<string>> me
         return name.StartsWith("<>c") || name.Contains("b__");
     }
 
-    private static bool IsTopLevelStatementsType(MetadataReader reader, TypeDefinition typeDef)
-    {
-        if (!typeDef.GetDeclaringType().IsNil)
-            return false;
-
-        foreach (MethodDefinitionHandle methodHandle in typeDef.GetMethods())
-        {
-            MethodDefinition method = reader.GetMethodDefinition(methodHandle);
-
-            if (reader.GetString(method.Name).Equals("<Main>$"))
-                return true;
-        }
-
-        return false;
-    }
 
     private static bool TryGetContainingSourceTypeName(MetadataReader reader, TypeDefinition typeDef, out string fullName)
     {
@@ -864,32 +812,6 @@ private static string? FindCanonicalMethodId(Dictionary<string, List<string>> me
         return false;
     }
 
-    private static string GetTypeDefinitionFullName(MetadataReader reader, TypeDefinitionHandle typeHandle)
-    {
-        var typeNames = new Stack<string>();
-
-        TypeDefinitionHandle currentTypeHandle = typeHandle;
-
-        while (!currentTypeHandle.IsNil)
-        {
-            TypeDefinition currentType = reader.GetTypeDefinition(currentTypeHandle);
-
-            typeNames.Push(GetDisplayTypeName(reader, currentType));
-
-            currentTypeHandle = currentType.GetDeclaringType();
-        }
-
-        TypeDefinition outerType = reader.GetTypeDefinition(typeHandle);
-
-        while (!outerType.GetDeclaringType().IsNil)
-            outerType = reader.GetTypeDefinition(outerType.GetDeclaringType());
-
-        string ns = reader.GetString(outerType.Namespace);
-
-        string typeName = string.Join(".", typeNames);
-
-        return string.IsNullOrEmpty(ns) ? typeName : $"{ns}.{typeName}";
-    }
 
     private static string GetOutermostNamespace(MetadataReader reader, TypeDefinition typeDef)
     {
@@ -898,12 +820,6 @@ private static string? FindCanonicalMethodId(Dictionary<string, List<string>> me
         return reader.GetString(typeDef.Namespace);
     }
 
-    private static string GetDisplayTypeName(MetadataReader reader, TypeDefinition typeDef)
-    {
-        string name = reader.GetString(typeDef.Name);
-
-        return IsTopLevelStatementsType(reader, typeDef) && name.StartsWith("<") && name.EndsWith(">$") ? name.Substring(1, name.Length - 3) : name;
-    }
 
     // LAMBDA DETECTION
     private static Dictionary<string, string> GetLambdaBindingNames(PEReader peReader, MetadataReader reader)
@@ -1204,110 +1120,4 @@ private static string? FindCanonicalMethodId(Dictionary<string, List<string>> me
     }
 
     // SIGNATURE TYPE PROVIDER
-    internal sealed class MethodSignatureTypeProvider : ISignatureTypeProvider<string, object>
-    {
-        private readonly MetadataReader _reader;
-
-        public MethodSignatureTypeProvider(MetadataReader reader)
-        {
-            _reader = reader;
-        }
-
-        public string GetArrayType(string elementType, ArrayShape shape)
-        {
-            if (shape.Rank == 1)
-                return $"{elementType}[]";
-
-            return $"{elementType}[{new string(',', shape.Rank - 1)}]";
-        }
-
-        public string GetByReferenceType(string elementType)
-        {
-            return $"{elementType}&";
-        }
-
-        public string GetFunctionPointerType(MethodSignature<string> signature)
-        {
-            var parameters = string.Join(", ", signature.ParameterTypes);
-
-            return $"delegate*<{parameters}>";
-        }
-
-        public string GetGenericInstantiation(string genericType, ImmutableArray<string> typeArguments)
-        {
-            return $"{genericType}<{string.Join(", ", typeArguments)}>";
-        }
-
-        public string GetGenericMethodParameter(object genericContext, int index)
-        {
-            return $"!!{index}";
-        }
-
-        public string GetGenericTypeParameter(object genericContext, int index)
-        {
-            return $"!{index}";
-        }
-
-        public string GetModifiedType(string modifier, string unmodifiedType, bool isRequired)
-        {
-            return unmodifiedType;
-        }
-
-        public string GetPinnedType(string elementType)
-        {
-            return elementType;
-        }
-
-        public string GetPointerType(string elementType)
-        {
-            return $"{elementType}*";
-        }
-
-        public string GetPrimitiveType(PrimitiveTypeCode typeCode)
-        {
-            return typeCode switch
-            {
-                PrimitiveTypeCode.Void => "void",
-                PrimitiveTypeCode.Boolean => "bool",
-                PrimitiveTypeCode.Char => "char",
-                PrimitiveTypeCode.SByte => "sbyte",
-                PrimitiveTypeCode.Byte => "byte",
-                PrimitiveTypeCode.Int16 => "short",
-                PrimitiveTypeCode.UInt16 => "ushort",
-                PrimitiveTypeCode.Int32 => "int",
-                PrimitiveTypeCode.UInt32 => "uint",
-                PrimitiveTypeCode.Int64 => "long",
-                PrimitiveTypeCode.UInt64 => "ulong",
-                PrimitiveTypeCode.Single => "float",
-                PrimitiveTypeCode.Double => "double",
-                PrimitiveTypeCode.String => "string",
-                PrimitiveTypeCode.IntPtr => "nint",
-                PrimitiveTypeCode.UIntPtr => "nuint",
-                PrimitiveTypeCode.Object => "object",
-                _ => typeCode.ToString()
-            };
-        }
-
-        public string GetSZArrayType(string elementType)
-        {
-            return $"{elementType}[]";
-        }
-
-        public string GetTypeFromDefinition(MetadataReader reader, TypeDefinitionHandle handle, byte rawTypeKind)
-        {
-            return GetTypeDefinitionFullName(reader, handle);
-        }
-
-        public string GetTypeFromReference(MetadataReader reader, TypeReferenceHandle handle, byte rawTypeKind)
-        {
-            return GetStringFromEntityHandle(reader, handle);
-        }
-
-        public string GetTypeFromSpecification(MetadataReader reader, object genericContext, TypeSpecificationHandle handle, byte rawTypeKind)
-        {
-            TypeSpecification specification = reader.GetTypeSpecification(handle);
-
-            return specification.DecodeSignature(this, genericContext);
-        }
-    }
 }

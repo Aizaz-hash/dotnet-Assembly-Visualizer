@@ -13,4 +13,8 @@
     <RootNamespace>DotNetVisualizer.Core</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="System.Reflection.Metadata" Version="8.0.1" />
+  </ItemGroup>
+
 </Project>
