@@ -1,6 +1,6 @@
 @{
     RootModule            = 'Dav.dll'
-    ModuleVersion         = '0.1.0'
+    ModuleVersion         = '3.0.1'
     GUID                  = '5d1c7e7a-3b0e-4f0e-9a6c-2f4e8b1d7c35'
     Author                = 'Aizaz Zaheen'
     CompanyName           = 'Aizaz Zaheen'
