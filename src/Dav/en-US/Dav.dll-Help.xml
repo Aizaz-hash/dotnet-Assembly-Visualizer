@@ -1,0 +1,278 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Help for the Dav cmdlets (Get-Help). The long form is docs/dav-module.md. -->
+<helpItems schema="maml" xmlns="http://msh" xmlns:maml="http://schemas.microsoft.com/maml/2004/10" xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10" xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">
+  <command:command>
+    <command:details>
+      <command:name>Get-DavRiskyApi</command:name>
+      <maml:description><maml:para>Lists the calls to risky APIs in a .NET assembly and fails when one is at or above the risk threshold.</maml:para></maml:description>
+      <command:verb>Get</command:verb>
+      <command:noun>DavRiskyApi</command:noun>
+    </command:details>
+    <maml:description><maml:para>Reads the IL of an assembly (it is not run) and lists every kind of call that deserves a security review: unsafe deserializers, process start, dynamic code, weak cryptography, disabled TLS checks, native calls and similar. They are leads for a review, not proven vulnerabilities. The command fails (a terminating error) when a lead at or above -FailOn is not accepted with -Allow or dav.json. The leads are written to the pipeline before the error, most severe first.</maml:para></maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>Get-DavRiskyApi</maml:name>
+        <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="True (ByValue, ByPropertyName)" position="0"><maml:name>Path</maml:name><command:parameterValue required="true" variableLength="false">string[]</command:parameterValue></command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>FailOn</maml:name><command:parameterValue required="true" variableLength="false">string</command:parameterValue></command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>Allow</maml:name><command:parameterValue required="true" variableLength="false">string[]</command:parameterValue></command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>Config</maml:name><command:parameterValue required="true" variableLength="false">string</command:parameterValue></command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>ExitOnFailure</maml:name></command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="True (ByValue, ByPropertyName)" position="0"><maml:name>Path</maml:name><maml:description><maml:para>The assembly (.dll or .exe) to read. Several paths, pipeline input and Get-ChildItem results are accepted. The assembly is only read, never run.</maml:para></maml:description><command:parameterValue required="true" variableLength="false">string[]</command:parameterValue><dev:type><maml:name>string[]</maml:name><maml:uri /></dev:type><dev:defaultValue>None</dev:defaultValue></command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>FailOn</maml:name><maml:description><maml:para>The lowest risk level that makes the command fail: low (default, every risk fails), medium or high. A risk at or above the level fails the command. Alias: RiskThreshold.</maml:para></maml:description><command:parameterValue required="true" variableLength="false">string</command:parameterValue><dev:type><maml:name>string</maml:name><maml:uri /></dev:type><dev:defaultValue>low</dev:defaultValue></command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>Allow</maml:name><maml:description><maml:para>Rule ids of risky APIs that you accept on purpose (for example process-start). They are still listed, with Allowed set to True, but never fail the command. See also dav.json.</maml:para></maml:description><command:parameterValue required="true" variableLength="false">string[]</command:parameterValue><dev:type><maml:name>string[]</maml:name><maml:uri /></dev:type><dev:defaultValue>None</dev:defaultValue></command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>Config</maml:name><maml:description><maml:para>A dav.json file with the findings your team accepts, each with a reason. Default: dav.json in the current directory, if it exists.</maml:para></maml:description><command:parameterValue required="true" variableLength="false">string</command:parameterValue><dev:type><maml:name>string</maml:name><maml:uri /></dev:type><dev:defaultValue>None</dev:defaultValue></command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>ExitOnFailure</maml:name><maml:description><maml:para>Also end the PowerShell process with exit code 1 when the command fails. For scripts started with pwsh -File that do not set $ErrorActionPreference = Stop. Do not use it in an interactive session.</maml:para></maml:description><dev:type><maml:name>SwitchParameter</maml:name><maml:uri /></dev:type><dev:defaultValue>False</dev:defaultValue></command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType><dev:type><maml:name>System.String[]</maml:name><maml:uri /></dev:type><maml:description><maml:para>Paths of assemblies, or objects with a FullName or PSPath property such as the result of Get-ChildItem.</maml:para></maml:description></command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue><dev:type><maml:name>Dav.RiskyApiInfo</maml:name><maml:uri /></dev:type><maml:description><maml:para>Dav.RiskyApiInfo (Assembly, RuleId, Severity, Category, Title, Api, Count, Callers, Why, Advice, Allowed)</maml:para></maml:description></command:returnValue>
+    </command:returnValues>
+    <maml:alertSet><maml:alert><maml:para>A failed check is a terminating error that carries the findings in the TargetObject of the error record. pwsh -Command and scripts with $ErrorActionPreference = Stop then exit with code 1; for pwsh -File without it use -ExitOnFailure. Run Get-Help about_Dav for the details.</maml:para></maml:alert></maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>-------------------------- Example 1 --------------------------</maml:title>
+        <dev:code>Get-DavRiskyApi .\MyApp.dll</dev:code>
+        <dev:remarks><maml:para>Lists every risky call. Any lead fails the command, because -FailOn defaults to low.</maml:para></dev:remarks>
+      </command:example>
+      <command:example>
+        <maml:title>-------------------------- Example 2 --------------------------</maml:title>
+        <dev:code>Get-DavRiskyApi .\MyApp.dll -FailOn high</dev:code>
+        <dev:remarks><maml:para>Fails only for high leads, such as BinaryFormatter.</maml:para></dev:remarks>
+      </command:example>
+      <command:example>
+        <maml:title>-------------------------- Example 3 --------------------------</maml:title>
+        <dev:code>Get-DavRiskyApi .\MyApp.dll -FailOn medium -Allow process-start</dev:code>
+        <dev:remarks><maml:para>Accepts the process-start rule on purpose; other medium and high leads still fail.</maml:para></dev:remarks>
+      </command:example>
+      <command:example>
+        <maml:title>-------------------------- Example 4 --------------------------</maml:title>
+        <dev:code>Get-ChildItem .\bin\Release\*.dll | Get-DavRiskyApi -ErrorAction Continue | Where-Object Severity -eq High</dev:code>
+        <dev:remarks><maml:para>Checks several assemblies and filters the result.</maml:para></dev:remarks>
+      </command:example>
+    </command:examples>
+    <maml:relatedLinks>
+      <maml:navigationLink><maml:linkText>about_Dav</maml:linkText><maml:uri /></maml:navigationLink>
+      <maml:navigationLink><maml:linkText>Online version</maml:linkText><maml:uri>https://github.com/Aizaz-hash/dotnet-Assembly-Visualizer/blob/v3/docs/dav-module.md</maml:uri></maml:navigationLink>
+    </maml:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
+      <command:name>Get-DavVulnerability</command:name>
+      <maml:description><maml:para>Looks up the known vulnerabilities of the packages a .NET assembly depends on.</maml:para></maml:description>
+      <command:verb>Get</command:verb>
+      <command:noun>DavVulnerability</command:noun>
+    </command:details>
+    <maml:description><maml:para>Reads the references of an assembly, resolves the packages it depends on (exactly, from a .deps.json, or estimated) and asks OSV.dev for known vulnerabilities. Only package names and versions are sent (to OSV.dev and NuGet.org); the code is never sent. Findings are marked confirmed (exact version inside the advisory range), potential (version estimated) or informational (package supplied by the .NET runtime; shown, never fails). The command fails when a finding at or above -FailOn is not ignored, and also when the lookup could not finish, unless -AllowIncomplete is given. The environment variables VULN_OSV_URL and VULN_NUGET_URL replace the addresses (for a mirror).</maml:para></maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>Get-DavVulnerability</maml:name>
+        <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="True (ByValue, ByPropertyName)" position="0"><maml:name>Path</maml:name><command:parameterValue required="true" variableLength="false">string[]</command:parameterValue></command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>FailOn</maml:name><command:parameterValue required="true" variableLength="false">string</command:parameterValue></command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>Manifest</maml:name><command:parameterValue required="true" variableLength="false">string</command:parameterValue></command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>MaxLevel</maml:name><command:parameterValue required="true" variableLength="false">int</command:parameterValue></command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>Ignore</maml:name><command:parameterValue required="true" variableLength="false">string[]</command:parameterValue></command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>AllowIncomplete</maml:name></command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>Config</maml:name><command:parameterValue required="true" variableLength="false">string</command:parameterValue></command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>ExitOnFailure</maml:name></command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="True (ByValue, ByPropertyName)" position="0"><maml:name>Path</maml:name><maml:description><maml:para>The assembly (.dll or .exe) to read. Several paths, pipeline input and Get-ChildItem results are accepted. The assembly is only read, never run.</maml:para></maml:description><command:parameterValue required="true" variableLength="false">string[]</command:parameterValue><dev:type><maml:name>string[]</maml:name><maml:uri /></dev:type><dev:defaultValue>None</dev:defaultValue></command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>FailOn</maml:name><maml:description><maml:para>The lowest risk level that makes the command fail: low (default, every risk fails), medium or high. A risk at or above the level fails the command. Alias: RiskThreshold.</maml:para></maml:description><command:parameterValue required="true" variableLength="false">string</command:parameterValue><dev:type><maml:name>string</maml:name><maml:uri /></dev:type><dev:defaultValue>low</dev:defaultValue></command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>Manifest</maml:name><maml:description><maml:para>A .deps.json, project.assets.json or packages.lock.json with the exact package versions. Default: the .deps.json next to the assembly. Without a manifest the versions are estimated and such findings are marked potential.</maml:para></maml:description><command:parameterValue required="true" variableLength="false">string</command:parameterValue><dev:type><maml:name>string</maml:name><maml:uri /></dev:type><dev:defaultValue>None</dev:defaultValue></command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>MaxLevel</maml:name><maml:description><maml:para>How deep to follow package dependencies when there is no manifest, from 1 to 4.</maml:para></maml:description><command:parameterValue required="true" variableLength="false">int</command:parameterValue><dev:type><maml:name>int</maml:name><maml:uri /></dev:type><dev:defaultValue>4</dev:defaultValue></command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>Ignore</maml:name><maml:description><maml:para>Advisory ids (for example GHSA-xxxx-xxxx-xxxx or a CVE) that you accept on purpose. They are still listed, with Ignored set to True, but never fail the command. See also dav.json.</maml:para></maml:description><command:parameterValue required="true" variableLength="false">string[]</command:parameterValue><dev:type><maml:name>string[]</maml:name><maml:uri /></dev:type><dev:defaultValue>None</dev:defaultValue></command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>AllowIncomplete</maml:name><maml:description><maml:para>Do not fail when not everything could be checked (for example when OSV.dev or NuGet.org cannot be reached). By default an unfinished lookup fails the command, because it is not a clean result.</maml:para></maml:description><dev:type><maml:name>SwitchParameter</maml:name><maml:uri /></dev:type><dev:defaultValue>False</dev:defaultValue></command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>Config</maml:name><maml:description><maml:para>A dav.json file with the findings your team accepts, each with a reason. Default: dav.json in the current directory, if it exists.</maml:para></maml:description><command:parameterValue required="true" variableLength="false">string</command:parameterValue><dev:type><maml:name>string</maml:name><maml:uri /></dev:type><dev:defaultValue>None</dev:defaultValue></command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>ExitOnFailure</maml:name><maml:description><maml:para>Also end the PowerShell process with exit code 1 when the command fails. For scripts started with pwsh -File that do not set $ErrorActionPreference = Stop. Do not use it in an interactive session.</maml:para></maml:description><dev:type><maml:name>SwitchParameter</maml:name><maml:uri /></dev:type><dev:defaultValue>False</dev:defaultValue></command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType><dev:type><maml:name>System.String[]</maml:name><maml:uri /></dev:type><maml:description><maml:para>Paths of assemblies, or objects with a FullName or PSPath property such as the result of Get-ChildItem.</maml:para></maml:description></command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue><dev:type><maml:name>Dav.VulnerabilityInfo</maml:name><maml:uri /></dev:type><maml:description><maml:para>Dav.VulnerabilityInfo (Assembly, Id, Severity, Package, Version, Confidence, FixedIn, Summary, Level, DependencyPath, Url, Ignored)</maml:para></maml:description></command:returnValue>
+    </command:returnValues>
+    <maml:alertSet><maml:alert><maml:para>A failed check is a terminating error that carries the findings in the TargetObject of the error record. pwsh -Command and scripts with $ErrorActionPreference = Stop then exit with code 1; for pwsh -File without it use -ExitOnFailure. Run Get-Help about_Dav for the details.</maml:para></maml:alert></maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>-------------------------- Example 1 --------------------------</maml:title>
+        <dev:code>Get-DavVulnerability .\bin\Release\net8.0\MyApp.dll</dev:code>
+        <dev:remarks><maml:para>Uses the MyApp.deps.json next to the assembly for exact versions.</maml:para></dev:remarks>
+      </command:example>
+      <command:example>
+        <maml:title>-------------------------- Example 2 --------------------------</maml:title>
+        <dev:code>Get-DavVulnerability .\MyApp.dll -FailOn high -Ignore GHSA-xxxx-xxxx-xxxx</dev:code>
+        <dev:remarks><maml:para>Fails only for high findings and accepts one advisory on purpose.</maml:para></dev:remarks>
+      </command:example>
+      <command:example>
+        <maml:title>-------------------------- Example 3 --------------------------</maml:title>
+        <dev:code>Get-DavVulnerability .\MyApp.dll -AllowIncomplete -Verbose</dev:code>
+        <dev:remarks><maml:para>Does not fail when the database cannot be reached; -Verbose shows the notes of the scan.</maml:para></dev:remarks>
+      </command:example>
+    </command:examples>
+    <maml:relatedLinks>
+      <maml:navigationLink><maml:linkText>about_Dav</maml:linkText><maml:uri /></maml:navigationLink>
+      <maml:navigationLink><maml:linkText>Online version</maml:linkText><maml:uri>https://github.com/Aizaz-hash/dotnet-Assembly-Visualizer/blob/v3/docs/dav-module.md</maml:uri></maml:navigationLink>
+    </maml:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
+      <command:name>Compare-DavVersion</command:name>
+      <maml:description><maml:para>Compares two builds of an assembly and fails when the version number is too small for the API changes.</maml:para></maml:description>
+      <command:verb>Compare</command:verb>
+      <command:noun>DavVersion</command:noun>
+    </command:details>
+    <maml:description><maml:para>Compares the public API of two builds from their metadata and classifies each change as breaking, compatible or info. It shows the bump the changes require (major, minor or patch), the bump the version numbers actually made, and fails when the version is too small, for example a breaking change without a major bump. A missing major bump is a high risk and a missing minor bump a medium risk; -FailOn chooses from which level the command fails. SHA-256 fingerprints are shown as information: the file hash (identical bytes), the API fingerprint (same value means the same public API) and a hash per method body (which code changed). The hashes never decide pass or fail.</maml:para></maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>Compare-DavVersion</maml:name>
+        <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="False" position="0"><maml:name>OldPath</maml:name><command:parameterValue required="true" variableLength="false">string</command:parameterValue></command:parameter>
+        <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="False" position="1"><maml:name>NewPath</maml:name><command:parameterValue required="true" variableLength="false">string</command:parameterValue></command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>FailOn</maml:name><command:parameterValue required="true" variableLength="false">string</command:parameterValue></command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>ExitOnFailure</maml:name></command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="False" position="0"><maml:name>OldPath</maml:name><maml:description><maml:para>The older build. Aliases: Old, Before.</maml:para></maml:description><command:parameterValue required="true" variableLength="false">string</command:parameterValue><dev:type><maml:name>string</maml:name><maml:uri /></dev:type><dev:defaultValue>None</dev:defaultValue></command:parameter>
+      <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="False" position="1"><maml:name>NewPath</maml:name><maml:description><maml:para>The newer build. Aliases: New, After.</maml:para></maml:description><command:parameterValue required="true" variableLength="false">string</command:parameterValue><dev:type><maml:name>string</maml:name><maml:uri /></dev:type><dev:defaultValue>None</dev:defaultValue></command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>FailOn</maml:name><maml:description><maml:para>The lowest risk level of a version mismatch that makes the command fail: low (default), medium or high. A missing major bump is high, a missing minor bump is medium. Alias: RiskThreshold.</maml:para></maml:description><command:parameterValue required="true" variableLength="false">string</command:parameterValue><dev:type><maml:name>string</maml:name><maml:uri /></dev:type><dev:defaultValue>low</dev:defaultValue></command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>ExitOnFailure</maml:name><maml:description><maml:para>Also end the PowerShell process with exit code 1 when the command fails. For scripts started with pwsh -File that do not set $ErrorActionPreference = Stop. Do not use it in an interactive session.</maml:para></maml:description><dev:type><maml:name>SwitchParameter</maml:name><maml:uri /></dev:type><dev:defaultValue>False</dev:defaultValue></command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType><dev:type><maml:name>System.String[]</maml:name><maml:uri /></dev:type><maml:description><maml:para>None.</maml:para></maml:description></command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue><dev:type><maml:name>Dav.VersionComparison</maml:name><maml:uri /></dev:type><maml:description><maml:para>Dav.VersionComparison (Changes, Breaking, Compatible, Info, RequiredBump, ActualBump, VersionMismatch, MismatchLevel, OldFileHash, NewFileHash, OldApiFingerprint, NewApiFingerprint, Verdict, ChangedMethods, AddedMethods, RemovedMethods)</maml:para></maml:description></command:returnValue>
+    </command:returnValues>
+    <maml:alertSet><maml:alert><maml:para>A failed check is a terminating error that carries the findings in the TargetObject of the error record. pwsh -Command and scripts with $ErrorActionPreference = Stop then exit with code 1; for pwsh -File without it use -ExitOnFailure. Run Get-Help about_Dav for the details.</maml:para></maml:alert></maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>-------------------------- Example 1 --------------------------</maml:title>
+        <dev:code>Compare-DavVersion .\1.2.0\MyLib.dll .\1.3.0\MyLib.dll</dev:code>
+        <dev:remarks><maml:para>Shows what changed and whether the version number covers it.</maml:para></dev:remarks>
+      </command:example>
+      <command:example>
+        <maml:title>-------------------------- Example 2 --------------------------</maml:title>
+        <dev:code>Compare-DavVersion .\old\MyLib.dll .\new\MyLib.dll -FailOn high | Select-Object Verdict, RequiredBump, ActualBump</dev:code>
+        <dev:remarks><maml:para>Fails only when a major bump is missing.</maml:para></dev:remarks>
+      </command:example>
+      <command:example>
+        <maml:title>-------------------------- Example 3 --------------------------</maml:title>
+        <dev:code>(Compare-DavVersion .\old.dll .\new.dll -ErrorAction Continue).ChangedMethods</dev:code>
+        <dev:remarks><maml:para>Lists the methods whose code changed.</maml:para></dev:remarks>
+      </command:example>
+    </command:examples>
+    <maml:relatedLinks>
+      <maml:navigationLink><maml:linkText>about_Dav</maml:linkText><maml:uri /></maml:navigationLink>
+      <maml:navigationLink><maml:linkText>Online version</maml:linkText><maml:uri>https://github.com/Aizaz-hash/dotnet-Assembly-Visualizer/blob/v3/docs/dav-module.md</maml:uri></maml:navigationLink>
+    </maml:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
+      <command:name>Get-DavCircularDependency</command:name>
+      <maml:description><maml:para>Lists the circular call chains of a .NET assembly. They are warnings and never fail the command.</maml:para></maml:description>
+      <command:verb>Get</command:verb>
+      <command:noun>DavCircularDependency</command:noun>
+    </command:details>
+    <maml:description><maml:para>Finds circular dependencies between methods from the call graph and reports each distinct cycle once, with the classes and the methods that take part, as an object and as a warning ("[WARNING] Possible Circular Dependency Detected"). A cycle is a design smell, not a vulnerability, so the command never fails because of one. A method that calls itself is not a cycle. Calls through reflection, interfaces and delegates are not seen. When there are no cycles nothing is printed.</maml:para></maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>Get-DavCircularDependency</maml:name>
+        <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="True (ByValue, ByPropertyName)" position="0"><maml:name>Path</maml:name><command:parameterValue required="true" variableLength="false">string[]</command:parameterValue></command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="True (ByValue, ByPropertyName)" position="0"><maml:name>Path</maml:name><maml:description><maml:para>The assembly (.dll or .exe) to read. Several paths, pipeline input and Get-ChildItem results are accepted. The assembly is only read, never run.</maml:para></maml:description><command:parameterValue required="true" variableLength="false">string[]</command:parameterValue><dev:type><maml:name>string[]</maml:name><maml:uri /></dev:type><dev:defaultValue>None</dev:defaultValue></command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType><dev:type><maml:name>System.String[]</maml:name><maml:uri /></dev:type><maml:description><maml:para>Paths of assemblies, or objects with a FullName or PSPath property such as the result of Get-ChildItem.</maml:para></maml:description></command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue><dev:type><maml:name>Dav.CircularDependencyInfo</maml:name><maml:uri /></dev:type><maml:description><maml:para>Dav.CircularDependencyInfo (Assembly, Classes, Methods)</maml:para></maml:description></command:returnValue>
+    </command:returnValues>
+    <maml:alertSet><maml:alert><maml:para>A failed check is a terminating error that carries the findings in the TargetObject of the error record. pwsh -Command and scripts with $ErrorActionPreference = Stop then exit with code 1; for pwsh -File without it use -ExitOnFailure. Run Get-Help about_Dav for the details.</maml:para></maml:alert></maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>-------------------------- Example 1 --------------------------</maml:title>
+        <dev:code>Get-DavCircularDependency .\MyApp.dll</dev:code>
+        <dev:remarks><maml:para>Writes one warning per cycle and returns the cycles.</maml:para></dev:remarks>
+      </command:example>
+      <command:example>
+        <maml:title>-------------------------- Example 2 --------------------------</maml:title>
+        <dev:code>Get-DavCircularDependency .\MyApp.dll -WarningAction SilentlyContinue | Select-Object Classes</dev:code>
+        <dev:remarks><maml:para>Returns the classes of each cycle without the warning text.</maml:para></dev:remarks>
+      </command:example>
+    </command:examples>
+    <maml:relatedLinks>
+      <maml:navigationLink><maml:linkText>about_Dav</maml:linkText><maml:uri /></maml:navigationLink>
+      <maml:navigationLink><maml:linkText>Online version</maml:linkText><maml:uri>https://github.com/Aizaz-hash/dotnet-Assembly-Visualizer/blob/v3/docs/dav-module.md</maml:uri></maml:navigationLink>
+    </maml:relatedLinks>
+  </command:command>
+  <command:command>
+    <command:details>
+      <command:name>Invoke-DavCheck</command:name>
+      <maml:description><maml:para>Runs the risky-API, vulnerability and circular-dependency checks on an assembly.</maml:para></maml:description>
+      <command:verb>Invoke</command:verb>
+      <command:noun>DavCheck</command:noun>
+    </command:details>
+    <maml:description><maml:para>Runs the three checks on each assembly and writes one summary object per assembly. Risky APIs and vulnerabilities at or above -FailOn make the command fail; circular dependencies only warn, and the warnings are shown even when the command fails. Use -SkipVulnerabilities to keep everything on the machine, and -Allow, -Ignore or dav.json to accept findings on purpose.</maml:para></maml:description>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>Invoke-DavCheck</maml:name>
+        <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="True (ByValue, ByPropertyName)" position="0"><maml:name>Path</maml:name><command:parameterValue required="true" variableLength="false">string[]</command:parameterValue></command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>FailOn</maml:name><command:parameterValue required="true" variableLength="false">string</command:parameterValue></command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>Allow</maml:name><command:parameterValue required="true" variableLength="false">string[]</command:parameterValue></command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>Ignore</maml:name><command:parameterValue required="true" variableLength="false">string[]</command:parameterValue></command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>Manifest</maml:name><command:parameterValue required="true" variableLength="false">string</command:parameterValue></command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>AllowIncomplete</maml:name></command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>SkipVulnerabilities</maml:name></command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>Config</maml:name><command:parameterValue required="true" variableLength="false">string</command:parameterValue></command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>ExitOnFailure</maml:name></command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="True (ByValue, ByPropertyName)" position="0"><maml:name>Path</maml:name><maml:description><maml:para>The assembly (.dll or .exe) to read. Several paths, pipeline input and Get-ChildItem results are accepted. The assembly is only read, never run.</maml:para></maml:description><command:parameterValue required="true" variableLength="false">string[]</command:parameterValue><dev:type><maml:name>string[]</maml:name><maml:uri /></dev:type><dev:defaultValue>None</dev:defaultValue></command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>FailOn</maml:name><maml:description><maml:para>The lowest risk level that makes the command fail: low (default, every risk fails), medium or high. A risk at or above the level fails the command. Alias: RiskThreshold.</maml:para></maml:description><command:parameterValue required="true" variableLength="false">string</command:parameterValue><dev:type><maml:name>string</maml:name><maml:uri /></dev:type><dev:defaultValue>low</dev:defaultValue></command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>Allow</maml:name><maml:description><maml:para>Rule ids of risky APIs that you accept on purpose (for example process-start). They are still listed, with Allowed set to True, but never fail the command. See also dav.json.</maml:para></maml:description><command:parameterValue required="true" variableLength="false">string[]</command:parameterValue><dev:type><maml:name>string[]</maml:name><maml:uri /></dev:type><dev:defaultValue>None</dev:defaultValue></command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>Ignore</maml:name><maml:description><maml:para>Advisory ids (for example GHSA-xxxx-xxxx-xxxx or a CVE) that you accept on purpose. They are still listed, with Ignored set to True, but never fail the command. See also dav.json.</maml:para></maml:description><command:parameterValue required="true" variableLength="false">string[]</command:parameterValue><dev:type><maml:name>string[]</maml:name><maml:uri /></dev:type><dev:defaultValue>None</dev:defaultValue></command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>Manifest</maml:name><maml:description><maml:para>A .deps.json, project.assets.json or packages.lock.json with the exact package versions. Default: the .deps.json next to the assembly. Without a manifest the versions are estimated and such findings are marked potential.</maml:para></maml:description><command:parameterValue required="true" variableLength="false">string</command:parameterValue><dev:type><maml:name>string</maml:name><maml:uri /></dev:type><dev:defaultValue>None</dev:defaultValue></command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>AllowIncomplete</maml:name><maml:description><maml:para>Do not fail when not everything could be checked (for example when OSV.dev or NuGet.org cannot be reached). By default an unfinished lookup fails the command, because it is not a clean result.</maml:para></maml:description><dev:type><maml:name>SwitchParameter</maml:name><maml:uri /></dev:type><dev:defaultValue>False</dev:defaultValue></command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>SkipVulnerabilities</maml:name><maml:description><maml:para>Do not look up vulnerabilities. Nothing leaves the machine.</maml:para></maml:description><dev:type><maml:name>SwitchParameter</maml:name><maml:uri /></dev:type><dev:defaultValue>False</dev:defaultValue></command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>Config</maml:name><maml:description><maml:para>A dav.json file with the findings your team accepts, each with a reason. Default: dav.json in the current directory, if it exists.</maml:para></maml:description><command:parameterValue required="true" variableLength="false">string</command:parameterValue><dev:type><maml:name>string</maml:name><maml:uri /></dev:type><dev:defaultValue>None</dev:defaultValue></command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="named"><maml:name>ExitOnFailure</maml:name><maml:description><maml:para>Also end the PowerShell process with exit code 1 when the command fails. For scripts started with pwsh -File that do not set $ErrorActionPreference = Stop. Do not use it in an interactive session.</maml:para></maml:description><dev:type><maml:name>SwitchParameter</maml:name><maml:uri /></dev:type><dev:defaultValue>False</dev:defaultValue></command:parameter>
+    </command:parameters>
+    <command:inputTypes>
+      <command:inputType><dev:type><maml:name>System.String[]</maml:name><maml:uri /></dev:type><maml:description><maml:para>Paths of assemblies, or objects with a FullName or PSPath property such as the result of Get-ChildItem.</maml:para></maml:description></command:inputType>
+    </command:inputTypes>
+    <command:returnValues>
+      <command:returnValue><dev:type><maml:name>Dav.DavCheckResult</maml:name><maml:uri /></dev:type><maml:description><maml:para>Dav.DavCheckResult (Assembly, RiskyApis, Vulnerabilities, CircularDependencies, VulnerabilityCheckComplete, Passed, Reasons)</maml:para></maml:description></command:returnValue>
+    </command:returnValues>
+    <maml:alertSet><maml:alert><maml:para>A failed check is a terminating error that carries the findings in the TargetObject of the error record. pwsh -Command and scripts with $ErrorActionPreference = Stop then exit with code 1; for pwsh -File without it use -ExitOnFailure. Run Get-Help about_Dav for the details.</maml:para></maml:alert></maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>-------------------------- Example 1 --------------------------</maml:title>
+        <dev:code>Invoke-DavCheck .\bin\Release\net8.0\MyApp.dll -FailOn high</dev:code>
+        <dev:remarks><maml:para>The line for a pipeline step: fails on high risky APIs or high vulnerabilities, warns on cycles.</maml:para></dev:remarks>
+      </command:example>
+      <command:example>
+        <maml:title>-------------------------- Example 2 --------------------------</maml:title>
+        <dev:code>Invoke-DavCheck .\MyApp.dll -SkipVulnerabilities | Format-List Passed, Reasons</dev:code>
+        <dev:remarks><maml:para>An offline check.</maml:para></dev:remarks>
+      </command:example>
+      <command:example>
+        <maml:title>-------------------------- Example 3 --------------------------</maml:title>
+        <dev:code>pwsh -File build.ps1   # build.ps1: Invoke-DavCheck .\MyApp.dll -ExitOnFailure</dev:code>
+        <dev:remarks><maml:para>In a script run with pwsh -File, -ExitOnFailure makes a failed check exit with code 1.</maml:para></dev:remarks>
+      </command:example>
+    </command:examples>
+    <maml:relatedLinks>
+      <maml:navigationLink><maml:linkText>about_Dav</maml:linkText><maml:uri /></maml:navigationLink>
+      <maml:navigationLink><maml:linkText>Online version</maml:linkText><maml:uri>https://github.com/Aizaz-hash/dotnet-Assembly-Visualizer/blob/v3/docs/dav-module.md</maml:uri></maml:navigationLink>
+    </maml:relatedLinks>
+  </command:command>
+</helpItems>

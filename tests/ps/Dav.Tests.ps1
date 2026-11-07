@@ -184,6 +184,24 @@ Test-Case 'a version number too small for the changes fails (exit 1) and the res
 Test-Case 'threshold high still fails for a missing major bump' { Assert-Exit (Invoke-Child "Compare-DavVersion '$v2' '$v1' -FailOn high") 1 }
 Test-Case 'a missing file is an error' { Assert-NonZero (Invoke-Child "Compare-DavVersion '$v1' '$Samples/nope.dll'") }
 
+# --- Get-Help --------------------------------------------------------------------------------------------------------
+Test-Case 'every cmdlet has help: a synopsis, a description, described parameters and examples' {
+    $r = Invoke-Child "foreach (`$c in (Get-Command -Module Dav)) { `$h = Get-Help `$c.Name -Full; `"`$(`$c.Name)|`$(`$h.Synopsis.StartsWith(`$c.Name))|`$(@(`$h.examples.example).Count)|`$(@(`$h.parameters.parameter | Where-Object { -not `$_.description }).Count)|`$(`$h.description.Text.Length -gt 40)`" }"
+    $rows = @($r.Out -split "`r?`n" | Where-Object { $_ -match '\|' })
+    Assert ($rows.Count -eq 5) "expected 5 cmdlets, got $($rows.Count). Output:`n$($r.All)"
+    foreach ($row in $rows) {
+        $f = $row -split '\|'
+        Assert ($f[1] -eq 'False') "$($f[0]) has no synopsis (Get-Help shows only the syntax)"
+        Assert ([int]$f[2] -ge 2) "$($f[0]) has fewer than 2 examples"
+        Assert ($f[3] -eq '0') "$($f[0]) has undescribed parameters"
+        Assert ($f[4] -eq 'True') "$($f[0]) has no description"
+    }
+}
+Test-Case 'the about_Dav topic is found' {
+    $r = Invoke-Child "(Get-Help about_Dav | Out-String)"
+    Assert-Has $r 'THE RISK THRESHOLD'
+}
+
 # --- inputs and vulnerabilities --------------------------------------------------------------------------------------
 Test-Case 'a missing assembly is an error' { Assert-NonZero (Invoke-Child "Get-DavRiskyApi '$Samples/nope.dll'") }
 Test-Case 'a file that is not a .NET assembly is an error' {

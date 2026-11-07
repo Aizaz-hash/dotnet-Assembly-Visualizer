@@ -42,6 +42,7 @@ if ($LASTEXITCODE -ne 0) { throw 'dotnet publish failed.' }
 New-Item -ItemType Directory -Force $module | Out-Null
 # the libraries the module carries; the PowerShell reference assembly and the debug symbols stay out
 Get-ChildItem $staging -Filter *.dll | Where-Object Name -ne 'System.Management.Automation.dll' | Copy-Item -Destination $module
+Copy-Item (Join-Path $staging 'en-US') (Join-Path $module 'en-US') -Recurse   # Get-Help
 
 $manifest = (Get-Content $manifestSource -Raw) -replace "ModuleVersion\s*=\s*'[^']*'", "ModuleVersion         = '$Version'"
 Set-Content -Path (Join-Path $module 'Dav.psd1') -Value $manifest -Encoding UTF8

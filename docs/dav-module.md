@@ -20,6 +20,7 @@ The module is a folder. Download `Dav-<version>.zip` from the release, unpack it
 Expand-Archive Dav-0.1.0.zip -DestinationPath .
 Import-Module ./Dav/Dav.psd1
 Get-Command -Module Dav -Syntax        # every cmdlet with its parameters
+Get-Help Invoke-DavCheck -Full         # help with examples for every cmdlet; Get-Help about_Dav for the overview
 ```
 
 To have it available in every session, put the `Dav` folder in one of the folders of `$env:PSModulePath` (for example `~/Documents/PowerShell/Modules` on Windows, `~/.local/share/powershell/Modules` on Linux and macOS).
@@ -199,4 +200,4 @@ Publish-Module -Path ./artifacts/Dav -NuGetApiKey $env:PSGALLERY_KEY      # Powe
 dotnet nuget push ./artifacts/Dav.1.0.0.nupkg --source https://api.nuget.org/v3/index.json --api-key $env:NUGET_KEY   # a NuGet feed
 ```
 
-Tests: `dotnet test` runs the C# tests (the rules behind the cmdlets). `pwsh -File tests/ps/Dav.Tests.ps1 -Module artifacts/Dav -Samples <folder with the sample assemblies>` runs 33 end-to-end checks on the real process exit codes; run it with `powershell.exe` too to test Windows PowerShell 5.1.
+Tests: `dotnet test` runs the C# tests (the rules behind the cmdlets). `pwsh -File tests/ps/Dav.Tests.ps1 -Module artifacts/Dav -Samples <folder with the sample assemblies>` runs 35 end-to-end checks on the real process exit codes; run it with `powershell.exe` too to test Windows PowerShell 5.1.

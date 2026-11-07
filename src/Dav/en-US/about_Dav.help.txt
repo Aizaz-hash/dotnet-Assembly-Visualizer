@@ -1,0 +1,73 @@
+TOPIC
+    about_Dav
+
+SHORT DESCRIPTION
+    Checks a .NET assembly without running it: risky API calls, known
+    vulnerabilities in its dependencies, API changes between two builds and
+    circular dependencies.
+
+LONG DESCRIPTION
+    The Dav module reads the metadata and IL of an assembly. The code is never
+    run. It works in PowerShell 7 (Windows, Linux, macOS) and in Windows
+    PowerShell 5.1 (.NET Framework 4.7.2 or newer).
+
+    Cmdlet                      Checks                                   Fails?
+    --------------------------  ---------------------------------------  ------
+    Get-DavRiskyApi             calls to risky APIs                      yes
+    Get-DavVulnerability        known vulnerabilities in dependencies    yes
+    Compare-DavVersion          API changes between two builds           yes, when the version
+                                                                         number is too small
+    Get-DavCircularDependency   circular call chains                     no, a warning only
+    Invoke-DavCheck             risky APIs, vulnerabilities and cycles   yes (risky APIs,
+                                of one assembly                          vulnerabilities)
+
+    Risky APIs are leads for a review, not proven vulnerabilities. A circular
+    dependency is a design smell, not a vulnerability, so it never changes the
+    result.
+
+THE RISK THRESHOLD
+    -FailOn (alias -RiskThreshold) takes low, medium or high. A detected risk at
+    or above the threshold fails the command.
+
+        Detected risk   -FailOn low   -FailOn medium   -FailOn high
+        -------------   -----------   --------------   ------------
+        Low             fails         passes           passes
+        Medium          fails         fails            passes
+        High            fails         fails            fails
+
+    Without -FailOn the threshold is low, so every risk fails the command.
+    Risky API rules are High, Medium or Low. Vulnerabilities use their severity:
+    Critical counts as High and Unknown as Medium; findings that only affect
+    packages supplied by the .NET runtime (informational) never fail.
+    For Compare-DavVersion the risk is a missing version bump: a breaking change
+    without a major bump is High, new API without a minor bump is Medium.
+
+HOW A FAILURE REACHES THE EXIT CODE
+    A failed check is a terminating error that carries the findings in
+    $Error[0].TargetObject.
+
+        pwsh -Command "Import-Module Dav; Invoke-DavCheck app.dll"   exit code 1
+        a script with $ErrorActionPreference = 'Stop'                exit code 1
+        pwsh -File script.ps1 without that line                      exit code 0 !
+
+    For the last case every cmdlet has -ExitOnFailure, which ends the process
+    with exit code 1 when the check fails. Do not use it interactively.
+
+ACCEPTING A FINDING ON PURPOSE
+    Write the findings your team accepts, each with a reason, in a dav.json file
+    (-Config, or dav.json in the current directory):
+
+        { "risky": { "allow": [ { "id": "process-start", "reason": "fixed path" } ] },
+          "vulns": { "ignore": [ "GHSA-xxxx-xxxx-xxxx" ] } }
+
+    -Allow (rule ids) and -Ignore (advisory ids) do the same on the command line.
+    Accepted findings are still listed, but never fail.
+
+PRIVACY
+    Only package names and versions are sent (to OSV.dev and NuGet.org), and only
+    by Get-DavVulnerability and Invoke-DavCheck. -SkipVulnerabilities keeps
+    everything on the machine.
+
+SEE ALSO
+    Get-Help Get-DavRiskyApi -Full
+    https://github.com/Aizaz-hash/dotnet-Assembly-Visualizer/blob/v3/docs/dav-module.md

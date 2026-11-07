@@ -17,6 +17,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Get-Help: the help of the cmdlets and about_Dav, next to Dav.dll -->
+    <None Include="en-US/**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="PowerShellStandard.Library" Version="5.1.1" PrivateAssets="all" />
     <ProjectReference Include="../DotNetVisualizer.Core/DotNetVisualizer.Core.csproj" />
   </ItemGroup>
