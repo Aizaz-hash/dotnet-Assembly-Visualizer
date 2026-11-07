@@ -20,6 +20,8 @@ $Module = (Resolve-Path $Module).Path
 $Samples = (Resolve-Path $Samples).Path
 $manifest = Join-Path $Module 'Dav.psd1'
 $hostExe = if ($PSVersionTable.PSEdition -eq 'Core') { Join-Path $PSHOME ($(if ($IsWindows -or $PSVersionTable.PSVersion.Major -lt 6) { 'pwsh.exe' } else { 'pwsh' })) } else { Join-Path $PSHOME 'powershell.exe' }
+$onWindows = ($PSVersionTable.PSEdition -eq 'Desktop') -or $IsWindows
+$policy = if ($onWindows) { '-ExecutionPolicy Bypass ' } else { '' }   # the execution policy exists on Windows only
 $work = Join-Path ([IO.Path]::GetTempPath()) ('dav-tests-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory $work | Out-Null
 
@@ -34,8 +36,7 @@ function Invoke-Child([string] $Body, [string] $Dir = $work, [string] $Mode = 'S
     [IO.File]::WriteAllText($file, $text, (New-Object Text.UTF8Encoding $true))
     $psi = New-Object Diagnostics.ProcessStartInfo
     $psi.FileName = $hostExe
-    $psi.Arguments = if ($Mode -eq 'Command') { "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command `"Import-Module '$manifest'; $($Body -replace '?
-', '; ')`"" } else { "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$file`"" }
+    $psi.Arguments = if ($Mode -eq 'Command') { "-NoProfile -NonInteractive $policy-Command `"Import-Module '$manifest'; $($Body.Replace("`r", '').Replace("`n", '; '))`"" } else { "-NoProfile -NonInteractive $policy-File `"$file`"" }
     $psi.WorkingDirectory = $Dir
     $psi.RedirectStandardOutput = $true
     $psi.RedirectStandardError = $true

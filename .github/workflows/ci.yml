@@ -49,6 +49,40 @@ jobs:
         env:
           UI_TEST_CONFIG: Release
 
+  # the Dav PowerShell module (docs/dav-module.md): builds the module folder, then runs the end-to-end checks on the real process exit codes
+  # in PowerShell 7 on three operating systems and in Windows PowerShell 5.1
+  module-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      # builds the sample assemblies the checks run on
+      - run: dotnet build tests/DotNetVisualizer.Web.Tests -c Release
+      - name: Build the module
+        shell: pwsh
+        run: ./scripts/build-module.ps1 -Output artifacts
+      - name: End-to-end checks in PowerShell 7
+        shell: pwsh
+        run: ./tests/ps/Dav.Tests.ps1 -Module artifacts/Dav -Samples tests/DotNetVisualizer.Web.Tests/bin/Release/net8.0/samples
+      - name: End-to-end checks in Windows PowerShell 5.1
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: ./tests/ps/Dav.Tests.ps1 -Module artifacts/Dav -Samples tests/DotNetVisualizer.Web.Tests/bin/Release/net8.0/samples
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          name: dav-module
+          path: |
+            artifacts/Dav-*.zip
+            artifacts/Dav.*.nupkg
+            artifacts/SHA256SUMS
+
   smoke-test:
     runs-on: ubuntu-latest
     steps:
